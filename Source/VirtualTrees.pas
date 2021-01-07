@@ -2475,6 +2475,7 @@ type
     procedure SetChildCount(Node: PVirtualNode; NewChildCount: Cardinal);
     procedure SetClipboardFormats(const Value: TClipboardFormats);
     procedure SetColors(const Value: TVTColors);
+    procedure SetCurrentHotNode(const Value: PVirtualNode);
     procedure SetCustomCheckImages(const Value: TCustomImageList);
     procedure SetDefaultNodeHeight(Value: Cardinal);
     procedure SetDisabled(Node: PVirtualNode; Value: Boolean);
@@ -3283,7 +3284,7 @@ type
     property Font;
     property FullyVisible[Node: PVirtualNode]: Boolean read GetFullyVisible write SetFullyVisible;
     property HasChildren[Node: PVirtualNode]: Boolean read GetHasChildren write SetHasChildren;
-    property HotNode: PVirtualNode read FCurrentHotNode;
+    property HotNode: PVirtualNode read FCurrentHotNode write SetCurrentHotNode;
     property IsDisabled[Node: PVirtualNode]: Boolean read GetDisabled write SetDisabled;
     property IsEffectivelyFiltered[Node: PVirtualNode]: Boolean read GetEffectivelyFiltered;
     property IsEffectivelyVisible[Node: PVirtualNode]: Boolean read GetEffectivelyVisible;
@@ -14822,6 +14823,37 @@ procedure TBaseVirtualTree.SetColors(const Value: TVTColors);
 
 begin
   FColors.Assign(Value);
+end;
+
+procedure TBaseVirtualTree.SetCurrentHotNode(const Value: PVirtualNode);
+var
+  DoInvalidate: Boolean;
+const
+  MouseButtonDown = [tsLeftButtonDown, tsMiddleButtonDown, tsRightButtonDown];
+begin
+  with Self do begin
+    if FCurrentHotNode <> Value then
+    begin
+      DoInvalidate := (toHotTrack in FOptions.PaintOptions) or
+        (toCheckSupport in FOptions.MiscOptions);
+      DoHotChange(FCurrentHotNode, Value);
+      // Invalidate old FCurrentHotNode
+      if Assigned(FCurrentHotNode) and DoInvalidate then
+        InvalidateNode(FCurrentHotNode);
+      // Set new FCurrentHotNode and invalidate it
+      FCurrentHotNode := Value;
+      if Assigned(FCurrentHotNode) and DoInvalidate then
+        InvalidateNode(FCurrentHotNode);
+      // Scroll view
+      if (FUpdateCount = 0) and
+        not(toDisableAutoscrollOnFocus in FOptions.AutoOptions)
+      then
+        ScrollIntoView(FCurrentHotNode,
+          (toCenterScrollIntoView in FOptions.SelectionOptions)
+          and (MouseButtonDown * FStates = []),
+          not(toFullRowSelect in FOptions.SelectionOptions));
+    end;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
