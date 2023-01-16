@@ -48,7 +48,9 @@ unit VirtualTrees;
 // CLX:
 //   Dmitri Dmitrienko (initial developer)
 // Source repository:
-//   https://code.google.com/p/virtual-treeview/source/
+//   https://github.com/Virtual-TreeView/Virtual-TreeView
+// LCL Source repository:
+//   https://github.com/salvadorbs/VirtualTreeView-Lazarus
 // Accessability implementation:
 //   Marco Zehe (with help from Sebastian Modersohn)
 // LCL Port:
@@ -68,24 +70,17 @@ uses
   {$else}
   FakeActiveX,
   {$endif}
-  OleUtils,
   LCLIntf,
   {$ifdef USE_DELPHICOMPAT}
   DelphiCompat,
   LclExt,
   {$endif}
-  virtualpanningwindow,
-  VirtualTrees.Graphics, //alpha blend functions
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
   {$endif}
-  LCLType, LMessages, LCLVersion, Types,
-  SysUtils, Classes, Graphics, Controls, Forms, ImgList, StdCtrls, Menus, Printers,
-  SyncObjs,  // Thread support
+  LCLType, LMessages, Types, LCLVersion,
+  SysUtils, Classes, Graphics, Controls, Forms, StdCtrls, Menus,
   Clipbrd // Clipboard support
-  {$ifdef ThemeSupport}
-  , Themes , TmSchema
-  {$endif ThemeSupport}
   {$ifdef EnableAccessible}
   , oleacc // for MSAA IAccessible support
   {$endif}
@@ -163,6 +158,17 @@ type
     Column: TColumnIndex; const CellText: String; var Extent: Integer) of object;
   TVTDrawTextEvent = procedure(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
     Column: TColumnIndex; const CellText: String; const CellRect: TRect; var DefaultDraw: Boolean) of object;
+
+  /// Event arguments of the OnGetCellText event
+  TVSTGetCellTextEventArgs = record
+    Node: PVirtualNode;
+    Column: TColumnIndex;
+    CellText: string;
+    StaticText: string;
+    StaticTextAlignment: TAlignment;
+    ExportType: TVTExportType;
+    constructor Create(pNode: PVirtualNode; pColumn: TColumnIndex; pExportType: TVTExportType = TVTExportType.etNone);
+  end;
 
   { TCustomVirtualStringTree }
 
@@ -571,9 +577,6 @@ uses
   FakeMMSystem,
   {$endif}
   TypInfo,                 // for migration stuff
-  ActnList,
-  StdActns,                // for standard action support
-  GraphType,
   LCLProc
   {$ifdef EnableAccessible}
   , VirtualTrees.AccessibilityFactory
@@ -910,27 +913,6 @@ begin
     VTAccessibleFactory := TVTAccessibilityFactory.Create;
 end;
 {$endif}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer);
-
-// Set the coordinate space origin of a given canvas.
-
-var
-  P: TPoint;
-
-begin
-  // Reset origin as otherwise we would accumulate the origin shifts when calling LPtoDP.
-  SetWindowOrgEx(Canvas.Handle, 0, 0, nil);
-
-  // The shifting is expected in physical points, so we have to transform them accordingly.
-  P := Point(X, Y);
-  LPtoDP(Canvas.Handle, P, 1);
-
-  // Do the shift.
-  SetWindowOrgEx(Canvas.Handle, P.X, P.Y, nil);
-end;
 
 //----------------- TCustomVirtualString -------------------------------------------------------------------------------
 
@@ -2489,6 +2471,17 @@ function TVirtualStringTree.GetOptionsClass: TTreeOptionsClass;
 
 begin
   Result := TStringTreeOptions;
+end;
+
+{ TVSTGetCellTextEventArgs }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TVSTGetCellTextEventArgs.Create(pNode: PVirtualNode; pColumn: TColumnIndex; pExportType: TVTExportType);
+begin
+  Self.Node := pNode;
+  Self.Column := pColumn;
+  Self.ExportType := pExportType;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

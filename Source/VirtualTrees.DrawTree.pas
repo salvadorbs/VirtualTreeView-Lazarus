@@ -34,9 +34,6 @@ type
     procedure SetOptions(const Value: TVirtualTreeOptions);
   protected
     function GetOptionsClass: TTreeOptionsClass; override;
-    {$if CompilerVersion >= 23}
-    class constructor Create();
-    {$ifend}
   public
     property Canvas;
     property LastDragEffect;
@@ -255,9 +252,6 @@ type
     property OnStructureChange;
     property OnUpdating;
     property OnUTF8KeyPress;
-    {$if CompilerVersion >= 24}
-    property StyleElements;
-    {$ifend}
   end;
 
 implementation
@@ -327,14 +321,5 @@ function TVirtualDrawTree.GetOptionsClass: TTreeOptionsClass;
 begin
   Result := TVirtualTreeOptions;
 end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-{$if CompilerVersion >= 23}
-class constructor TVirtualDrawTree.Create();
-begin
-  TCustomStyleEngine.RegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
-end;
-{$ifend}
 
 end.

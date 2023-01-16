@@ -41,7 +41,7 @@ end;"/>
     <License Value=" Mozilla Public License 1.1 (MPL 1.1) or GNU Lesser General Public License
 "/>
     <Version Major="5" Minor="5" Release="3" Build="1"/>
-    <Files Count="22">
+    <Files Count="21">
       <Item1>
         <Filename Value="VirtualTrees.pas"/>
         <UnitName Value="VirtualTrees"/>
@@ -64,75 +64,71 @@ end;"/>
         <Type Value="Include"/>
       </Item5>
       <Item6>
-        <Filename Value="VirtualTrees.Graphics.pas"/>
-        <UnitName Value="VirtualTrees.Graphics"/>
-      </Item6>
-      <Item7>
         <Filename Value="VirtualTrees.res"/>
         <Type Value="Binary"/>
-      </Item7>
-      <Item8>
+      </Item6>
+      <Item7>
         <Filename Value="VirtualTrees.IDEEditors.pas"/>
         <UnitName Value="VirtualTrees.IDEEditors"/>
-      </Item8>
-      <Item9>
+      </Item7>
+      <Item8>
         <Filename Value="VirtualTrees.ClipBoard.pas"/>
         <UnitName Value="VirtualTrees.ClipBoard"/>
-      </Item9>
-      <Item10>
+      </Item8>
+      <Item9>
         <Filename Value="VirtualTrees.Colors.pas"/>
         <AddToUsesPkgSection Value="False"/>
         <UnitName Value="VirtualTrees.Colors"/>
-      </Item10>
-      <Item11>
+      </Item9>
+      <Item10>
         <Filename Value="VirtualTrees.WorkerThread.pas"/>
         <UnitName Value="VirtualTrees.WorkerThread"/>
-      </Item11>
-      <Item12>
+      </Item10>
+      <Item11>
         <Filename Value="VirtualTrees.Types.pas"/>
         <UnitName Value="VirtualTrees.Types"/>
-      </Item12>
-      <Item13>
+      </Item11>
+      <Item12>
         <Filename Value="VirtualTrees.Header.pas"/>
         <UnitName Value="VirtualTrees.Header"/>
-      </Item13>
-      <Item14>
+      </Item12>
+      <Item13>
         <Filename Value="VirtualTrees.DragImage.pas"/>
         <UnitName Value="VirtualTrees.DragImage"/>
-      </Item14>
-      <Item15>
+      </Item13>
+      <Item14>
         <Filename Value="VirtualTrees.Utils.pas"/>
         <AddToUsesPkgSection Value="False"/>
         <UnitName Value="VirtualTrees.Utils"/>
-      </Item15>
-      <Item16>
+      </Item14>
+      <Item15>
         <Filename Value="VirtualTrees.DataObject.pas"/>
         <UnitName Value="VirtualTrees.DataObject"/>
-      </Item16>
-      <Item17>
+      </Item15>
+      <Item16>
         <Filename Value="VirtualTrees.DragnDrop.pas"/>
         <UnitName Value="VirtualTrees.DragnDrop"/>
-      </Item17>
-      <Item18>
+      </Item16>
+      <Item17>
         <Filename Value="VirtualTrees.Classes.pas"/>
         <UnitName Value="VirtualTrees.Classes"/>
-      </Item18>
-      <Item19>
+      </Item17>
+      <Item18>
         <Filename Value="VirtualTrees.Export.pas"/>
         <UnitName Value="VirtualTrees.Export"/>
-      </Item19>
-      <Item20>
+      </Item18>
+      <Item19>
         <Filename Value="VirtualTrees.EditLink.pas"/>
         <UnitName Value="VirtualTrees.EditLink"/>
-      </Item20>
-      <Item21>
+      </Item19>
+      <Item20>
         <Filename Value="VirtualTrees.DrawTree.pas"/>
         <UnitName Value="VirtualTrees.DrawTree"/>
-      </Item21>
-      <Item22>
+      </Item20>
+      <Item21>
         <Filename Value="VirtualTrees.BaseTree.pas"/>
         <UnitName Value="VirtualTrees.BaseTree"/>
-      </Item22>
+      </Item21>
     </Files>
     <CompatibilityMode Value="True"/>
     <RequiredPkgs Count="3">

@@ -16,7 +16,7 @@ uses
   {$else}
   FakeActiveX,
   {$endif}
-  SysUtils;
+  SysUtils, Graphics;
 
 const
   {$I lclconstants.inc}
@@ -32,6 +32,7 @@ const
   FadeAnimationStepCount = 255; // Number of animation steps for hint fading (0..255).
   ShadowSize = 5;               // Size in pixels of the hint shadow. This value has no influence on Win2K and XP systems
                                 // as those OSes have native shadow support.
+  cDefaultTextMargin       = 4; // The default margin of text
 
   // Special identifiers for columns.
   NoColumn = -1;
@@ -71,6 +72,7 @@ const
   // as this is more economical.
   ExpandTimer = 1;
   EditTimer = 2;
+  HeaderTimer = 3;
   ScrollTimer = 4;
   ChangeTimer = 5;
   StructureChangeTimer = 6;
@@ -181,6 +183,8 @@ const
   {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
 
 type
+  TVTBackground = TPicture;
+  TVTCursor = HCURSOR;
   TColumnIndex = type Integer;
   TColumnPosition = type Cardinal;
 
@@ -201,6 +205,12 @@ type
     smaNoColumn,        // consider nodes in view only for no column
     smaUseColumnOption  // use coSmartResize of the corresponding column
   );  // describes the used column resize behaviour for AutoFitColumns
+
+  TAddPopupItemType = (
+    apNormal,
+    apDisabled,
+    apHidden
+  );
 
   TCheckType = (
     ctNone,
@@ -239,7 +249,9 @@ type
     coDisableAnimatedResize, // Column resizing is not animated.
     coWrapCaption,           // Caption could be wrapped across several header lines to fit columns width.
     coUseCaptionAlignment,   // Column's caption has its own aligment.
-    coEditable               // Column can be edited
+    coEditable,              // Column can be edited
+    coStyleColor             // Prefer background color of VCL style over TVirtualTreeColumn.Color
+
   );
   TVTColumnOptions = set of TVTColumnOption;
 
@@ -359,6 +371,12 @@ type
   );
   TVTSelectionOptions = set of TVTSelectionOption;
 
+  TVTEditOptions = (
+    toDefaultEdit,                   // Standard behaviour for end of editing (after VK_RETURN stay on edited cell).
+    toVerticalEdit,                  // After VK_RETURN switch to next column.
+    toHorizontalEdit                 // After VK_RETURN switch to next row.
+    );
+
   // Options which do not fit into any of the other groups:
   TVTMiscOption = (
     toAcceptOLEDrop,            // Register tree as OLE accepting drop target
@@ -431,6 +449,7 @@ type
     FSelectionOptions: TVTSelectionOptions;
     FMiscOptions: TVTMiscOptions;
     FExportMode: TVTExportMode;
+    FEditOptions      : TVTEditOptions;
     procedure SetAnimationOptions(const Value: TVTAnimationOptions);
     procedure SetAutoOptions(const Value: TVTAutoOptions);
     procedure SetMiscOptions(const Value: TVTMiscOptions);
@@ -448,8 +467,8 @@ type
     property ExportMode: TVTExportMode read FExportMode write FExportMode default emAll;
     property MiscOptions: TVTMiscOptions read FMiscOptions write SetMiscOptions default DefaultMiscOptions;
     property PaintOptions: TVTPaintOptions read FPaintOptions write SetPaintOptions default DefaultPaintOptions;
-    property SelectionOptions: TVTSelectionOptions read FSelectionOptions write SetSelectionOptions
-      default DefaultSelectionOptions;
+    property SelectionOptions : TVTSelectionOptions read FSelectionOptions write SetSelectionOptions default DefaultSelectionOptions;
+    property EditOptions : TVTEditOptions read FEditOptions write FEditOptions default toDefaultEdit;
 
     property Owner: TCustomControl read FOwner;
   end;
@@ -490,6 +509,7 @@ type
     property PaintOptions;
     property SelectionOptions;
     property StringOptions;
+    property EditOptions;
   end;
 
   TVTScrollBarStyle = (

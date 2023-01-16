@@ -24,6 +24,8 @@ uses
   , SysUtils;
 
 type
+  TBitmap = Graphics.TBitmap;
+
   // Drag image support for the tree.
   TVTTransparency = 0..255;
   TVTBias = -128..127;
@@ -51,7 +53,7 @@ type
     FOwner: TCustomControl;
     FBackImage,                        // backup of overwritten screen area
     FAlphaImage,                       // target for alpha blending
-    FDragImage: Graphics.TBitmap;      // the actual drag image to blend to screen
+    FDragImage: TBitmap;               // the actual drag image to blend to screen
     FImagePosition,                    // position of image (upper left corner) in screen coordinates
     FLastPosition: TPoint;             // last mouse position in screen coordinates
     FTransparency: TVTTransparency;    // alpha value of the drag image (0 - fully transparent, 255 - fully opaque)
@@ -64,7 +66,7 @@ type
     function GetVisible: Boolean;      // True if the drag image is currently hidden (used only when dragging)
   protected
     procedure InternalShowDragImage(ScreenDC: HDC);
-    procedure MakeAlphaChannel(Source, Target: Graphics.TBitmap);
+    procedure MakeAlphaChannel(Source, Target: TBitmap);
   public
     constructor Create(AOwner: TCustomControl);
     destructor Destroy; override;
@@ -73,7 +75,7 @@ type
     procedure EndDrag;
     function GetDragImageRect: TRect;
     procedure HideDragImage;
-    procedure PrepareDrag(DragImage: Graphics.TBitmap; const ImagePosition, HotSpot: TPoint; const DataObject: IDataObject);
+    procedure PrepareDrag(DragImage: TBitmap; const ImagePosition, HotSpot: TPoint; const DataObject: IDataObject);
     procedure RecaptureBackground(Tree: TCustomControl; R: TRect; VisibleRegion: HRGN; CaptureNCArea,
       ReshowDragImage: Boolean);
     procedure ShowDragImage;
@@ -81,6 +83,8 @@ type
 
     property ColorKey: TColor read FColorKey write FColorKey default clWindow;
     property Fade: Boolean read FFade write FFade default False;
+    property ImagePosition : TPoint read FImagePosition;
+    property LastPosition : TPoint read FLastPosition;
     property MoveRestriction: TVTDragMoveRestriction read FRestriction write FRestriction default dmrNone;
     property PostBlendBias: TVTBias read FPostBlendBias write FPostBlendBias default 0;
     property PreBlendBias: TVTBias read FPreBlendBias write FPreBlendBias default 0;
@@ -91,7 +95,7 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Graphics, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop;
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 
@@ -155,7 +159,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTDragImage.MakeAlphaChannel(Source, Target: Graphics.TBitmap);
+procedure TVTDragImage.MakeAlphaChannel(Source, Target: TBitmap);
 
 // Helper method to create a proper alpha channel in Target (which must be in 32 bit pixel format), depending
 // on the settings for the drag image and the color values in Source.
@@ -430,7 +434,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTDragImage.PrepareDrag(DragImage: Graphics.TBitmap;
+procedure TVTDragImage.PrepareDrag(DragImage: TBitmap;
   const ImagePosition, HotSpot: TPoint; const DataObject: IDataObject);
 
 // Creates all necessary structures to do alpha blended dragging using the given image.
@@ -489,17 +493,17 @@ begin
   begin
     FLastPosition := HotSpot;
 
-    FDragImage := Graphics.TBitmap.Create;
+    FDragImage := TBitmap.Create;
     FDragImage.PixelFormat := pf32Bit;
     FDragImage.Width := Width;
     FDragImage.Height := Height;
 
-    FAlphaImage := Graphics.TBitmap.Create;
+    FAlphaImage := TBitmap.Create;
     FAlphaImage.PixelFormat := pf32Bit;
     FAlphaImage.Width := Width;
     FAlphaImage.Height := Height;
 
-    FBackImage := Graphics.TBitmap.Create;
+    FBackImage := TBitmap.Create;
     FBackImage.PixelFormat := pf32Bit;
     FBackImage.Width := Width;
     FBackImage.Height := Height;
