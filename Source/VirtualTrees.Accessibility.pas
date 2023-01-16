@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.Accessibility;
+unit VirtualTrees.Accessibility;
 
 // This unit implements iAccessible interfaces for the VirtualTree visual components
 // and the currently focused node.
@@ -7,11 +7,7 @@
 
 interface
 
-uses
-  Winapi.Windows, Winapi.ActiveX, Winapi.oleacc,
-  System.Classes, System.Types,
-  Vcl.Controls,
-  VirtualTrees, VirtualTrees.AccessibilityFactory, VirtualTrees.BaseTree;
+uses Windows, Classes, ActiveX, oleacc, VirtualTrees, VirtualTrees.AccessibilityFactory, Controls;
 
 type
   TVirtualTreeAccessibility = class(TInterfacedObject, IDispatch, IAccessible)
@@ -101,9 +97,7 @@ type
 implementation
 
 uses
-  System.SysUtils, System.Variants, System.Math,
-  Vcl.Forms,
-  VirtualTrees.Types;
+  Variants, SysUtils, Types, Forms;
 
 type
 

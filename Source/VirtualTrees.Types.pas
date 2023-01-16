@@ -1,24 +1,25 @@
-﻿unit VirtualTrees.Types;
+unit VirtualTrees.Types;
+
+{$mode delphi}
 
 interface
 
-uses
-  WinApi.ActiveX,
-  Winapi.Windows,
-  Winapi.Messages,
-  System.Types,
-  System.Classes,
-  System.SysUtils,
-  Vcl.Controls,
-  Vcl.GraphUtil,
-  Vcl.Themes,
-  Vcl.Graphics,
-  Vcl.ImgList,
-  System.UITypes; // some types moved from Vcl.* to System.UITypes
+{$I VTConfig.inc}
 
-{$MINENUMSIZE 1, make enumerations as small as possible}
+uses
+  Types, LCLIntf, LCLType, Controls, Classes, StdCtrls, Themes, GraphUtil,
+  {$ifdef Windows}
+  Windows,
+  ActiveX,
+  CommCtrl,
+  UxTheme,
+  {$else}
+  FakeActiveX,
+  {$endif}
+  SysUtils, Graphics, ImgList, LCLVersion;
 
 const
+  {$I lclconstants.inc}
   VTTreeStreamVersion      = 3;
   VTHeaderStreamVersion    = 6;    // The header needs an own stream version to indicate changes only relevant to the header.
 
@@ -88,6 +89,9 @@ const
   IID_IDropTargetHelper : TGUID = (D1 : $4657278B; D2 : $411B; D3 : $11D2; D4 : ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
   IID_IDragSourceHelper : TGUID = (D1 : $DE5BF786; D2 : $477A; D3 : $11D2; D4 : ($83, $9D, $00, $C0, $4F, $D9, $18, $D0));
   IID_IDropTarget : TGUID       = (D1 : $00000122; D2 : $0000; D3 : $0000; D4 : ($C0, $00, $00, $00, $00, $00, $00, $46));
+  CLSID_DragDropHelper: TGUID = (D1: $4657278A; D2: $411B; D3: $11D2; D4: ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
+
+  CM_UPDATE_VCLSTYLE_SCROLLBARS = CM_BASE + 2050;
 
   // VT's own clipboard formats,
   // Note: The reference format is used internally to allow to link to a tree reference
@@ -99,6 +103,8 @@ const
   CFSTR_RTF                = 'Rich Text Format';
   CFSTR_RTFNOOBJS          = 'Rich Text Format Without Objects';
   CFSTR_CSV                = 'CSV';
+
+  DSH_ALLOWDROPDESCRIPTIONTEXT = $1;
 
   // Help identifiers for exceptions. Application developers are responsible to link them with actual help topics.
   hcTFEditLinkIsNil        = 2000;
@@ -124,27 +130,43 @@ const
   CaptionChunk = 3;     // used by the string tree to store a node's caption
   UserChunk = 4;        // used for data supplied by the application
 
+  {$if defined(LCLCarbon) or defined(LCLCocoa)}
+    ssCtrl = ssMeta;     // Mac OS X fix
+  {$endif}
+
+  cUtilityImageSize = 16; // Needed by descendants for hittests.
+
+  DEFAULT_CHECK_WIDTH = 16;
+  DEFAULT_COLUMN_WIDTH = 50;
+  DEFAULT_DRAG_HEIGHT = 350;
+  DEFAULT_DRAG_WIDTH = 200;
+  DEFAULT_HEADER_HEIGHT = 19;
+  DEFAULT_INDENT = 18;
+  DEFAULT_MARGIN = 4;
+  DEFAULT_NODE_HEIGHT = 18;
+  DEFAULT_SPACING = 3;
+
+  LIS_NORMAL = 1;
+  {$EXTERNALSYM LIS_NORMAL}
+  LIS_HOT = 2;
+  {$EXTERNALSYM LIS_HOT}
+  LIS_SELECTED = 3;
+  {$EXTERNALSYM LIS_SELECTED}
+  LIS_DISABLED = 4;
+  {$EXTERNALSYM LIS_DISABLED}
+  LIS_SELECTEDNOTFOCUS = 5;
+  {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
+
 type
-{$IFDEF VT_FMX}
-  TDimension = Single;
-  PDimension = ^Single;
-  TNodeHeight = Single;
-  TVTCursor = TCursor;
-  TVTDragDataObject = TDragObject;
-  TVTBackground = TBitmap;
-  TVTPaintContext = TCanvas;
-  TVTBrush = TBrush;
-{$ELSE}
-  TDimension = Integer; // Introduced for Firemonkey support, see #841
+  TDimension = Integer; 
   PDimension = ^Integer;
   TNodeHeight = NativeInt;
-  TVTCursor = HCURSOR;
-  IDataObject= WinApi.ActiveX.IDataObject;
+  TVTCursor = LCLType.HCURSOR;
+  IDataObject= ActiveX.IDataObject;
   TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
   TVTPaintContext = HDC;
   TVTBrush = HBRUSH;
-{$ENDIF}
   TColumnIndex = {$if CompilerVersion < 36} type {$endif} Integer; // See issue #1276
   TColumnPosition = type Cardinal;
   PCardinal = ^Cardinal;
@@ -159,23 +181,23 @@ type
 
   // OLE drag'n drop support
   TFormatEtcArray = array of TFormatEtc;
-  TFormatArray = array of Word;
+  TFormatArray = array of TClipboardFormat;
 
   // See issue #1270.
   // Taken from: https://learn.microsoft.com/en-us/windows/win32/menurc/about-cursors
   // To be used with: LoadCursor(0, MAKEINTRESOURCE(TPanningCursor.MoveAll))
   TPanningCursor = (
-    MoveAll = 32654,
-    MoveNS = 32652,
-    MoveEW = 32653,
-    MoveN = 32655,
-    MoveNE = 32660,
-    MoveE = 32658,
-    MoveSE = 32662,
-    MoveS = 32656,
-    MoveSW = 32661,
-    MoveW = 32657,
-    MoveNW = 32659
+    MoveAll = TCursor(64),
+    MoveNS = TCursor(66),
+    MoveEW = TCursor(65),
+    MoveN = TCursor(73),
+    MoveNE = TCursor(69),
+    MoveE = TCursor(72),
+    MoveSE = TCursor(70),
+    MoveS = TCursor(74),
+    MoveSW = TCursor(68),
+    MoveW = TCursor(71),
+    MoveNW = TCursor(67)
   );
 
   TSmartAutoFitType = (
@@ -270,7 +292,7 @@ type
     sdDescending
     );
 
-  TSortDirectionHelper = record helper for VirtualTrees.Types.TSortDirection
+  TSortDirectionHelper = record helper for TSortDirection
   strict private
   const
     cSortDirectionToInt : Array [TSortDirection] of Integer = (1, - 1);
@@ -818,8 +840,10 @@ type
     procedure SetPaintOptions(const Value : TVTPaintOptions);
     procedure SetSelectionOptions(const Value : TVTSelectionOptions);
   protected
+  {$IFDEF DelphiStyleServices}
     // Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
     function StyleServices(AControl : TControl = nil) : TCustomStyleServices;
+  {$ENDIF}
   public
     constructor Create(AOwner : TCustomControl); virtual;
     //these bypass the side effects in the regular setters.
@@ -901,6 +925,15 @@ type
     property ScrollBarStyle      : TScrollBarStyle read FScrollBarStyle write SetScrollBarStyle default sbmRegular;
     property VerticalIncrement   : TVTScrollIncrement read FIncrementY write FIncrementY default 20;
   end;
+
+  {$ifndef Windows}
+  // define a type for a field that only takes space if 64-bit.
+  TDWordFiller = record
+                   {$ifdef CPU64}
+                     filler : array[0..3] of byte;
+	           {$endif}
+                end;
+  {$endif}
 
   PVirtualNode = ^TVirtualNode;
 
@@ -1121,7 +1154,34 @@ type
     ImageInfo: array[TVTImageInfoIndex] of TVTImageInfo; // info about each possible node image
     Offsets: TVTOffsets;          // The offsets of the various elements of a tree node
     VAlign: TDimension;
-    procedure AdjustImageCoordinates();
+    procedure AdjustImageCoordinates(ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double);
+    function GetRealImageListHeight(ImageList: TCustomImageList; ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double): Integer;
+  end;
+
+  TElementEdge = (
+    eeRaisedOuter
+  );
+
+  TElementEdges = set of TElementEdge;
+
+  TElementEdgeFlag = (
+    efRect
+  );
+
+  TElementEdgeFlags = set of TElementEdgeFlag;
+
+  //lcl: StyleServices is not implemented in LCL. If there's no plan to support it. Remove references here
+  // For compatibility with Delphi XE and earlier, prevents deprecated warnings in Delphi XE2 and higher
+  StyleServices = class
+    class function Enabled: Boolean;
+    class function DrawEdge(DC: HDC; Details: TThemedElementDetails; const R: TRect;
+      Edges: TElementEdges; Flags: TElementEdgeFlags; ContentRect: PRect = nil): Boolean;
+    class function DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil): Boolean;
+    class function GetElementDetails(Detail: TThemedHeader): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedToolTip): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedWindow): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedButton): TThemedElementDetails; overload;
+    class procedure PaintBorder(Control: TWinControl; EraseLRCorner: Boolean);
   end;
 
   TNodeArray = array of PVirtualNode;
@@ -1129,10 +1189,10 @@ type
 implementation
 
 uses
-  System.TypInfo,
-  VirtualTrees.StyleHooks,
+  TypInfo,
+  VirtualTrees,
   VirtualTrees.BaseTree,
-  VirtualTrees.BaseAncestorVcl{to eliminate H2443 about inline expanding}
+  VirtualTrees.BaseAncestorLcl{to eliminate H2443 about inline expanding}
   ;
 
 type
@@ -1268,7 +1328,7 @@ end;
 
 { TVTPaintInfo }
 
-procedure TVTPaintInfo.AdjustImageCoordinates();
+procedure TVTPaintInfo.AdjustImageCoordinates(ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double);
 // During painting of the main column some coordinates must be adjusted due to the tree lines.
 begin
   ContentRect := CellRect;
@@ -1288,11 +1348,23 @@ begin
     ContentRect.Right := CellRect.Right - Offsets[TVTElement.ofsLabel];
   end;
   if ImageInfo[iiNormal].Index > -1 then
-    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - ImageInfo[iiNormal].Images.Height div 2;
+    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiNormal].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
   if ImageInfo[iiState].Index > -1 then
-    ImageInfo[iiState].YPos := CellRect.Top + VAlign - ImageInfo[iiState].Images.Height div 2;
+    ImageInfo[iiState].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiState].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
   if ImageInfo[iiCheck].Index > -1 then
-    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - ImageInfo[iiCheck].Images.Height div 2;
+    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiCheck].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
+end;
+
+function TVTPaintInfo.GetRealImageListHeight(ImageList: TCustomImageList; ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double): Integer;
+begin
+  if ImageList = nil then
+    Result := 0
+  else
+    {$IF LCL_FullVersion >= 2000000}
+    Result := ImageList.ResolutionForPPI[ImagesWidth, PPI, CanvasScaleFactor].Height;
+    {$ELSE}
+    Result := ImageList.Height;
+    {$IFEND}
 end;
 
 
@@ -1351,7 +1423,11 @@ begin
     ToBeSet := Value - FMiscOptions;
     ToBeCleared := FMiscOptions - Value;
     FMiscOptions := Value;
-
+    {$ifndef Windows}
+    Exclude(FMiscOptions,toAcceptOLEDrop);
+    Exclude(ToBeCleared,toAcceptOLEDrop);
+    Exclude(ToBeSet,toAcceptOLEDrop);
+    {$endif}
     with TVTCracker(FOwner) do
       if not (csLoading in ComponentState) and HandleAllocated then
       begin
@@ -1366,6 +1442,7 @@ begin
           if toAcceptOLEDrop in ToBeCleared then
             RevokeDragDrop(Handle);
           if toFullRepaintOnResize in ToBeSet + ToBeCleared then
+            //todo_lcl_check
             RecreateWnd;
           if toAcceptOLEDrop in ToBeSet then
             RegisterDragDrop(Handle, DragManager as IDropTarget);
@@ -1512,10 +1589,12 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF DelphiStyleServices}
 function TCustomVirtualTreeOptions.StyleServices(AControl : TControl) : TCustomStyleServices;
 begin
   Result := VTStyleServices(FOwner);
 end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -1599,6 +1678,7 @@ begin
   if FAlwaysVisible <> Value then
   begin
     FAlwaysVisible := Value;
+    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
       TVTCracker(FOwner).RecreateWnd;
   end;
@@ -1611,6 +1691,7 @@ begin
   if FScrollBars <> Value then
   begin
     FScrollBars := Value;
+    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
       TVTCracker(FOwner).RecreateWnd;
   end;
@@ -1719,5 +1800,48 @@ begin
   Result := cSortDirectionToInt[Self];
 end;
 
+class function StyleServices.Enabled: Boolean;
+begin
+  Result := ThemeServices.ThemesEnabled;
+end;
+
+class function StyleServices.DrawEdge(DC: HDC; Details: TThemedElementDetails; const R: TRect;
+  Edges: TElementEdges; Flags: TElementEdgeFlags; ContentRect: PRect = nil): Boolean;
+begin
+  Assert((Edges = [eeRaisedOuter]) and (Flags = [efRect]));
+  ThemeServices.DrawEdge(DC, Details, R, BDR_RAISEDOUTER, BF_RECT);
+  Result := Enabled;
+end;
+
+class function StyleServices.DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil): Boolean;
+begin
+  ThemeServices.DrawElement(DC, Details, R, ClipRect);
+  Result := Enabled;
+end;
+
+class function StyleServices.GetElementDetails(Detail: TThemedHeader): TThemedElementDetails;
+begin
+  Result := ThemeServices.GetElementDetails(Detail);
+end;
+
+class function StyleServices.GetElementDetails(Detail: TThemedToolTip): TThemedElementDetails;
+begin
+  Result := ThemeServices.GetElementDetails(Detail);
+end;
+
+class function StyleServices.GetElementDetails(Detail: TThemedWindow): TThemedElementDetails;
+begin
+  Result := ThemeServices.GetElementDetails(Detail);
+end;
+
+class function StyleServices.GetElementDetails(Detail: TThemedButton): TThemedElementDetails;
+begin
+  Result := ThemeServices.GetElementDetails(Detail);
+end;
+
+class procedure StyleServices.PaintBorder(Control: TWinControl; EraseLRCorner: Boolean);
+begin
+  ThemeServices.PaintBorder(Control, EraseLRCorner);
+end;
 
 end.

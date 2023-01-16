@@ -1,18 +1,22 @@
 unit Main;
 
+{$MODE Delphi}
+{$define UseExternalDragManager}
 // Virtual Treeview sample application demonstrating clipboard and drag'n drop operations.
 // The treeview uses OLE for these operations but can also issue and accept VCL drag'n drop.
 // Written by Mike Lischke.
 
 interface
 
-uses
-  Windows, Messages, ActiveX, SysUtils, Forms, Dialogs, Graphics,
-  VirtualTrees, ActnList, ComCtrls, ExtCtrls, StdCtrls, Controls, Classes,
-  ImgList, System.Actions, System.ImageList, VirtualTrees.BaseAncestorVCL,
-  VirtualTrees.BaseTree, VirtualTrees.AncestorVCL, VirtualTrees.Types;
+uses 
+  Windows, LCLIntf, {$ifdef lclwin32}ActiveX{$else}FakeActiveX{$endif}, SysUtils, Forms, Dialogs, Graphics, VirtualTrees.BaseTree,
+  VirtualTrees, ActnList, ComCtrls, ExtCtrls, StdCtrls, Controls, Classes, Buttons,
+  LResources, VirtualTrees.Types, VirtualTrees.Header, VirtualTrees.ClipBoard;
 
 type
+
+  { TMainForm }
+
   TMainForm = class(TForm)
     ActionList1: TActionList;
     CutAction: TAction;
@@ -31,7 +35,7 @@ type
     LogTabSheet: TTabSheet;
     RichTextTabSheet: TTabSheet;
     LogListBox: TListBox;
-    RichEdit1: TRichEdit;
+    //RichEdit1: TRichEdit;
     Label3: TLabel;
     Label7: TLabel;
     Button2: TButton;
@@ -47,6 +51,7 @@ type
     procedure CutActionExecute(Sender: TObject);
     procedure CopyActionExecute(Sender: TObject);
     procedure PasteActionExecute(Sender: TObject);
+    procedure TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure Tree1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: string);
     procedure FormCreate(Sender: TObject);
@@ -64,7 +69,7 @@ type
       var ItemColor: TColor; var EraseAction: TItemEraseAction);
   private
     procedure AddUnicodeText(DataObject: IDataObject; Target: TVirtualStringTree; Mode: TVTNodeAttachMode);
-    procedure AddVCLText(Target: TVirtualStringTree; const Text: UnicodeString; Mode: TVTNodeAttachMode);
+    procedure AddVCLText(Target: TVirtualStringTree; const Text: String; Mode: TVTNodeAttachMode);
     function FindCPFormatDescription(CPFormat: Word): string;
     procedure InsertData(Sender: TVirtualStringTree; DataObject: IDataObject; Formats: TFormatArray; Effect: Integer;
       Mode: TVTNodeAttachMode);
@@ -75,19 +80,24 @@ var
 
 //----------------------------------------------------------------------------------------------------------------------
 
-implementation                          
+implementation
+
+{$R *.lfm}
 
 uses
-  TypInfo, ShlObj, UrlMon, VirtualTrees.ClipBoard;
-  
-{$R *.DFM}
+  TypInfo;
+
 {$R Res\Extra.res}  // Contains a little rich text for the rich edit control and a XP manifest.
 
 type
   PNodeData = ^TNodeData;
   TNodeData = record
-    Caption: UnicodeString;
+    Caption: String;
   end;
+
+procedure ReleaseStgMedium(_para1:LPSTGMEDIUM);stdcall;external 'ole32.dll' name 'ReleaseStgMedium';
+
+function OleGetClipboard(out ppDataObj:IDataObject):WINOLEAPI;stdcall;external 'ole32.dll' name 'OleGetClipboard';
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -107,9 +117,9 @@ begin
   else
     if ActiveControl = Tree2 then
       Tree2.CutToClipboard
-    else                                                           
-      if ActiveControl = RichEdit1 then
-        RichEdit1.CutToClipboard;                               
+    else;
+      //if ActiveControl = RichEdit1 then
+      //  RichEdit1.CutToClipboard;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -122,9 +132,9 @@ begin
   else
     if ActiveControl = Tree2 then
       Tree2.CopyToClipboard
-    else
-      if ActiveControl = RichEdit1 then
-        RichEdit1.CopyToClipboard;
+    else;
+      //if ActiveControl = RichEdit1 then
+      //  RichEdit1.CopyToClipboard;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -163,6 +173,7 @@ begin
       if Succeeded(DataObject.EnumFormatEtc(DATADIR_GET, EnumFormat)) then
       begin
         EnumFormat.Reset;
+        SetLength(Formats, 0);
         while EnumFormat.Next(1, Format, @Fetched) = S_OK do
         begin
           SetLength(Formats, Length(Formats) + 1);
@@ -173,9 +184,17 @@ begin
       end;
     end;
   end
-  else
-    if ActiveControl = RichEdit1 then
-      RichEdit1.PasteFromClipboard;
+  else;
+    //if ActiveControl = RichEdit1 then
+    //  RichEdit1.PasteFromClipboard;
+end;
+
+procedure TMainForm.TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+var
+  Data: PNodeData;
+begin
+  Data := Sender.GetNodeData(Node);
+  Data^.Caption := '';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -200,8 +219,10 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 
+{
 var
   Stream: TResourceStream;
+}
 
 begin
   Tree1.NodeDataSize := SizeOf(TNodeData);
@@ -209,15 +230,16 @@ begin
   Tree2.NodeDataSize := SizeOf(TNodeData);
   Tree2.RootNodeCount := 30;
 
-  ReportMemoryLeaksOnShutdown := True;
   // There is a small RTF text stored in the resource to have something to display in the rich edit control.
+  {
   Stream := TResourceStream.Create(HInstance, 'RTF', 'RCDATA');
   try
     RichEdit1.Lines.LoadFromStream(Stream);
   finally
     Stream.Free;
   end;
-end;
+  }
+end;                                             
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -231,7 +253,8 @@ var
   FormatEtc: TFormatEtc;
   Medium: TStgMedium;
   OLEData,
-  Head, Tail: PWideChar;
+  Head, Tail: PChar;
+  WideStr: String;
   TargetNode,
   Node: PVirtualNode;
   Data: PNodeData;
@@ -266,20 +289,22 @@ begin
           TargetNode := Target.DropTargetNode;
           if TargetNode = nil then
             TargetNode := Target.FocusedNode;
-
+            
           Head := OLEData;
           try
             while Head^ <> #0 do
             begin
               Tail := Head;
-              while not CharInSet(Tail^, [WideChar(#0), WideChar(#13), WideChar(#10), WideChar(#9)]) do
+              while not (Tail^ in [Char(#0), Char(#13), Char(#10), Char(#9)]) do
                 Inc(Tail);
               if Head <> Tail then
               begin
                 // add a new node if we got a non-empty caption
                 Node := Target.InsertNode(TargetNode, Mode);
+                Target.ValidateNode(Node, False);
                 Data := Target.GetNodeData(Node);
-                SetString(Data.Caption, Head, Tail - Head);
+                SetString(WideStr, Head, Tail - Head);
+                Data.Caption := WideStr;
               end;
               // Skip any tab.
               if Tail^ = #9 then
@@ -297,7 +322,7 @@ begin
           end;
         end;
         // never forget to free the storage medium
-        ReleaseStgMedium(Medium);
+        ReleaseStgMedium(@Medium);
       end;
     end;
   end;
@@ -305,13 +330,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TMainForm.AddVCLText(Target: TVirtualStringTree; const Text: UnicodeString; Mode: TVTNodeAttachMode);
+procedure TMainForm.AddVCLText(Target: TVirtualStringTree; const Text: String; Mode: TVTNodeAttachMode);
 
 // This method is called when the drop handler gets called with a VCL drag source.
 // The given text is retrieved and splitted in lines.
 
 var
   Head, Tail: PWideChar;
+  WideStr: WideString;
   TargetNode,
   Node: PVirtualNode;
   Data: PNodeData;
@@ -329,14 +355,16 @@ begin
       while Head^ <> #0 do
       begin
         Tail := Head;
-        while not CharInSet(Tail^, [WideChar(#0), WideChar(#13), WideChar(#10)]) do
+        while not (Tail^ in [WideChar(#0), WideChar(#13), WideChar(#10)]) do
           Inc(Tail);
         if Head <> Tail then
         begin
           // add a new node if we got a non-empty caption
           Node := Target.InsertNode(TargetNode, Mode);
+          Target.ValidateNode(Node, False);
           Data := Target.GetNodeData(Node);
-          SetString(Data.Caption, Head, Tail - Head);
+          SetString(WideStr, Head, Tail - Head);
+          Data.Caption := UTF8Decode(WideStr);
         end;
         // skip line separators
         if Tail^ = #13 then
@@ -574,7 +602,7 @@ end;
 procedure TMainForm.Tree2DragAllowed(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
 
 // Tree 2 uses manual drag start to tell which node might be dragged.
-
+ 
 begin
   Allowed := Odd(Node.Index);
 end;
@@ -664,6 +692,7 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
 
 end.
 

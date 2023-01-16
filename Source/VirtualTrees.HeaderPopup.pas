@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.HeaderPopup;
+unit VirtualTrees.HeaderPopup;
 
 //----------------------------------------------------------------------------------------------------------------------
 //
@@ -61,15 +61,15 @@
 //
 // Modified 17 Feb 2002 by Jim Kueneman <jimdk@mindspring.com>.
 //   - Added the event to filter the items as they are added to the menu.
+// 2014
+//   - Adapted and improved for LCL by Luiz Américo Pereira Câmara
 //----------------------------------------------------------------------------------------------------------------------
+{$mode delphi}
 
 interface
 
 uses
-  System.Classes,
-  Vcl.Menus,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree;
+  Menus, VirtualTrees.BaseTree, VirtualTrees.Types, Classes;
 
 type
   TVTHeaderPopupOption = (
@@ -108,8 +108,6 @@ type
 implementation
 
 uses
-  Winapi.Windows,
-  System.Types,
   VirtualTrees.Header;
 
 resourcestring

@@ -1,5 +1,7 @@
 unit GeneralAbilitiesDemo;
 
+{$MODE Delphi}
+
 // Virtual Treeview sample form demonstrating following features:
 //   - General use and feel of TVirtualStringTree.
 //   - Themed/non-themed painting.
@@ -16,43 +18,33 @@ unit GeneralAbilitiesDemo;
 
 interface
 
-// For some things to work we need code, which is classified as being unsafe for .NET.
-{$warn UNSAFE_TYPE off}
-{$warn UNSAFE_CAST off}
-{$warn UNSAFE_CODE off}
-{$if CompilerVersion >= 20}
-  {$WARN IMPLICIT_STRING_CAST OFF}
-{$ifend}
-
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, Buttons, VirtualTrees, ComCtrls, ExtCtrls, ImgList, Menus,
-  StdActns, ActnList, VirtualTrees.HeaderPopup, UITypes, System.ImageList, VirtualTrees.BaseTree,
-  VirtualTrees.Types;
+  LCLIntf, LCLType, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, Buttons, VirtualTrees.HeaderPopup, VirtualTrees, ComCtrls, ExtCtrls, Menus,
+   ActnList,  LResources, ImgList, VirtualTrees.BaseTree;
 
-type
+type                                        
   TGeneralForm = class(TForm)
     VST2: TVirtualStringTree;
+    CheckMarkCombo: TComboBox;
+    Label18: TLabel;
+    MainColumnUpDown: TUpDown;        
+    Label19: TLabel;
+    BitBtn1: TBitBtn;
+    Label8: TLabel;
     TreeImages: TImageList;
     FontDialog1: TFontDialog;
     PopupMenu1: TPopupMenu;
     Onemenuitem1: TMenuItem;
     forrightclickselection1: TMenuItem;
     withpopupmenu1: TMenuItem;
-    VTHPopup: TVTHeaderPopupMenu;
-    SaveDialog: TSaveDialog;
-    ImageList1: TImageList;
-    Panel1: TPanel;
-    Label8: TLabel;
-    BitBtn1: TBitBtn;
     RadioGroup1: TRadioGroup;
     RadioGroup2: TRadioGroup;
+    VTHPopup: TVTHeaderPopupMenu;
     ThemeRadioGroup: TRadioGroup;
     SaveButton: TBitBtn;
-    GroupBox1: TGroupBox;
-    Label19: TLabel;
-    MainColumnUpDown: TUpDown;
-    ScrollBox1: TScrollBox;
+    SaveDialog: TSaveDialog;
+    ImageList1: TImageList;
     procedure BitBtn1Click(Sender: TObject);
     procedure VST2InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
@@ -63,6 +55,7 @@ type
     procedure VST2PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       TextType: TVSTTextType);
     procedure VST2GetNodeDataSize(Sender: TBaseVirtualTree; var NodeDataSize: Integer);
+    procedure CheckMarkComboChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure MainColumnUpDownChanging(Sender: TObject; var AllowChange: Boolean);
     procedure VST2GetPopupMenu(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; const P: TPoint;
@@ -93,10 +86,11 @@ var
 
 implementation
 
-uses
-  ShellAPI, Main, States;
+{$R *.lfm}
 
-{$R *.DFM}
+uses
+  States, VirtualTrees.Types;
+
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -108,7 +102,7 @@ type
   TNodeData2 = record
     Caption,
     StaticText,
-    ForeignText: UnicodeString;
+    ForeignText: String;
     ImageIndex,
     Level: Integer;
   end;
@@ -121,19 +115,21 @@ var
   I: Integer;
 
 begin
-  // Determine if we are running on Windows XP or higher.
-  ThemeRadioGroup.Enabled := CheckWin32Version(5, 1);
+  // Determine if we are running on Windows XP.
+  {$ifdef LCLWin32}
+  ThemeRadioGroup.Enabled := (Win32MajorVersion >= 5) and (Win32MinorVersion >= 1);
+  {$else}
+  ThemeRadioGroup.Enabled := False;
+  {$endif}
   if ThemeRadioGroup.Enabled then
     ThemeRadioGroup.ItemIndex := 0;
+
+  CheckMarkCombo.ItemIndex := 3;
 
   // Add a second line of hint text for column headers (not possible in the object inspector).
   with VST2.Header do
     for I := 0 to Columns.Count - 1 do
       Columns[I].Hint := Columns[I].Hint + #10 + '(Can show further information in hints too.)';
-
-  ConvertToHighColor(TreeImages);
-
-  VST2.InitRecursive(nil); // Without this statement, the scrollbar will be wrong and correct itself when scrolling down. See issue #597
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -220,7 +216,7 @@ const
 
 var
   Data: PNodeData2;
-
+  WideStr: WideString;
 begin
   Data := Sender.GetNodeData(Node);
   with Data^ do
@@ -241,25 +237,29 @@ begin
     case Data.Level of
       1:
         begin
-          ForeignText := WideChar($2200);
-          ForeignText := ForeignText + WideChar($2202) + WideChar($221C) + WideChar($221E) + WideChar($2230) +
+          WideStr := WideChar($2200);
+          WideStr := WideStr + WideChar($2202) + WideChar($221C) + WideChar($221E) + WideChar($2230) +
             WideChar($2233) + WideChar($2257) + WideChar($225D) + WideChar($22B6) + WideChar($22BF);
+          ForeignText := UTF8Encode(WideStr);
         end;
       2:
         begin
-          ForeignText := WideChar($32E5);
-          ForeignText := ForeignText + WideChar($32E6) + WideChar($32E7) + WideChar($32E8) + WideChar($32E9);
+          WideStr := WideChar($32E5);
+          WideStr := WideStr + WideChar($32E6) + WideChar($32E7) + WideChar($32E8) + WideChar($32E9);
+          ForeignText := UTF8Encode(WideStr);
         end;
       3:
         begin
-          ForeignText := WideChar($03B1);
-          ForeignText := ForeignText + WideChar($03B2) + WideChar($03B3) + WideChar($03B4) + WideChar($03B5) +
+          WideStr := WideChar($03B1);
+          WideStr := WideStr + WideChar($03B2) + WideChar($03B3) + WideChar($03B4) + WideChar($03B5) +
             WideChar($03B6) + WideChar($03B7) + WideChar($03B8) + WideChar($03B9);
+          ForeignText := UTF8Encode(WideStr);
         end;
       4:
         begin
-          ForeignText := WideChar($20AC);
-          ForeignText := 'nichts ist unmöglich ' + ForeignText;
+          WideStr := WideChar($20AC);
+          WideStr := 'nichts ist unmöglich ' + WideStr;
+          ForeignText := UTF8Encode(WideStr);
         end;
       5:
         begin
@@ -352,6 +352,14 @@ begin
     if Execute then
       VST2.Font := Font;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TGeneralForm.CheckMarkComboChange(Sender: TObject);
+
+begin
+  VST2.CheckImageKind := TCheckImageKind(CheckMarkCombo.ItemIndex);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -465,7 +473,7 @@ end;
 procedure TGeneralForm.SaveButtonClick(Sender: TObject);
 
 const
-  HTMLHead : String = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">'#13#10 +
+  HTMLHead = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN">'#13#10 +
     '<html>'#13#10 +
     '  <head>'#13#10 +
     '    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">'#13#10 +
@@ -474,64 +482,71 @@ const
     '<body>'#13#10;
 
 var
-  lText: String;
-  lTargetName: string;
-
-  procedure Save(pEconding: TEncoding);
-  begin
-    With TStreamWriter.Create(lTargetName, False, pEconding) do
-      try
-        Write(lText);
-      finally
-        Free;
-      end;
-  end;
-
+  S: string;
+  WS: WideString;
+  Data: Pointer;
+  DataSize: Cardinal;
+  TargetName: string;
 
 begin
   with SaveDialog do
   begin
     if Execute then
     begin
-      lTargetName := FileName;
+      TargetName := FileName;
       case FilterIndex of
-      1: // HTML
-        begin
-          if Pos('.', lTargetName) = 0 then
-            lTargetName := lTargetName + '.html';
-          lText := HTMLHead + VST2.ContentToHTML(tstVisible) + '</body></html>';
-          Save(TEncoding.UTF8);
-        end;//HTML
-      2: // Unicode UTF-16 text file
-        begin
-          lTargetName := ChangeFileExt(lTargetName, '.uni');
-          lText := VST2.ContentToText(tstVisible, #9);
-          Save(TEncoding.Unicode);
-        end;
-      3: // Rich text file
-        begin
-          lTargetName := ChangeFileExt(lTargetName, '.rtf');
-          With TStreamWriter.Create(lTargetName, False, TEncoding.ASCII) do
-            try
-              Write(VST2.ContentToRTF(tstVisible));
-            finally
-              Free;
-            end;
-        end;
-      4: // Comma separated values ANSI text file
-        begin
-          lTargetName := ChangeFileExt(lTargetName, '.csv');
-          lText := VST2.ContentToText(tstVisible, FormatSettings.ListSeparator);
-          Save(TEncoding.UTF8);
-        end;
+        1: // HTML
+          begin
+            if Pos('.', TargetName) = 0 then
+              TargetName := TargetName + '.html';
+            S := HTMLHead + VST2.ContentToHTML(tstVisible) + '</body></html>';
+            Data := PChar(S);
+            DataSize := Length(S);
+          end;
+        2: // Unicode UTF-16 text file
+          begin
+            TargetName := ChangeFileExt(TargetName, '.uni');
+            WS := VST2.ContentToUnicode(tstVisible, #9);
+            Data := PWideChar(WS);
+            DataSize := 2 * Length(WS);
+          end;
+        3: // Rich text UTF-16 file
+          begin
+            TargetName := ChangeFileExt(TargetName, '.rtf');
+            S := VST2.ContentToRTF(tstVisible);
+            Data := PChar(S);
+            DataSize := Length(S);
+          end;
+        4: // Comma separated values ANSI text file
+          begin
+            TargetName := ChangeFileExt(TargetName, '.csv');
+            S := VST2.ContentToText(tstVisible, ListSeparator);
+            Data := PChar(S);
+            DataSize := Length(S);
+          end;
+         5: // Unicode UTF-8 text file
+           begin
+            TargetName := ChangeFileExt(TargetName, '.txt');
+            //S := VST2.ContentToUTF8(tstVisible, #9);
+            Data := PChar(S);
+            DataSize := Length(S);
+          end;
       else
         // Plain text file
-        lTargetName := ChangeFileExt(lTargetName, '.txt');
-        lText := VST2.ContentToText(tstVisible, #9);
-        Save(TEncoding.ANSI);
-      end;//case
-    end;//if
-  end;//With
+        TargetName := ChangeFileExt(TargetName, '.txt');
+        S := VST2.ContentToText(tstVisible, #9);
+        Data := PChar(S);
+        DataSize := Length(S);
+      end;
+
+      with TFileStream.Create(TargetName, fmCreate) do
+      try
+        WriteBuffer(Data^, DataSize);
+      finally
+        Free;
+      end;
+    end;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

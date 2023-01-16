@@ -1,17 +1,23 @@
-﻿unit VirtualTrees.DragnDrop;
+unit VirtualTrees.DragnDrop;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  WinApi.Windows,
-  WinApi.ActiveX,
-  WinApi.ShlObj,
-  System.Types,
-  Vcl.Graphics,
-  Vcl.Controls,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree,
-  VirtualTrees.Header;
+  Classes, Controls, Graphics, LCLType,
+  {$ifdef Windows}
+  Windows,
+  ActiveX,
+  {$else}
+  FakeActiveX,
+  {$endif}
+  DelphiCompat
+  , VirtualTrees.Types
+  , VirtualTrees.BaseTree
+  , virtualdragmanager;
 
 type
   TEnumFormatEtc = class(TInterfacedObject, IEnumFormatEtc)
@@ -22,9 +28,34 @@ type
     constructor Create(const AFormatEtcArray : TFormatEtcArray);
 
     function Clone(out Enum : IEnumFormatEtc) : HResult; stdcall;
-    function Next(celt : Integer; out elt; pceltFetched : PLongint) : HResult; stdcall;
+    function Next(celt : LongWord; out elt: FormatEtc; pceltFetched : pULong=nil) : HResult; stdcall;
     function Reset : HResult; stdcall;
-    function Skip(celt : Integer) : HResult; stdcall;
+    function Skip(celt : LongWord) : HResult; stdcall;
+  end;
+
+  // ----- OLE drag'n drop handling
+
+  IVTDragManager = interface(IUnknown)
+    ['{C4B25559-14DA-446B-8901-0C879000EB16}']
+    procedure ForceDragLeave; stdcall;
+    function GetDataObject: IDataObject; stdcall;
+    function GetDragSource: TBaseVirtualTree; stdcall;
+    function GetDropTargetHelperSupported: Boolean; stdcall;
+    function GetIsDropTarget: Boolean; stdcall;
+
+    property DataObject: IDataObject read GetDataObject;
+    property DragSource: TBaseVirtualTree read GetDragSource;
+    property DropTargetHelperSupported: Boolean read GetDropTargetHelperSupported;
+    property IsDropTarget: Boolean read GetIsDropTarget;
+  end;
+
+  IDropTargetHelper = interface(IUnknown)
+    [SID_IDropTargetHelper]
+    function DragEnter(hwndTarget: HWND; pDataObject: IDataObject; var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function DragLeave: HRESULT; stdcall;
+    function DragOver(var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function Drop(pDataObject: IDataObject; var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function Show(fShow: Boolean): HRESULT; stdcall;
   end;
 
   // TVTDragManager is a class to manage drag and drop in a Virtual Treeview.
@@ -40,18 +71,24 @@ type
 
     function GetDataObject : IDataObject; stdcall;
     function GetDragSource : TBaseVirtualTree; stdcall;
+    function GetDropTargetHelperSupported: Boolean; stdcall;
     function GetIsDropTarget : Boolean; stdcall;
   public
     constructor Create(AOwner : TBaseVirtualTree); virtual;
     destructor Destroy; override;
 
-    function DragEnter(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Longint) : HResult; stdcall;
+    function DragEnter(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
     function DragLeave : HResult; stdcall;
-    function DragOver(KeyState : Integer; Pt : TPoint; var Effect : Longint) : HResult; stdcall;
-    function Drop(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult; stdcall;
+    function DragOver(KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
+    function Drop(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
     procedure ForceDragLeave; stdcall;
-    function GiveFeedback(Effect : Integer) : HResult; stdcall;
-    function QueryContinueDrag(EscapePressed : BOOL; KeyState : Integer) : HResult; stdcall;
+    {$IF (FPC_FULLVERSION < 020601) and DEFINED(LCLWin32)}
+    function GiveFeedback(Effect: Longint): HResult; stdcall;
+    function QueryContinueDrag(EscapePressed: BOOL; KeyState: Longint): HResult; stdcall;
+    {$ELSE}
+    function GiveFeedback(Effect: LongWord): HResult; stdcall;
+    function QueryContinueDrag(EscapePressed: BOOL; KeyState: LongWord): HResult; stdcall;
+    {$ENDIF}
     class function GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
   end;
 
@@ -90,18 +127,24 @@ var
   I : Integer;
 begin
   inherited Create;
+
+  {$IFDEF EnableWinDataObject}
   // Make a local copy of the format data.
   SetLength(FFormatEtcArray, Length(AFormatEtcArray));
   for I := 0 to High(AFormatEtcArray) do
     FFormatEtcArray[I] := AFormatEtcArray[I];
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TEnumFormatEtc.Clone(out Enum : IEnumFormatEtc) : HResult;
+{$IFDEF EnableWinDataObject}
 var
   AClone : TEnumFormatEtc;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := S_OK;
   try
     AClone := TEnumFormatEtc.Create(FFormatEtcArray);
@@ -110,40 +153,48 @@ begin
   except
     Result := E_FAIL;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TEnumFormatEtc.Next(celt : Integer; out elt; pceltFetched : PLongint) : HResult;
+function TEnumFormatEtc.Next(celt : LongWord; out elt: FormatEtc; pceltFetched : pULong=nil) : HResult;
+{$IFDEF EnableWinDataObject}
 var
   CopyCount : Integer;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := S_FALSE;
   CopyCount := Length(FFormatEtcArray) - FCurrentIndex;
   if celt < CopyCount then
     CopyCount := celt;
   if CopyCount > 0 then
   begin
-    Move(FFormatEtcArray[FCurrentIndex], elt, CopyCount * SizeOf(TFormatEtc));
+    Move(FFormatEtcArray[FCurrentIndex], {%H-}elt, CopyCount * SizeOf(TFormatEtc));
     Inc(FCurrentIndex, CopyCount);
     Result := S_OK;
   end;
   if Assigned(pceltFetched) then
     pceltFetched^ := CopyCount;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TEnumFormatEtc.Reset : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   FCurrentIndex := 0;
   Result := S_OK;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TEnumFormatEtc.Skip(celt : Integer) : HResult;
+function TEnumFormatEtc.Skip(celt : LongWord) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if FCurrentIndex + celt < High(FFormatEtcArray) then
   begin
     Inc(FCurrentIndex, celt);
@@ -151,6 +202,7 @@ begin
   end
   else
     Result := S_FALSE;
+  {$ENDIF}
 end;
 
 
@@ -187,6 +239,7 @@ begin
   // In this case there is no local reference to a data object and one is created (but not stored).
   // If there is a local reference then the owner tree is currently the drop target and the stored interface is
   // that of the drag initiator.
+  {$IFDEF EnableWinDataObject}
   if Assigned(FDataObject) then
     Result := FDataObject
   else
@@ -196,20 +249,36 @@ begin
       // Do not create a TVTDataObject if the event handler explicitely decided not to supply one, issue #736.
       Result := TVTDataObject.Create(FOwner, False) as IDataObject;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDragManager.GetDragSource : TBaseVirtualTree;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := FDragSource;
+  {$ENDIF}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TVTDragManager.GetDropTargetHelperSupported: Boolean; stdcall;
+
+begin
+  {$IFDEF EnableWinDataObject}
+  Result := Assigned(FDropTargetHelper);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDragManager.GetIsDropTarget : Boolean;
 begin
+  Result := True;
+  {$IFDEF EnableWinDataObject}
   Result := FIsDropTarget;
+  {$ENDIF}
 end;
 
 class function TVTDragManager.GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
@@ -241,7 +310,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.DragEnter(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.DragEnter(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 var
   Medium: TStgMedium;
   HeaderFormatEtc: TFormatEtc;
@@ -249,6 +318,7 @@ begin
   if not Assigned(FDropTargetHelper) then
     CoCreateInstance(CLSID_DragDropHelper, nil, CLSCTX_INPROC_SERVER, IID_IDropTargetHelper, FDropTargetHelper);
 
+  {$IFDEF EnableWinDataObject}
   FDataObject := DataObject;
   FIsDropTarget := True;
 
@@ -277,12 +347,14 @@ begin
   begin
     fHeader := nil;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDragManager.DragLeave : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.DragLeave;
 
@@ -292,12 +364,14 @@ begin
   FDataObject := nil;
   fHeader := nil;
   Result := NOERROR;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.DragOver(KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.DragOver(KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.DragOver(Pt, Effect);
 
@@ -308,12 +382,14 @@ begin
   end
   else
     Result := TreeView.DragOver(FDragSource, KeyState, dsDragMove, Pt, Effect);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.Drop(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.Drop(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.Drop(DataObject, Pt, Effect);
 
@@ -326,6 +402,7 @@ begin
     Result := TreeView.DragDrop(DataObject, KeyState, Pt, Effect);
   FIsDropTarget := False;
   FDataObject := nil;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -335,23 +412,28 @@ procedure TVTDragManager.ForceDragLeave;
 // a drop action. This method calls the drop target helper's DragLeave method to ensure it removes the drag image from
 // screen. Unfortunately, sometimes not even this does help (e.g. when dragging text from VT to a text field in IE).
 begin
+  {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.DragLeave;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.GiveFeedback(Effect : Integer) : HResult;
+function TVTDragManager.GiveFeedback(Effect : LongWord) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := DRAGDROP_S_USEDEFAULTCURSORS;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.QueryContinueDrag(EscapePressed : BOOL; KeyState : Integer) : HResult;
+function TVTDragManager.QueryContinueDrag(EscapePressed : BOOL; KeyState : LongWord) : HResult;
 var
   RButton, LButton : Boolean;
 begin
+  {$IFDEF EnableWinDataObject}
   LButton := (KeyState and MK_LBUTTON) <> 0;
   RButton := (KeyState and MK_RBUTTON) <> 0;
 
@@ -364,6 +446,7 @@ begin
       Result := DRAGDROP_S_DROP
     else
       Result := S_OK;
+  {$ENDIF}
 end;
 
 { TVTDragManagerHelper }

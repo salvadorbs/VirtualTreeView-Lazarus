@@ -1,5 +1,8 @@
 unit GridDemo;
 
+{$MODE Delphi}
+
+
 // Virtual Treeview sample form demonstrating following features:
 //   - TVirtualStringTree with enabled grid extensions and a fixed column.
 //   - Owner draw column to simulate a fixed column.
@@ -10,20 +13,19 @@ unit GridDemo;
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, VirtualTrees, ImgList, Menus, System.ImageList, VirtualTrees.BaseTree, VirtualTrees.Types,
-  VirtualTrees.BaseAncestorVCL, VirtualTrees.AncestorVCL;
+  delphicompat, LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, VirtualTrees, LResources, LCLType, variants, VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
+
+  { TGridForm }
+
   TGridForm = class(TForm)
     VST5: TVirtualStringTree;
     GridLineCheckBox: TCheckBox;
     Label15: TLabel;
     TreeImages: TImageList;
     Label1: TLabel;
-    PopupMenu: TPopupMenu;
-    Edit1: TMenuItem;
-    Label2: TLabel;
     AutoSpanCheckBox: TCheckBox;
     DisplayFullNameCheckBox: TCheckBox;
     procedure VST5BeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
@@ -34,12 +36,13 @@ type
     procedure VST5FocusChanging(Sender: TBaseVirtualTree; OldNode, NewNode: PVirtualNode; OldColumn,
       NewColumn: TColumnIndex; var Allowed: Boolean);
     procedure VST5GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure VST5InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure VST5PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType);
     procedure GridLineCheckBoxClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
     procedure VST5AfterCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       CellRect: TRect);
     procedure VST5StateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
@@ -58,16 +61,26 @@ var
 
 implementation
 
+{$R *.lfm}
+
 uses
   Editors, States;
 
-{$R *.DFM}
+
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TGridForm.Edit1Click(Sender: TObject);
 begin
    VST5.EditNode(VST5.GetFirstSelected, VST5.FocusedColumn);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TGridForm.FormCreate(Sender: TObject);
+
+begin
+  VST5.NodeDataSize := SizeOf(TGridData);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -100,7 +113,7 @@ end;
 
 procedure TGridForm.VST5FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
 begin
-  Node.GetData<TGridData>().Free();
+  ///Node.GetData<TGridData>().Free();
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

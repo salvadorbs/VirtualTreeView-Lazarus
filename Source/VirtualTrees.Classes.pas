@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.Classes;
+unit VirtualTrees.Classes;
 
 // The contents of this file are subject to the Mozilla Public License
 // Version 1.1 (the "License"); you may not use this file except in compliance
@@ -22,14 +22,14 @@
 // (C) 1999-2001 digital publishing AG. All Rights Reserved.
 //----------------------------------------------------------------------------------------------------------------------
 
+{$mode delphi}
+
 interface
 
-{$WARN UNSAFE_TYPE OFF}
-{$WARN UNSAFE_CAST OFF}
-{$WARN UNSAFE_CODE OFF}
+{$I VTConfig.inc}
 
 uses
-  Winapi.Windows;
+  Classes;
 
 type
   // Helper classes to speed up rendering text formats for clipboard and drag'n drop transfers.
@@ -52,7 +52,7 @@ type
   private
     FStart,
     FPosition,
-    FEnd: PWideChar;
+    FEnd: PChar;
     function GetAsString: string;
   public
     destructor Destroy; override;
@@ -175,12 +175,12 @@ begin
     NewLen := FEnd - FStart + (Len + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, 2 * NewLen);
+    ReallocMem(FStart, NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
-  System.Move(PWideChar(S)^, FPosition^, 2 * Len);
-  System.Inc(FPosition, Len);
+  System.Move(PChar(S)^, FPosition^, Len);
+  Inc(FPosition, Len);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -195,11 +195,12 @@ begin
   // Make room for the CR/LF characters.
   if FEnd - FPosition <= 4 then
   begin
+    //todo: see in calculation of NewLen is correct for String
     // Round up NewLen so it is always a multiple of AllocIncrement.
     NewLen := FEnd - FStart + (2 + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, 2 * NewLen);
+    ReallocMem(FStart, NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;

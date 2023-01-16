@@ -1,4 +1,10 @@
-﻿unit VirtualTrees;
+unit VirtualTrees;
+
+{$mode delphi}{$H+}
+{$packset 1}
+{$if not Defined(CPU386)}
+{$define PACKARRAYPASCAL}
+{$endif}
 
 // The contents of this file are subject to the Mozilla Public License
 // Version 1.1 (the "License"); you may not use this file except in compliance
@@ -42,52 +48,48 @@
 //   with a free copy of the Doc-O-Matic help authoring system), Sven H. (Step by step tutorial)
 // Source repository:
 //   https://github.com/Virtual-TreeView/Virtual-TreeView
+// LCL Source repository:
+//   https://github.com/salvadorbs/VirtualTreeView-Lazarus
 // Accessability implementation:
 //   Marco Zehe (with help from Sebastian Modersohn)
 // Port to Firemonkey:
 //   Karol Bieniaszewski (github user livius2)
+// LCL Port:
+//   Luiz Américo Pereira Câmara and Matteo Salvi
 //----------------------------------------------------------------------------------------------------------------------
 
 interface
 
-{$if CompilerVersion < 24}{$MESSAGE FATAL 'This version supports only RAD Studio XE3 and higher. Please use V5 from  http://www.jam-software.com/virtual-treeview/VirtualTreeViewV5.5.3.zip  or  https://github.com/Virtual-TreeView/Virtual-TreeView/archive/V5_stable.zip'}{$ifend}
-
-{$booleval off} // Use fastest possible boolean evaluation
-
-// For some things to work we need code, which is classified as being unsafe for .NET.
-{$WARN UNSAFE_TYPE OFF}
-{$WARN UNSAFE_CAST OFF}
-{$WARN UNSAFE_CODE OFF}
-
-{$LEGACYIFEND ON}
-{$WARN UNSUPPORTED_CONSTRUCT      OFF}
-
-{$HPPEMIT '#include <objidl.h>'}
-{$HPPEMIT '#include <oleidl.h>'}
-{$HPPEMIT '#include <oleacc.h>'}
-{$ifdef BCB}
-  {$HPPEMIT '#pragma comment(lib, "VirtualTreesCR")'}
-{$else}
-  {$HPPEMIT '#pragma comment(lib, "VirtualTreesR")'}
-{$endif}
-{$HPPEMIT '#pragma comment(lib, "Shell32")'}
-{$HPPEMIT '#pragma comment(lib, "uxtheme")'}
-{$HPPEMIT '#pragma link "VirtualTrees.Accessibility"'}
+{$I VTConfig.inc}
 
 uses
-  Winapi.Windows, Winapi.Messages, Winapi.ActiveX,
-  System.Classes, System.SysUtils,
-  Vcl.Graphics, Vcl.Controls, Vcl.ImgList, Vcl.Menus, Vcl.Themes,
-  VirtualTrees.Types,
-  VirtualTrees.Header,
-  VirtualTrees.BaseTree,
-{$IFDEF VT_FMX}
-  VirtualTrees.AncestorFMX,
-{$ELSE}
-  VirtualTrees.AncestorVCL
-{$ENDIF}
-  ;
- 
+  {$ifdef Windows}
+  Windows,
+  ActiveX,
+  CommCtrl,
+  UxTheme,
+  {$else}
+  FakeActiveX,
+  {$endif}
+  LCLIntf,
+  {$ifdef USE_DELPHICOMPAT}
+  DelphiCompat,
+  {$endif}
+  {$ifdef DEBUG_VTV}
+  VirtualTrees.Logger,
+  {$endif}
+  LCLType, LMessages, Types, LCLVersion,
+  SysUtils, Classes, Graphics, Controls, Forms, StdCtrls, Menus,
+  Clipbrd // Clipboard support
+  {$ifdef EnableAccessible}
+  , oleacc // for MSAA IAccessible support
+  {$endif}
+  , VirtualTrees.Colors
+  , VirtualTrees.Types
+  , VirtualTrees.Header
+  , VirtualTrees.BaseTree
+  , VirtualTrees.AncestorLcl
+  , VirtualTrees.Utils;
 
   {$MinEnumSize 1, make enumerations as small as possible}
 
@@ -145,8 +147,6 @@ type
   TVTConstraintPercent     = VirtualTrees.Header.TVTConstraintPercent;
   TVTFixedAreaConstraints  = VirtualTrees.Header.TVTFixedAreaConstraints;
   TColumnsArray            = VirtualTrees.Header.TColumnsArray;
-  TCanvas                  = Vcl.Graphics.TCanvas;
-
 const
   // Aliases for increased compatibility with V7, feel free to extend by pull requests
   NoColumn                 = VirtualTrees.Types.NoColumn;
@@ -185,11 +185,7 @@ const
 type
   TCustomVirtualStringTree = class;
 
-{$IFDEF VT_FMX}
-  TVTAncestor = TVTAncestorFMX;
-{$ELSE}
-  TVTAncestor = TVTAncestorVcl;
-{$ENDIF}
+  TVTAncestor = TVTAncestorLcl;
 
   // Describes the source to use when converting a string tree into a string for clipboard etc.
   TVSTTextSourceType = (
@@ -269,7 +265,7 @@ type
     procedure SetDefaultText(const Value: string);
     procedure SetOptions(const Value: TCustomStringTreeOptions);
     procedure SetText(Node: PVirtualNode; Column: TColumnIndex; const Value: string);
-    procedure WMSetFont(var Msg: TWMSetFont); message WM_SETFONT;
+    procedure CMFontChanged(var Msg: TLMessage); message CM_FONTCHANGED;
     procedure GetDataFromGrid(const AStrings : TStringList; const IncludeHeading : Boolean = True);
   protected
     /// <summary>Contains the name of the string that should be restored as selection</summary>
@@ -327,13 +323,17 @@ type
     destructor Destroy(); override;
     function AddChild(Parent: PVirtualNode; UserData: Pointer = nil): PVirtualNode; override;
     function ComputeNodeHeight(Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; S: string = ''): TDimension; virtual;
-    function ContentToClipboard(Format: Word; Source: TVSTTextSourceType): HGLOBAL;
+    function ContentToClipboard(Format: TClipboardFormat; Source: TVSTTextSourceType): HGLOBAL;
     procedure ContentToCustom(Source: TVSTTextSourceType);
     function ContentToHTML(Source: TVSTTextSourceType; const Caption: string = ''): String;
     function ContentToRTF(Source: TVSTTextSourceType): RawByteString;
     function ContentToText(Source: TVSTTextSourceType; Separator: Char): String; overload;
-    function ContentToUnicode(Source: TVSTTextSourceType; Separator: WideChar): string; overload; deprecated 'Use ContentToText instead';
+    function ContentToUnicode(Source: TVSTTextSourceType; Separator: Char): string; overload; deprecated 'Use ContentToText instead';
     function ContentToText(Source: TVSTTextSourceType; const Separator: string): string; overload;
+    {$ifndef LCLWin32}
+    procedure CopyToClipBoard; override;
+    procedure CutToClipBoard; override;
+    {$endif}
     procedure GetTextInfo(Node: PVirtualNode; Column: TColumnIndex; const AFont: TFont; var R: TRect;
       var Text: string); override;
     function InvalidateNode(Node: PVirtualNode): TRect; override;
@@ -348,7 +348,6 @@ type
     property Text[Node: PVirtualNode; Column: TColumnIndex]: string read GetText write SetText;
   end;
 
-  [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
   TVirtualStringTree = class(TCustomVirtualStringTree)
   private
     function GetOptions: TStringTreeOptions;
@@ -361,7 +360,9 @@ type
     property LastDragEffect;
     property CheckImageKind; // should no more be published to make #622 fix working
   published
+    {$ifdef EnableAccessible}
     property AccessibleName;
+    {$endif}
     property Action;
     property Align;
     property Alignment;
@@ -375,12 +376,15 @@ type
     property BackgroundOffsetX;
     property BackgroundOffsetY;
     property BiDiMode;
+    {
     property BevelEdges;
     property BevelInner;
     property BevelOuter;
     property BevelKind;
     property BevelWidth;
-    property BorderStyle;
+    }
+    property BorderSpacing;
+    property BorderStyle default bsSingle;
     property BottomSpace;
     property ButtonFillMode;
     property ButtonStyle;
@@ -390,7 +394,9 @@ type
     property Color;
     property Colors;
     property Constraints;
+    {
     property Ctl3D;
+    }
     property CustomCheckImages;
     property DefaultNodeHeight;
     property DefaultPasteMode;
@@ -425,7 +431,9 @@ type
     property OperationCanceled;
     property ParentBiDiMode;
     property ParentColor default False;
+	{
     property ParentCtl3D;
+	}
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
@@ -435,14 +443,21 @@ type
     property SelectionCurveRadius;
     property ShowHint;
     property StateImages;
+    {
     property StyleElements;
-    {$if CompilerVersion >= 34}property StyleName;{$ifend}
+    property StyleName;
+    }
     property TabOrder;
     property TabStop default True;
     property TextMargin;
     property TreeOptions: TStringTreeOptions read GetOptions write SetOptions;
     property Visible;
     property WantTabs;
+    {$IF LCL_FullVersion >= 2000000}
+    property ImagesWidth;
+    property StateImagesWidth;
+    property CustomCheckImagesWidth;
+    {$IFEND}
 
     property OnAddToSelection;
     property OnAdvancedHeaderDraw;
@@ -592,27 +607,42 @@ type
     property OnStateChange;
     property OnStructureChange;
     property OnUpdating;
+    property OnUTF8KeyPress;
+    {
     property OnCanResize;
     property OnGesture;
     property Touch;
+    }
     property OnColumnHeaderSpanning;
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 implementation
+
+{$R VirtualTrees.res}
+
 uses
-  System.TypInfo,              // for migration stuff
-  System.StrUtils,
-  System.Types,                // prevent inline compiler warning
-  System.UITypes,              // prevent inline compiler warning
-  VirtualTrees.StyleHooks,
-  VirtualTrees.ClipBoard,
-  VirtualTrees.Utils,
-  VirtualTrees.Export,
-  VirtualTrees.EditLink,
-  VirtualTrees.BaseAncestorVcl{to eliminate H2443 about inline expanding}
-  ;
+  StrUtils, Math,
+  {$ifdef EnableOLE}
+  //AxCtrls,       // TOLEStream
+  {$endif}
+  {$ifdef Windows}
+  MMSystem,                // for animation timer (does not include further resources)
+  {$else}
+  FakeMMSystem,
+  {$endif}
+  TypInfo,                 // for migration stuff
+  LCLProc
+  {$ifdef EnableAccessible}
+  , VirtualTrees.AccessibilityFactory
+  {$endif}
+  , VirtualTrees.ClipBoard
+  , VirtualTrees.WorkerThread
+  , VirtualTrees.DragnDrop
+  , VirtualTrees.Export
+  , VirtualTrees.EditLink
+  , VirtualTrees.DrawTree;  // accessibility helper class
 
 const
   cDefaultText = 'Node';
@@ -637,6 +667,42 @@ begin
   RegisterVTClipboardFormat(CF_UNICODETEXT, TCustomVirtualStringTree, 95);
 end;
 
+//----------------- compatibility functions ----------------------------------------------------------------------------
+
+// ExcludeClipRect is buggy in Cocoa
+// https://github.com/blikblum/VirtualTreeView-Lazarus/issues/8
+// https://bugs.freepascal.org/view.php?id=34196
+
+{$ifdef LCLCocoa}
+function ExcludeClipRect(dc: hdc; Left, Top, Right, Bottom : Integer) : Integer;
+begin
+  Result := 0;
+end;
+{$endif}
+
+// LCLIntf.BitBlt is not compatible with windows.BitBlt
+// The former takes into account the alpha channel while the later not
+
+{$if not defined(USE_DELPHICOMPAT) and defined(LCLWin)}
+function BitBlt(DestDC: HDC; X, Y, Width, Height: Integer; SrcDC: HDC; XSrc, YSrc: Integer; Rop: DWORD): Boolean;
+begin
+  Result := windows.BitBlt(DestDC, X, Y, Width, Height, SrcDC, XSrc, YSrc, Rop);
+end;
+{$endif}
+
+//----------------------------------------------------------------------------------------------------------------------
+{$ifdef EnableAccessible}
+procedure GetAccessibilityFactory;
+
+// Accessibility helper function to create a singleton class that will create or return
+// the IAccessible interface for the tree and the focused node.
+
+begin
+  // Check to see if the class has already been created.
+  if VTAccessibleFactory = nil then
+    VTAccessibleFactory := TVTAccessibilityFactory.Create;
+end;
+{$endif}
 
 //----------------- TCustomVirtualString -------------------------------------------------------------------------------
 
@@ -829,6 +895,8 @@ begin
           end;
       end;
     end;
+    if Canvas.Font.Color = clDefault then
+      Canvas.Font.Color := GetDefaultColor(dctFont);
   end;
 end;
 
@@ -849,11 +917,15 @@ var
   Height: TDimension;
   lNewNodeWidth: TDimension;
 begin
+  {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaintDetails],'PaintNormalText') ;{$endif}
   InitializeTextProperties(PaintInfo);
   with PaintInfo do
   begin
     R := ContentRect;
+    //todo_lcl See how TextStyle should be set
+    {
     Canvas.TextFlags := 0;
+    }
     InflateRect(R, -TextMargin, 0);
 
     if (vsDisabled in Node.States) or not Enabled then
@@ -911,14 +983,15 @@ begin
       else
         DrawFormat := DrawFormat or AlignmentToDrawFlag[Alignment];
     end;
-
-    if Canvas.TextFlags and ETO_OPAQUE = 0 then
+    //todo_lcl_check
+    if not Canvas.TextStyle.Opaque then
       SetBkMode(Canvas.Handle, TRANSPARENT)
     else
       SetBkMode(Canvas.Handle, OPAQUE);
-
+    {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Canvas.Brush.Color',Canvas.Brush.Color);{$endif}
     DoTextDrawing(PaintInfo, Text, R, DrawFormat);
   end;
+  {$ifdef DEBUG_VTV}Logger.ExitMethod([lcPaintDetails],'PaintNormalText');{$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -932,6 +1005,7 @@ var
   DrawFormat: Cardinal;
 
 begin
+  {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaintDetails],'PaintStaticText');{$endif}
   with PaintInfo do
   begin
     Canvas.Font.Assign(Font);
@@ -955,7 +1029,10 @@ begin
     end;
 
     DrawFormat := DT_NOPREFIX or DT_VCENTER or DT_SINGLELINE;
+    //todo_lcl See how Canvas.TextStyle should be
+    {
     Canvas.TextFlags := 0;
+    }
     DoPaintText(Node, Canvas, Column, ttStatic);
 
     // Disabled node color overrides all other variants.
@@ -975,12 +1052,14 @@ begin
         Inc(R.Left, NodeWidth); // room for node text
     end;
 
-    if Canvas.TextFlags and ETO_OPAQUE = 0 then
+    //todo_lcl_check
+    if not Canvas.TextStyle.Opaque then
       SetBkMode(Canvas.Handle, TRANSPARENT)
     else
       SetBkMode(Canvas.Handle, OPAQUE);
-    Winapi.Windows.DrawTextW(Canvas.Handle, PWideChar(Text), Length(Text), R, DrawFormat);
+    DrawText(Canvas.Handle, PChar(Text), Length(Text), R, DrawFormat)
   end;
+  {$ifdef DEBUG_VTV}Logger.ExitMethod([lcPaintDetails],'PaintStaticText');{$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1045,7 +1124,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualStringTree.WMSetFont(var Msg: TWMSetFont);
+procedure TCustomVirtualStringTree.CMFontChanged(var Msg: TLMessage);
 
 // Whenever a new font is applied to the tree some default values are determined to avoid frequent
 // determination of the same value.
@@ -1062,11 +1141,11 @@ begin
 
   MemDC := CreateCompatibleDC(0);
   try
-    SelectObject(MemDC, Msg.Font);
-    WinApi.Windows.GetTextMetrics(MemDC, TM);
+    SelectObject(MemDC, Font.Reference.Handle);
+    GetTextMetrics(MemDC, TM);
     FTextHeight := TM.tmHeight;
 
-    GetTextExtentPoint32W(MemDC, '...', 3, Size);
+    GetTextExtentPoint32(MemDC, '...', 3, Size);
     FEllipsisWidth := Size.cx;
   finally
     DeleteDC(MemDC);
@@ -1189,6 +1268,26 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+{$ifndef LCLWin32}
+procedure TCustomVirtualStringTree.CopyToClipBoard;
+begin
+  if SelectedCount > 0 then
+  begin
+    MarkCutCopyNodes;
+    DoStateChange([tsCopyPending]);
+    Clipboard.AsText := ContentToUnicodeString(Self, tstCutCopySet, #9);
+    DoStateChange([], [tsCopyPending]);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TCustomVirtualStringTree.CutToClipBoard;
+begin
+  //todo: currently there's no way in LCL to know when the clipboard was used
+  CopyToClipBoard;
+end;
+{$endif}
 
 procedure TCustomVirtualStringTree.DefineProperties(Filer: TFiler);
 
@@ -1380,6 +1479,7 @@ var
   TextOutFlags: Integer;
 
 begin
+  {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaintDetails],'TCustomVirtualStringTree.DoPaintNode');{$endif}
   // Set a new OnChange event for the canvas' font so we know if the application changes it in the callbacks.
   // This long winded procedure is necessary because font changes (as well as brush and pen changes) are
   // unfortunately not announced via the Canvas.OnChange event.
@@ -1404,6 +1504,7 @@ begin
   finally
     RestoreFontChangeEvent(PaintInfo.Canvas);
   end;
+  {$ifdef DEBUG_VTV}Logger.ExitMethod([lcPaintDetails],'TCustomVirtualStringTree.DoPaintNode');{$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1415,6 +1516,7 @@ var
   Done: Boolean;
 
 begin
+  Result := '';
   Done := False;
   if Assigned(FOnShortenString) then
     FOnShortenString(Self, Canvas, Node, Column, S, Width, Result, Done);
@@ -1439,7 +1541,7 @@ begin
   else
     lText := Text;
   if DefaultDraw then
-    Winapi.Windows.DrawTextW(PaintInfo.Canvas.Handle, PWideChar(lText), Length(lText), CellRect, DrawFormat);
+    DrawText(PaintInfo.Canvas.Handle, PChar(lText), Length(lText), CellRect, DrawFormat);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1452,7 +1554,7 @@ var
   DrawFormat: Integer;
 
 begin
-  GetTextExtentPoint32W(Canvas.Handle, PWideChar(Text), Length(Text), Result);
+  GetTextExtentPoint32(Canvas.Handle, PChar(Text), Length(Text), Result);
   if vsMultiLine in Node.States then
   begin
     DrawFormat := DT_CALCRECT or DT_NOPREFIX or DT_WORDBREAK or DT_END_ELLIPSIS or DT_EDITCONTROL or AlignmentToDrawFlag[Alignment];
@@ -1460,7 +1562,7 @@ begin
       DrawFormat := DrawFormat or DT_RTLREADING;
 
     R := Rect(0, 0, Result.cx, MaxInt);
-    Winapi.Windows.DrawTextW(Canvas.Handle, PWideChar(Text), Length(Text), R, DrawFormat);
+    DrawText(Canvas.Handle, PChar(Text), Length(Text), R, DrawFormat);
     Result.cx := R.Right - R.Left;
   end;
   if Assigned(FOnMeasureTextWidth) then
@@ -1529,8 +1631,8 @@ begin
         NewText := '';
         if ChunkSize > 0 then
         begin
-          SetLength(NewText, ChunkSize div 2);
-          Stream.Read(PWideChar(NewText)^, ChunkSize);
+          SetLength(NewText, ChunkSize);
+          Stream.Read(PChar(NewText)^, ChunkSize);
         end;
         // Do a new text event regardless of the caption content to allow removing the default string.
         Text[Node, Header.MainColumn] := NewText;
@@ -1570,7 +1672,7 @@ begin
       begin
         // Sets are stored with their members as simple strings. Read them one by one and map them to the new option
         // in the correct sub-option set.
-        EnumName := Reader.ReadStr;
+        EnumName := Reader.ReadString;
         if EnumName = '' then
           Break;
         OldOption := TOldVTStringOption(GetEnumValue(TypeInfo(TOldVTStringOption), EnumName));
@@ -1604,7 +1706,7 @@ begin
     if Medium.hGlobal <> 0 then
     begin
       Medium.tymed := TYMED_HGLOBAL;
-      Medium.unkForRelease := nil;
+      Medium.PunkForRelease := nil;
 
       Result := S_OK;
     end;
@@ -1635,14 +1737,14 @@ begin
     begin
       // Read the node's caption (primary column only).
       S := Text[Node, Header.MainColumn];
-      Len := 2 * Length(S);
+      Len := Length(S);
       if Len > 0 then
       begin
         // Write a new sub chunk.
         ChunkHeader.ChunkType := CaptionChunk;
         ChunkHeader.ChunkSize := Len;
         Write(ChunkHeader, SizeOf(ChunkHeader));
-        Write(PWideChar(S)^, Len);
+        Write(PChar(S)^, Len);
       end;
     end;
 end;
@@ -1713,13 +1815,15 @@ begin
     DrawFormat := DrawFormat or DT_RIGHT or DT_RTLREADING
   else
     DrawFormat := DrawFormat or DT_LEFT;
-  Winapi.Windows.DrawTextW(Canvas.Handle, PWideChar(S), Length(S), PaintInfo.CellRect, DrawFormat);
+  DrawText(Canvas.Handle, PChar(S), Length(S), PaintInfo.CellRect, DrawFormat);
   Result := PaintInfo.CellRect.Bottom - PaintInfo.CellRect.Top;
+  if toShowHorzGridLines in TreeOptions.PaintOptions then
+    Inc(Result);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualStringTree.ContentToClipboard(Format: Word; Source: TVSTTextSourceType): HGLOBAL;
+function TCustomVirtualStringTree.ContentToClipboard(Format: TClipboardFormat; Source: TVSTTextSourceType): HGLOBAL;
 
 // This method constructs a shareable memory object filled with string data in the required format. Supported are:
 // CF_TEXT - plain ANSI text (Unicode text is converted using the user's current locale)
@@ -1851,7 +1955,7 @@ var
 
 begin
   // Get default font and initialize the other parameters.
-  inherited GetTextInfo(Node, Column, AFont, R, Text);
+  //inherited GetTextInfo(Node, Column, AFont, R, Text);
 
   Canvas.Font.Assign(AFont);
 
@@ -1861,7 +1965,7 @@ begin
   if FFontChanged then
   begin
     AFont.Assign(Canvas.Font);
-    GetTextMetrics(Canvas, TM);
+    GetTextMetrics(Canvas.Handle, TM);
     NewHeight := TM.tmHeight;
   end
   else // Otherwise the correct font is already there and we only need to set the correct height.
@@ -2003,11 +2107,5 @@ begin
   Self.Column := pColumn;
   Self.ExportType := pExportType;
 end;
-
-initialization
-  TCustomStyleEngine.RegisterStyleHook(TVirtualStringTree, TVclStyleScrollBarsHook);
-
-finalization
-  TCustomStyleEngine.UnRegisterStyleHook(TVirtualStringTree, TVclStyleScrollBarsHook);
 
 end.

@@ -1,12 +1,13 @@
-﻿unit VirtualTrees.Colors;
+unit VirtualTrees.Colors;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  System.Classes,
-  Vcl.Graphics,
-  Vcl.Themes,
-  Vcl.Controls;
+  Classes, Controls, Graphics, DelphiCompat;
 
 type
   //class to collect all switchable colors into one place
@@ -71,7 +72,9 @@ type
     property HeaderFontColor : TColor read GetHeaderFontColor;
     property NodeFontColor : TColor read GetNodeFontColor;
     //Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
+    {$IFDEF DelphiStyleServices}
     function StyleServices(AControl : TControl = nil) : TCustomStyleServices;
+    {$ENDIF}
   published
     property BorderColor                   : TColor index cBorderColor read GetColor write SetColor default clBtnFace;
     property DisabledColor                 : TColor index cDisabledColor read GetColor write SetColor default clBtnShadow;
@@ -101,11 +104,11 @@ type
 implementation
 
 uses
-  WinApi.Windows,
-  VirtualTrees.Types,
-  VirtualTrees.Utils,
-  VirtualTrees.StyleHooks,
-  VirtualTrees.BaseTree;
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Types, VirtualTrees.Utils
+  {$ifdef Windows}
+  , Windows
+  {$endif}
+  ;
 
 type
   TBaseVirtualTreeCracker = class(TBaseVirtualTree);
@@ -129,17 +132,22 @@ end;
 
 function TVTColors.GetBackgroundColor : TColor;
 begin
+  //lcl: using Treeview.Color is wrong! Why!?
+  {$IFDEF DelphiStyleServices}
   //XE2 VCL Style
   if TreeView.VclStyleEnabled and (seClient in FOwner.StyleElements) then
     Result := StyleServices.GetStyleColor(scTreeView)
   else
     Result := TreeView.Color;
+  {$ENDIF}
+    Result := FOwner.Brush.Color;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTColors.GetColor(const Index : TVTColorEnum) : TColor;
 begin
+  {$IFDEF DelphiStyleServices}
   //Only try to fetch the color via StyleServices if theses are enabled
   //Return default/user defined color otherwise
   if not (csDesigning in TreeView.ComponentState) { see issue #1185 } and TreeView.VclStyleEnabled then
@@ -174,6 +182,7 @@ begin
     end;
   end
   else
+  {$ENDIF}
     Result := FColors[Index];
 end;
 
@@ -181,10 +190,12 @@ end;
 
 function TVTColors.GetHeaderFontColor : TColor;
 begin
+  {$IFDEF DelphiStyleServices}
   //XE2+ VCL Style
   if TreeView.VclStyleEnabled and (seFont in FOwner.StyleElements) then
     StyleServices.GetElementColor(StyleServices.GetElementDetails(thHeaderItemNormal), ecTextColor, Result)
   else
+  {$ENDIF}
     Result := TreeView.Header.Font.Color;
 end;
 
@@ -192,9 +203,11 @@ end;
 
 function TVTColors.GetNodeFontColor : TColor;
 begin
+  {$IFDEF DelphiStyleServices}
   if TreeView.VclStyleEnabled and (seFont in FOwner.StyleElements) then
     StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemNormal), ecTextColor, Result)
   else
+  {$ENDIF}
     Result := TreeView.Font.Color;
 end;
 
@@ -204,11 +217,13 @@ function TVTColors.GetSelectedNodeFontColor(Focused : boolean) : TColor;
 begin
   if Focused then
   begin
+    {$ifdef Windows}
     if (tsUseExplorerTheme in TreeView.TreeStates) and not IsHighContrastEnabled then
     begin
       Result := NodeFontColor
     end
     else
+    {$endif}
       Result := SelectionTextColor
   end//if Focused
   else
@@ -243,12 +258,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF DelphiStyleServices}
 function TVTColors.StyleServices(AControl : TControl) : TCustomStyleServices;
 begin
   if AControl = nil then
     AControl := FOwner;
   Result := VTStyleServices(AControl);
 end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 

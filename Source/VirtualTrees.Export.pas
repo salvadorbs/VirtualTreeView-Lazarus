@@ -1,14 +1,14 @@
-﻿unit VirtualTrees.Export;
+unit VirtualTrees.Export;
 
-{$WARN UNSAFE_CODE OFF}
-{$WARN IMPLICIT_STRING_CAST OFF}
-{$WARN IMPLICIT_STRING_CAST_LOSS OFF}
+{$mode delphi}
 
 interface
 
-uses Winapi.Windows,
-     VirtualTrees,
-     VirtualTrees.Classes;
+{$I VTConfig.inc}
+
+uses
+  Classes, SysUtils, StrUtils, Controls, Forms, VirtualTrees, VirtualTrees.BaseTree,
+  VirtualTrees.Classes, LCLType, DelphiCompat;
 
 function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Caption: string = ''): String;
 function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType): RawByteString;
@@ -19,18 +19,10 @@ procedure ContentToCustom(Tree: TCustomVirtualStringTree; Source: TVSTTextSource
 implementation
 
 uses
-  System.Classes,
-  System.SysUtils,
-  System.StrUtils,
-  System.Generics.Collections,
-  System.UITypes,
-  Vcl.Graphics,
-  Vcl.Controls,
-  Vcl.Forms,
-  VirtualTrees.Types,
-  VirtualTrees.ClipBoard,
-  VirtualTrees.Header,
-  VirtualTrees.BaseTree;
+  Graphics, VirtualTrees.Header, VirtualTrees.Types, VirtualTrees.ClipBoard
+  {$ifdef Windows}
+  , Windows
+  {$endif};
 
 type
   TCustomVirtualStringTreeCracker = class(TCustomVirtualStringTree)
@@ -46,7 +38,7 @@ function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceTyp
 
 // Renders the current tree content (depending on Source) as HTML text encoded in UTF-8.
 // If Caption is not empty then it is used to create and fill the header for the table built here.
-// Based on ideas and code from Frank van den Bergh and Andreas H�rstemeier.
+// Based on ideas and code from Frank van den Bergh and Andreas H?rstemeier.
 
 var
   Buffer: TBufferedString;
@@ -464,7 +456,7 @@ function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType
 
 var
   Fonts: TStringList;
-  Colors: TList<TColor>;
+  Colors: TFpList;
   CurrentFontIndex,
   CurrentFontColor,
   CurrentFontSize: Integer;
@@ -506,7 +498,7 @@ var
     I: Integer;
 
   begin
-    I := Colors.IndexOf(Color);
+    I := Colors.IndexOf(Pointer(Color));
     if I > -1 then
     begin
       // Color has already been used
@@ -519,7 +511,7 @@ var
     end
     else
     begin
-      I := Colors.Add(Color);
+      I := Colors.Add(Pointer(Color));
       Buffer.Add('\cf');
       Buffer.Add(IntToStr(I + 1));
       CurrentFontColor := I;
@@ -610,7 +602,7 @@ begin
     CrackTree.RedirectFontChangeEvent(CrackTree.Canvas);
 
     Fonts := TStringList.Create;
-    Colors := TList<TColor>.Create;
+    Colors := TFpList.Create;
     CurrentFontIndex := -1;
     CurrentFontColor := -1;
     CurrentFontSize := -1;
@@ -792,10 +784,14 @@ begin
       S := S + Format('\red%d\green%d\blue%d;', [J and $FF, (J shr 8) and $FF, (J shr 16) and $FF]);
     end;
     S := S + '}';
+    {$ifndef INCOMPLETE_WINAPI}
     if (GetLocaleInfo(LOCALE_USER_DEFAULT, LOCALE_IMEASURE, @LocaleBuffer[0], Length(LocaleBuffer)) <> 0) and (LocaleBuffer[0] = '0'{metric}) then
       S := S + '\paperw16840\paperh11907'// This sets A4 landscape format
     else
       S := S + '\paperw15840\paperh12240';//[JAM:marder]  This sets US Letter landscape format
+    {$else}
+    S := S + '\paperw16840\paperh11907';// This sets A4 landscape format
+    {$endif}
     // Make sure a small margin is used so that a lot of the table fits on a paper. This defines a margin of 0.5"
     S := S + '\margl720\margr720\margt720\margb720';
     Result := S + Buffer.AsString + '}';
@@ -944,7 +940,7 @@ begin
 end;
 
 function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source: TVSTTextSourceType): HGLOBAL;
-
+{$ifdef LCLWin32}
 // This method constructs a shareable memory object filled with string data in the required format. Supported are:
 // CF_TEXT - plain ANSI text (Unicode text is converted using the user's current locale)
 // CF_UNICODETEXT - plain Unicode text
@@ -997,10 +993,10 @@ function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source
     EndHTMLIndex := EndFragmentIndex + Length(HTMLExtro);
 
     Description := Version +
-    System.SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
+    SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
     HTML := Description + DocType + HTMLIntro + HTML + HTMLExtro;
   end;
 
@@ -1014,10 +1010,13 @@ var
   lUtf8String: Utf8string;
   P: Pointer;
   CrackTree: TCustomVirtualStringTreeCracker;
+{$endif}
 begin
+  Result := 0;
+
+{$ifdef LCLWin32}
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
 
-  Result := 0;
   DataSize := 0;
   Data := nil;
   case Format of
@@ -1064,6 +1063,7 @@ begin
     Move(Data^, P^, DataSize);
     GlobalUnlock(Result);
   end;
+{$endif}
 end;
 
 procedure ContentToCustom(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType);
