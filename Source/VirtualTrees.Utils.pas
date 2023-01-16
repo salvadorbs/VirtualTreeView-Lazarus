@@ -31,6 +31,8 @@ procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer); inline;
 
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
+function OrderRect(const R: TRect): TRect;
+
 procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; out RClip, RScroll, RSamp1, RSamp2, RDraw1,
   RDraw2: TRect);
 
@@ -187,6 +189,35 @@ end;
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer;
 begin
   Result:= Dimension div DivideBy;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function OrderRect(const R: TRect): TRect;
+
+// Converts the incoming rectangle so that left and top are always less than or equal to right and bottom.
+
+begin
+  if R.Left < R.Right then
+  begin
+    Result.Left := R.Left;
+    Result.Right := R.Right;
+  end
+  else
+  begin
+    Result.Left := R.Right;
+    Result.Right := R.Left;
+  end;
+  if R.Top < R.Bottom then
+  begin
+    Result.Top := R.Top;
+    Result.Bottom := R.Bottom;
+  end
+  else
+  begin
+    Result.Top := R.Bottom;
+    Result.Bottom := R.Top;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

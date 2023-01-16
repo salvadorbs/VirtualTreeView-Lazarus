@@ -47,6 +47,9 @@ type
       var CellText: String);
     procedure FormShow(Sender: TObject);
     procedure FormHide(Sender: TObject);
+    procedure VST3FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure VST2FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
+    procedure VST1FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
     FChanging: Boolean;
     procedure HideNodes(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
@@ -94,7 +97,7 @@ end;
 procedure TVisibilityForm.VST1InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
 
 begin
-  ChildCount := Random(5);
+  ChildCount := Random(5) + 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -138,7 +141,7 @@ end;
 procedure TVisibilityForm.HideNodes(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
 
 begin
-  case PtrUInt(Data) of
+  case Integer(Data) of
     0: // show all nodes
       Sender.IsVisible[Node] := True;
     1: // hide every second
@@ -339,6 +342,38 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
+procedure TVisibilityForm.VST1FreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PLinkData;
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVisibilityForm.VST2FreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PLinkData;
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVisibilityForm.VST3FreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PLinkData;
+
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
 
 
 end.

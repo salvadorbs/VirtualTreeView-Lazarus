@@ -32,7 +32,6 @@ object frmVTPropEdit: TfrmVTPropEdit
       Top = 32
       Width = 444
       Align = alClient
-      CheckImageKind = ckXP
       Color = 15921906
       Colors.BorderColor = clWindowText
       Colors.HotColor = clBlack

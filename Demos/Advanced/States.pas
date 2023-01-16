@@ -116,13 +116,8 @@ begin
       SetActiveState(CheckBox15, tsIncrementalSearching in NewStates);
       SetActiveState(CheckBox16, tsIncrementalSearchPending in NewStates);
       SetActiveState(CheckBox17, tsIterating in NewStates);
-      SetActiveState(CheckBox18, tsKeyCheckPending in NewStates);
       SetActiveState(CheckBox19, tsLeftButtonDown in NewStates);
-      SetActiveState(CheckBox20, tsMouseCheckPending in NewStates);
       SetActiveState(CheckBox21, tsMiddleButtonDown in NewStates);
-      {$if VTMajorVersion < 5}
-      SetActiveState(CheckBox22, tsNeedScale in NewStates);
-      {$endif}
       SetActiveState(CheckBox23, tsNeedRootCountUpdate in NewStates);
       SetActiveState(CheckBox24, tsOLEDragging in NewStates);
       SetActiveState(CheckBox25, tsOLEDragPending in NewStates);
@@ -173,11 +168,8 @@ begin
   CheckBox15.Enabled := EnableCheckBox.Checked;
   CheckBox16.Enabled := EnableCheckBox.Checked;
   CheckBox17.Enabled := EnableCheckBox.Checked;
-  CheckBox18.Enabled := EnableCheckBox.Checked;
   CheckBox19.Enabled := EnableCheckBox.Checked;
-  CheckBox20.Enabled := EnableCheckBox.Checked;
   CheckBox21.Enabled := EnableCheckBox.Checked;
-  CheckBox22.Enabled := EnableCheckBox.Checked;
   CheckBox23.Enabled := EnableCheckBox.Checked;
   CheckBox24.Enabled := EnableCheckBox.Checked;
   CheckBox25.Enabled := EnableCheckBox.Checked;

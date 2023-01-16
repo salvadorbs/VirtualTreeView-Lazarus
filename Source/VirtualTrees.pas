@@ -159,6 +159,17 @@ type
   TVTDrawTextEvent = procedure(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
     Column: TColumnIndex; const CellText: String; const CellRect: TRect; var DefaultDraw: Boolean) of object;
 
+  /// Event arguments of the OnGetCellText event
+  TVSTGetCellTextEventArgs = record
+    Node: PVirtualNode;
+    Column: TColumnIndex;
+    CellText: string;
+    StaticText: string;
+    StaticTextAlignment: TAlignment;
+    ExportType: TVTExportType;
+    constructor Create(pNode: PVirtualNode; pColumn: TColumnIndex; pExportType: TVTExportType = TVTExportType.etNone);
+  end;
+
   { TCustomVirtualStringTree }
 
   TCustomVirtualStringTree = class(TBaseVirtualTree)
@@ -566,9 +577,6 @@ uses
   FakeMMSystem,
   {$endif}
   TypInfo,                 // for migration stuff
-  ActnList,
-  StdActns,                // for standard action support
-  GraphType,
   LCLProc
   {$ifdef EnableAccessible}
   , VirtualTrees.AccessibilityFactory
@@ -2463,6 +2471,17 @@ function TVirtualStringTree.GetOptionsClass: TTreeOptionsClass;
 
 begin
   Result := TStringTreeOptions;
+end;
+
+{ TVSTGetCellTextEventArgs }
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TVSTGetCellTextEventArgs.Create(pNode: PVirtualNode; pColumn: TColumnIndex; pExportType: TVTExportType);
+begin
+  Self.Node := pNode;
+  Self.Column := pColumn;
+  Self.ExportType := pExportType;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

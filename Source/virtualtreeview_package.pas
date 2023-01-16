@@ -13,7 +13,8 @@ uses
   VirtualTrees.Types, VirtualTrees.Header, VirtualTrees.DragImage, 
   VirtualTrees.DataObject, VirtualTrees.DragnDrop, VirtualTrees.Classes, 
   VirtualTrees.Export, VirtualTrees.EditLink, VirtualTrees.DrawTree, 
-  VirtualTrees.BaseTree, LazarusPackageIntf;
+  VirtualTrees.BaseTree, VirtualTrees.BaseAncestorLcl, 
+  VirtualTrees.AncestorLcl, LazarusPackageIntf;
 
 implementation
 

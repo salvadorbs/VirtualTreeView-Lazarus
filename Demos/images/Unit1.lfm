@@ -18,7 +18,6 @@ object Form1: TForm1
     Top = 0
     Width = 500
     Align = alClient
-    CheckImageKind = ckXP
     DefaultNodeHeight = 20
     DefaultText = 'Node'
     DragMode = dmAutomatic

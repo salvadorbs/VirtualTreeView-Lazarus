@@ -4122,7 +4122,6 @@ object VisibilityForm: TVisibilityForm
         FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00
       }
       ButtonStyle = bsTriangle
-      CheckImageKind = ckFlat
       Colors.BorderColor = clWindowText
       Colors.HotColor = clBlack
       Colors.UnfocusedSelectionColor = clHighlight

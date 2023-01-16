@@ -98,9 +98,6 @@ begin
 
   // Number of initial nodes
   VST1.RootNodeCount := 20;
-
-  // Set XP syle for CheckImage
-  VST1.CheckImageKind:=ckXP;
   
   //Start random number generator
   Randomize

@@ -49,9 +49,9 @@ type
     procedure VST2InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure VST2InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
-    procedure VST2NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; Text: String);
-    procedure VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: String);
+    procedure VST2NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
+    procedure VST2GetCellText(Sender: TCustomVirtualStringTree;
+      var E: TVSTGetCellTextEventArgs);
     procedure VST2PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       TextType: TVSTTextType);
     procedure VST2GetNodeDataSize(Sender: TBaseVirtualTree; var NodeDataSize: Integer);
@@ -74,8 +74,9 @@ type
       Mode: TDropMode; var Effect: Integer; var Accept: Boolean);
     procedure VST2GetImageIndexEx(Sender: TBaseVirtualTree;
       Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var ImageIndex: Integer;
+      var Ghosted: Boolean; var ImageIndex: TImageIndex;
       var ImageList: TCustomImageList);
+    procedure VST2FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   end;
 
 var
@@ -179,8 +180,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGeneralForm.VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: String);
+procedure TGeneralForm.VST2GetCellText(Sender: TCustomVirtualStringTree; var E: TVSTGetCellTextEventArgs);
 
 // Returns the text as it is stored in the nodes data record.
 
@@ -188,21 +188,19 @@ var
   Data: PNodeData2;
 
 begin
-  Data := Sender.GetNodeData(Node);
-  CellText := '';
-  case Column of
+  Data := Sender.GetNodeData(E.Node);
+  case E.Column of
     0: // main column (has two different captions)
-      case TextType of
-        ttNormal:
-          CellText := Data.Caption;
-        ttStatic:
-          CellText := Data.StaticText;
+      begin
+        E.CellText := Data.Caption;
+        E.StaticText := Data.StaticText;
+        if Sender.GetNodeLevel(E.Node) > 0 then
+          E.StaticTextAlignment := TAlignment.taRightJustify;
       end;
-    1: // no text in the image column
-      ;
-    2:
-      if TextType = ttNormal then
-        CellText := Data.ForeignText;
+    1,2:
+      E.CellText := Data.ForeignText;
+  else
+    E.CellText := '';
   end;
 end;
 
@@ -232,7 +230,7 @@ begin
     end;
 
     Caption := Format('Level %d, Index %d', [Level, Node.Index]);
-    if Level in [0, 3] then
+    if Level in [0, 2, 3] then
       StaticText := '(static text)';
 
     ForeignText := '';
@@ -269,14 +267,18 @@ begin
         end;
     end;
     Node.CheckType := LevelToCheckType[Data.Level];
-    Sender.CheckState[Node] := csCheckedNormal;
+    // use enabled and disabled checkboxes
+    case (Data.Level mod 5) of
+      0,1,2,3: Sender.CheckState[Node] := csCheckedNormal;
+      4: Sender.CheckState[Node] := csCheckedDisabled;
+    end;//case
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TGeneralForm.VST2GetImageIndexEx(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-  Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: Integer; var ImageList: TCustomImageList);
+  Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: TImageIndex; var ImageList: TCustomImageList);
 
 var
   Data: PNodeData2;
@@ -327,7 +329,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TGeneralForm.VST2NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  Text: String);
+  NewText: string);
 
 // The caption of a node has been changed, keep this in the node record.
 
@@ -336,7 +338,7 @@ var
 
 begin
   Data := Sender.GetNodeData(Node);
-  Data.Caption := Text;
+  Data.Caption := NewText;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -413,12 +415,12 @@ begin
   with Sender as TRadioGroup do
     if ItemIndex = 0 then
     begin
-      VST2.TreeOptions.PaintOptions := VST2.TreeOptions.PaintOptions + [toShowTreeLines];
+      VST2.TreeOptions.PaintOptions := VST2.TreeOptions.PaintOptions + [TVTPaintOption.toShowTreeLines];
       VST2.ButtonStyle := bsRectangle;
     end
     else
     begin
-      VST2.TreeOptions.PaintOptions := VST2.TreeOptions.PaintOptions - [toShowTreeLines];
+      VST2.TreeOptions.PaintOptions := VST2.TreeOptions.PaintOptions - [TVTPaintOption.toShowTreeLines];
       VST2.ButtonStyle := bsTriangle;
     end;
 end;
@@ -429,7 +431,7 @@ procedure TGeneralForm.VST2FocusChanging(Sender: TBaseVirtualTree; OldNode, NewN
   NewColumn: TColumnIndex; var Allowed: Boolean);
 
 begin
-  Allowed := NewColumn in [0, 2];
+  Allowed := (NewColumn <= 0) or (NewColumn = 2);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -455,14 +457,15 @@ procedure TGeneralForm.ThemeRadioGroupClick(Sender: TObject);
 begin
   with VST2.TreeOptions do
     if ThemeRadioGroup.ItemIndex = 0 then
-      PaintOptions := PaintOptions + [toThemeAware]
+    begin
+      PaintOptions := PaintOptions + [TVTPaintOption.toThemeAware];
+      VST2.CheckImageKind := ckSystemDefault;
+    end
     else
-      PaintOptions := PaintOptions - [toThemeAware];
+      PaintOptions := PaintOptions - [TVTPaintOption.toThemeAware];
 
   RadioGroup1.Enabled := ThemeRadioGroup.ItemIndex = 1;
   RadioGroup2.Enabled := ThemeRadioGroup.ItemIndex = 1;
-  Label18.Enabled := ThemeRadioGroup.ItemIndex = 1;
-  CheckMarkCombo.Enabled := ThemeRadioGroup.ItemIndex = 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -524,7 +527,7 @@ begin
          5: // Unicode UTF-8 text file
            begin
             TargetName := ChangeFileExt(TargetName, '.txt');
-            S := VST2.ContentToUTF8(tstVisible, #9);
+            //S := VST2.ContentToUTF8(tstVisible, #9);
             Data := PChar(S);
             DataSize := Length(S);
           end;
@@ -566,5 +569,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TGeneralForm.VST2FreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PNodeData2;
+
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(data^);
+end;
 
 end.

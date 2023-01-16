@@ -7,11 +7,12 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, Controls, Graphics, LCLVersion, VirtualTrees.BaseTree, VirtualTrees.Types, Types;
+  Classes, Controls, Graphics, LCLVersion, VirtualTrees.BaseTree, VirtualTrees,
+  VirtualTrees.Types, Types;
 
 type
   // Tree descendant to let an application draw its stuff itself.
-  TCustomVirtualDrawTree = class(TBaseVirtualTree)
+  TCustomVirtualDrawTree = class(TVTAncestor)
   private
     FOnDrawNode: TVTDrawNodeEvent;
     FOnGetCellContentMargin: TVTGetCellContentMarginEvent;
@@ -165,6 +166,7 @@ type
     property OnColumnDblClick;
     property OnColumnExport;
     property OnColumnResize;
+    property OnColumnVisibilityChanged;
     property OnColumnWidthDblClickResize;
     property OnColumnWidthTracking;
     property OnCompareNodes;
@@ -203,6 +205,7 @@ type
     property OnGetNodeWidth;
     property OnGetPopupMenu;
     property OnGetUserClipboardFormats;
+    property OnHeaderAddPopupItem;
     property OnHeaderClick;
     property OnHeaderDblClick;
     property OnHeaderDragged;
@@ -240,6 +243,7 @@ type
     property OnNodeMoved;
     property OnNodeMoving;
     property OnPaintBackground;
+    property OnPrepareButtonBitmaps;
     property OnRemoveFromSelection;
     property OnRenderOLEData;
     property OnResetNode;

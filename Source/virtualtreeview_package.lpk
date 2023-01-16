@@ -41,7 +41,7 @@ end;"/>
     <License Value=" Mozilla Public License 1.1 (MPL 1.1) or GNU Lesser General Public License
 "/>
     <Version Major="5" Minor="5" Release="3" Build="1"/>
-    <Files Count="21">
+    <Files Count="23">
       <Item1>
         <Filename Value="VirtualTrees.pas"/>
         <UnitName Value="VirtualTrees"/>
@@ -129,6 +129,14 @@ end;"/>
         <Filename Value="VirtualTrees.BaseTree.pas"/>
         <UnitName Value="VirtualTrees.BaseTree"/>
       </Item21>
+      <Item22>
+        <Filename Value="VirtualTrees.BaseAncestorLcl.pas"/>
+        <UnitName Value="VirtualTrees.BaseAncestorLCL"/>
+      </Item22>
+      <Item23>
+        <Filename Value="VirtualTrees.AncestorLcl.pas"/>
+        <UnitName Value="VirtualTrees.AncestorLCL"/>
+      </Item23>
     </Files>
     <CompatibilityMode Value="True"/>
     <RequiredPkgs Count="3">
