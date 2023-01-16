@@ -6,6 +6,8 @@ unit virtualpanningwindow;
 
 interface
 
+{$I VTConfig.inc}
+
 uses
   Windows, Graphics, Classes, SysUtils;
   
@@ -107,7 +109,7 @@ end;
 
 procedure TVirtualPanningWindow.Show(ClipRegion: HRGN);
 begin
-  {$ifdef DEBUG_VTV}Logger.SendBitmap([lcPanning],'Panning Image',FImage);{$endif}
+  {$ifdef DEBUG_VTV}{Logger.SendBitmap([lcPanning],'Panning Image',FImage);}{$endif}
   //todo: move SetWindowRgn to DelphiCompat
   SetWindowRgn(FHandle, ClipRegion, False);
   ShowWindow(FHandle, SW_SHOWNOACTIVATE);

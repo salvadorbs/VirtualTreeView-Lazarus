@@ -1,88 +1,232 @@
 unit VirtualTrees.Logger;
 
-{$mode objfpc}{$H+}
+{$mode delphi}
 
 interface
 
 uses
-  LCLLogger, MultiLog;
+  Graphics, Types, Classes, SysUtils;
 
-const
-  lcAll = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31];
-  lcDebug = 0;
-  lcError = 1;
-  lcInfo = 2;
-  lcWarning = 3;
-  lcEvents = 4;
-  //reserved
-  lcUser = 8;
+type
 
-  lcVTEvents = lcUser + 1;
-  lcPaint = lcUser + 2;
-  lcPaintHeader = lcUser + 3;
-  lcDummyFunctions = lcUser + 4;
-  lcMessages = lcUser + 5;
-  lcPaintSelection = lcUser + 6;
-  lcSetCursor = lcUser + 7;//it generates a lot of messages. so it will be debugged alone
-  lcPaintBitmap = lcUser + 8;
-  lcScroll = lcUser + 8;
-  lcPaintDetails = lcUser + 9;
-  lcCheck = lcUser + 10;
-  lcEditLink = lcUser + 11;
-  lcEraseBkgnd = lcUser + 12;
-  lcColumnPosition = lcUser + 13;
-  lcTimer = lcUser + 14;
-  lcDrag = lcUser + 15;
-  lcOle = lcUser + 16;
-  lcPanning = lcUser + 17;
-  lcHeaderOffset = lcUser + 18;
-  lcSelection = lcUser + 19;
-  lcAlphaBlend = lcUser + 20;
-  lcHint = lcUser + 21;
-  lcMouseEvent = lcUser + 22;
+  TDebugEnum = (lcDebug, lcError, lcInfo, lcWarning, lcEvents, lcUser,
+    lcVTEvents, lcPaint, lcPaintHeader, lcDummyFunctions, lcMessages,
+    lcPaintSelection, lcSetCursor, lcPaintBitmap, lcScroll, lcPaintDetails,
+    lcCheck, lcEditLink, lcEraseBkgnd, lcColumnPosition, lcTimer, lcDrag,
+    lcOle, lcPanning, lcHeaderOffset, lcSelection, lcAlphaBlend, lcHint, lcMouseEvent);
 
-  lcVT = [lcEvents..lcMouseEvent];
+  TDebugClasses = Set of TDebugEnum;
+
+  { Logger }
+
+  Logger = class
+  private
+    class procedure DebugLn(Classes: TDebugClasses; AText: String);
+    class procedure DebugLnValue(Classes: TDebugClasses; AText: String; Args: array of const);
+    class procedure DebugLnMultipleValues(Classes: TDebugClasses; AText: String; Args: array of const);
+    class procedure DebugLnEnter(Classes: TDebugClasses; const AMethodName,
+      AMessage: String);
+    class procedure DebugLnExit(Classes: TDebugClasses; const AMethodName,
+      AMessage: String);
+
+    class function DebugClassesToString(Classes: TDebugClasses): String;
+  public
+    class function RectToStr(const ARect: TRect): string;
+    class function PointToStr(const APoint: TPoint): string;
+
+    //Send functions
+    class procedure Send(Classes: TDebugClasses; const AText: string); overload;
+    class procedure Send(Classes: TDebugClasses; const AText, AValue: string); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: String; Args: array of const);overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: integer); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: cardinal); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: double); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: int64); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: QWord); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; AValue: boolean); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; const ARect: TRect); overload;
+    class procedure Send(Classes: TDebugClasses; const AText: string; const APoint: TPoint); overload;
+    class procedure SendColor(Classes: TDebugClasses; const AText: string;
+      AColor: TColor); overload;
+    class procedure SendCallStack(Classes: TDebugClasses; const AText: string); overload;
+    class procedure SendError(Classes: TDebugClasses; const AText: string); overload;
+    class procedure SendWarning(Classes: TDebugClasses; const AText: string); overload;
+    class procedure EnterMethod(Classes: TDebugClasses; const AMethodName: string;
+      const AMessage: string = ''); overload;
+    class procedure ExitMethod(Classes: TDebugClasses; const AMethodName: string;
+      const AMessage: string = ''); overload;
+  end;
 
 var
-  Logger: TLCLLogger;
-
-
-  function GetSelectedNodes(Sender: TLogger; Data: Pointer; var DoSend: Boolean): String;
+  LogLevel: TDebugClasses = [lcDebug..lcMouseEvent];
 
 implementation
 
 uses
-  VirtualTrees, sysutils;
+  VirtualTrees, VirtualTrees.BaseTree, LCLProc, LazTracer, TypInfo;
 
-type
-  TNodeData = record
-    Title: String;
-  end;
-  PNodeData = ^TNodeData;
+{ Logger }
 
-  function GetSelectedNodes(Sender: TLogger; Data: Pointer; var DoSend: Boolean): String;
-  var
-    i: Integer;
-    TempNode: PVirtualNode;
+class procedure Logger.DebugLn(Classes: TDebugClasses; AText: String);
+begin
+  if Classes * LogLevel <> [] then
+    LCLProc.DebugLn(Format('%s%s', [DebugClassesToString(Classes), AText]));
+end;
+
+class procedure Logger.DebugLnValue(Classes: TDebugClasses; AText: String;
+  Args: array of const);
+begin
+  if Classes * LogLevel <> [] then
+    LCLProc.DebugLn(DebugClassesToString(Classes) + AText + Format(' = %s', Args));
+end;
+
+class procedure Logger.DebugLnMultipleValues(Classes: TDebugClasses;
+  AText: String; Args: array of const);
+begin
+  if Classes * LogLevel <> [] then
+    LCLProc.DebugLn(DebugClassesToString(Classes) + Format(AText, Args));
+end;
+
+class procedure Logger.DebugLnEnter(Classes: TDebugClasses; const AMethodName,
+  AMessage: String);
+begin
+  if Classes * LogLevel <> [] then
+    if (AMessage = '') then
+      LCLProc.DebugLnEnter(Format('%sEnter Method = %s', [DebugClassesToString(Classes), AMethodName]))
+    else
+      LCLProc.DebugLnEnter(Format('%sEnter Method = %s - %s', [DebugClassesToString(Classes), AMethodName, AMessage]));
+end;
+
+class procedure Logger.DebugLnExit(Classes: TDebugClasses; const AMethodName,
+  AMessage: String);
+begin
+  if Classes * LogLevel <> [] then
+    if (AMessage = '') then
+      LCLProc.DebugLnExit(Format('%sExit Method = %s', [DebugClassesToString(Classes), AMethodName]))
+    else
+      LCLProc.DebugLnExit(Format('%sExit Method = %s - %s', [DebugClassesToString(Classes), AMethodName, AMessage]));
+end;
+
+class function Logger.DebugClassesToString(Classes: TDebugClasses): String;
+begin
+  Result := SetToString(PTypeInfo(TypeInfo(TDebugClasses)), @Classes, True) + ' ';
+end;
+
+class function Logger.RectToStr(const ARect: TRect): string;
+begin
+  with ARect do
+    Result := Format('(Left: %d; Top: %d; Right: %d; Bottom: %d)', [Left, Top, Right, Bottom]);
+end;
+
+class function Logger.PointToStr(const APoint: TPoint): string;
+begin
+  with APoint do
+    Result := Format('(X: %d; Y: %d)', [X, Y]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string);
+begin
+  DebugLn(Classes, AText);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText, AValue: string
+  );
+begin
+  DebugLnValue(Classes, AText, [AValue]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: String;
+  Args: array of const);
+begin
+  DebugLnMultipleValues(Classes, AText, Args);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: integer);
+begin
+  DebugLnValue(Classes, AText, [IntToStr(AValue)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: cardinal);
+begin
+  DebugLnValue(Classes, AText, [IntToStr(AValue)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: double);
+begin
+  DebugLnValue(Classes, AText, [FloatToStr(AValue)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: int64);
+begin
+  DebugLnValue(Classes, AText, [IntToStr(AValue)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: QWord);
+begin
+  DebugLnValue(Classes, AText, [IntToStr(AValue)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  AValue: boolean);
+begin
+  DebugLnValue(Classes, AText, [BoolToStr(AValue, True)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  const ARect: TRect);
+begin
+  DebugLnValue(Classes, AText, [RectToStr(ARect)]);
+end;
+
+class procedure Logger.Send(Classes: TDebugClasses; const AText: string;
+  const APoint: TPoint);
+begin
+  DebugLnValue(Classes, AText, [PointToStr(APoint)]);
+end;
+
+class procedure Logger.SendColor(Classes: TDebugClasses; const AText: string;
+  AColor: TColor);
+begin
+  DebugLnValue(Classes, AText, [ColorToString(AColor)]);
+end;
+
+class procedure Logger.SendCallStack(Classes: TDebugClasses; const AText: string
+  );
+begin
+  if Classes * LogLevel <> [] then
   begin
-    with TBaseVirtualTree(Data) do
-    begin
-      Result:='SelectedCount: '+IntToStr(SelectedCount)+LineEnding;
-      TempNode:=GetFirstSelected;
-      if TempNode = nil then exit;
-      Result:=Result+PNodeData(GetNodeData(TempNode))^.Title+LineEnding;
-      for i:= 1 to SelectedCount -1 do
-      begin
-        TempNode:=GetNextSelected(TempNode);
-        Result:=Result+PNodeData(GetNodeData(TempNode))^.Title+LineEnding;
-      end;
-    end;
+    LCLProc.DebugLn(AText);
+    LCLProc.DebugLn(GetStackTrace(True));
   end;
+end;
 
+class procedure Logger.SendError(Classes: TDebugClasses; const AText: string);
+begin
+  if Classes * LogLevel <> [] then
+    LCLProc.DebugLn('ERROR: ' + AText);
+end;
 
-initialization
-  Logger:=TLCLLogger.Create;
-finalization
-  Logger.Free;
+class procedure Logger.SendWarning(Classes: TDebugClasses; const AText: string);
+begin
+  if Classes * LogLevel <> [] then
+    LCLProc.DebugLn('WARNING: ' + AText);
+end;
+
+class procedure Logger.EnterMethod(Classes: TDebugClasses;
+  const AMethodName: string; const AMessage: string);
+begin
+  DebugLnEnter(Classes, AMethodName, AMessage);
+end;
+
+class procedure Logger.ExitMethod(Classes: TDebugClasses;
+  const AMethodName: string; const AMessage: string);
+begin
+  DebugLnExit(Classes, AMethodName, AMessage);
+end;
+
 end.
-

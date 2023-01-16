@@ -8212,7 +8212,7 @@ begin
         HandleMouseUp(Message.Keys, HitInfo);
       end;
     end;
-  {$ifdef DEBUG_VTV}Logger.ExitMethod('WMMButtonUp');{$endif}
+  {$ifdef DEBUG_VTV}Logger.ExitMethod([lcDebug], 'WMMButtonUp');{$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -8921,13 +8921,13 @@ function TBaseVirtualTree.AllocateInternalDataArea(Size: Cardinal): Cardinal;
 
 begin
   Assert((FRoot = nil) or (FRoot.ChildCount = 0), 'Internal data allocation must be done before any node is created.');
-  {$ifdef DEBUG_VTV}Logger.Send('FTotalInternalDataSize BEFORE',FTotalInternalDataSize);{$endif}
-  {$ifdef DEBUG_VTV}Logger.Send('Size',Size);{$endif}
-  {$ifdef DEBUG_VTV}Logger.Send('TreeNodeSize',TreeNodeSize);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcDebug], 'FTotalInternalDataSize BEFORE',FTotalInternalDataSize);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcDebug], 'Size',Size);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcDebug], 'TreeNodeSize',TreeNodeSize);{$endif}
   Result := TreeNodeSize + FTotalInternalDataSize;
-  {$ifdef DEBUG_VTV}Logger.Send('Result',Result);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcDebug], 'Result',Result);{$endif}
   Inc(FTotalInternalDataSize, (Size + (SizeOf(Pointer) - 1)) and not (SizeOf(Pointer) - 1));
-  {$ifdef DEBUG_VTV}Logger.Send('FTotalInternalDataSize AFTER', FTotalInternalDataSize);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcDebug], 'FTotalInternalDataSize AFTER', FTotalInternalDataSize);{$endif}
   InitRootNode(Result);
 end;
 
@@ -11378,7 +11378,7 @@ var
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcScroll],'DoSetOffsetXY');{$endif}
-  {$ifdef DEBUG_VTV}Logger.Send([lcScroll],'Value',Value);{$endif}
+  {$ifdef DEBUG_VTV}Logger.Send([lcScroll],'DoSetOffsetXY Value',Value);{$endif}
   //{$ifdef DEBUG_VTV}Logger.SendCallStack([lcScroll],'CallStack');{$endif}
   // Range check, order is important here.
   if Value.X < (ClientWidth - Integer(FRangeX)) then
@@ -14782,7 +14782,7 @@ begin
 
         if RectVisible(Canvas.Handle, FHeaderRect) then
         begin
-          {$ifdef DEBUG_VTV}Logger.Send([lcPaintHeader],'RectVisible = True');{$endif}
+          {$ifdef DEBUG_VTV}Logger.Send([lcPaintHeader],'RectVisible', True);{$endif}
           FHeader.Columns.PaintHeader(Canvas.Handle, FHeaderRect, -FEffectiveOffsetX);
         end;
         with FHeaderRect do
@@ -21271,7 +21271,7 @@ begin
         SelectionRect := OrderRect(FNewSelRect);
         {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails, lcSelection],'SelectionRect', SelectionRect);{$endif}
         DrawSelectionRect := IsMouseSelecting and not IsRectEmpty(SelectionRect) and (GetKeyState(VK_LBUTTON) < 0);
-        {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'DrawSelectionRect',DrawSelectionRect);{$endif}
+        {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'DrawSelectionRect',DrawSelectionRect);{$endif}
         // R represents an entire node (all columns), but is a bit unprecise when it comes to
         // trees without any column defined, because FRangeX only represents the maximum width of all
         // nodes in the client area (not all defined nodes). There might be, however, wider nodes somewhere. Without full
@@ -21330,8 +21330,8 @@ begin
           begin
             {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaintDetails],'PaintNode');{$endif}
             {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'NodeIndex',PaintInfo.Node^.Index);{$endif}
-            {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'BaseOffset',BaseOffset);{$endif}
-            {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+            {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'BaseOffset',BaseOffset);{$endif}
+            {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
             // Determine LineImage, SelectionLevel and IndentSize
             SelectLevel := DetermineLineImageAndSelectLevel(PaintInfo.Node, LineImage);
             IndentSize := Length(LineImage);
@@ -21406,12 +21406,12 @@ begin
               begin
                 // Init paint options for the background painting.
                 PaintInfo.PaintOptions := PaintOptions;
-                {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                 // The node background can contain a single color, a bitmap or can be drawn by the application.
                 ClearNodeBackground(PaintInfo, UseBackground, True, Types.Rect(Window.Left, TargetRect.Top, Window.Right,
                   TargetRect.Bottom));
-                {$ifdef DEBUG_VTV}Logger.SendBitmap([lcPaintBitmap],'After Clear BackGround',NodeBitmap);{$endif}
-                {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                {$ifdef DEBUG_VTV}{Logger.SendBitmap([lcPaintBitmap],'After Clear BackGround',NodeBitmap);}{$endif}
+                {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                 // Prepare column, position and node clipping rectangle.
                 PaintInfo.CellRect := R;
                 {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'PaintInfo.CellRect',PaintInfo.CellRect);{$endif}
@@ -21589,7 +21589,7 @@ begin
 
                           // Prepare background and focus rect for the current cell.
                           PrepareCell(PaintInfo, Window.Left, PaintWidth);
-                          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                           // Some parts are only drawn for the main column.
                           if IsMainColumn then
                           begin
@@ -21608,18 +21608,18 @@ begin
                             if ImageInfo[iiCheck].Index > -1 then
                               PaintCheckImage(Canvas, PaintInfo.ImageInfo[iiCheck], vsSelected in PaintInfo.Node.States);
                           end;
-                          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                           if ImageInfo[iiState].Index > -1 then
                             PaintImage(PaintInfo, iiState, False);
                           if ImageInfo[iiNormal].Index > -1 then
                             PaintImage(PaintInfo, iiNormal, True);
-                          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                           // Now let descendants or applications draw whatever they want,
                           // but don't draw the node if it is currently being edited.
                           if not ((tsEditing in FStates) and (Node = FFocusedNode) and
                             ((Column = FEditColumn) or not UseColumns)) then
                             DoPaintNode(PaintInfo);
-                          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
                           DoAfterCellPaint(Canvas, Node, Column, CellRect);
                         end;
                       end;
@@ -21670,8 +21670,8 @@ begin
                   PaintSelectionRectangle(PaintInfo.Canvas, Window.Left, SelectionRect, Types.Rect(0, 0, PaintWidth,
                     CurrentNodeHeight));
                 end;
-                {$ifdef DEBUG_VTV}Logger.SendBitmap([lcPaintBitmap],'NodeBitmap ' + IntToStr(PaintInfo.Node^.Index), NodeBitmap);{$endif}
-                {$ifdef DEBUG_VTV}Logger.SendIf([lcPaintDetails, lcHeaderOffset],'TargetRect.Top < Target.Y '+ Logger.RectToStr(TargetRect)
+                {$ifdef DEBUG_VTV}{Logger.SendBitmap([lcPaintBitmap],'NodeBitmap ' + IntToStr(PaintInfo.Node^.Index), NodeBitmap);}{$endif}
+                {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails, lcHeaderOffset],'TargetRect.Top < Target.Y '+ Logger.RectToStr(TargetRect)
                   +'  '+Logger.PointToStr(Target),TargetRect.Top < Target.Y);{$endif}
                 {$ifdef ManualClipNeeded}
                 //lclheader
@@ -21697,7 +21697,7 @@ begin
             end;
 
             Inc(TargetRect.Top, PaintInfo.Node.NodeHeight);
-            {$ifdef DEBUG_VTV}Logger.SendIf([lcPaintHeader,lcDrag],'Last Node to be painted: '+ IntToStr(PaintInfo.Node^.Index)
+            {$ifdef DEBUG_VTV}Logger.Send([lcPaintHeader,lcDrag],'Last Node to be painted: '+ IntToStr(PaintInfo.Node^.Index)
               +' (TargetRect.Top >= MaximumBottom)',TargetRect.Top >= MaximumBottom);{$endif}
             if TargetRect.Top >= MaximumBottom then
             begin
@@ -21718,8 +21718,8 @@ begin
         // Erase rest of window not covered by a node.
         if TargetRect.Top < MaximumBottom then
         begin
-          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'UseBackground',UseBackground);{$endif}
-          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'UseColumns',UseColumns);{$endif}
+          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'UseBackground',UseBackground);{$endif}
+          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'UseColumns',UseColumns);{$endif}
           // Keep the horizontal target position to determine the selection rectangle offset later (if necessary).
           BaseOffset := Target.X;
           Target := TargetRect.TopLeft;
@@ -21862,7 +21862,7 @@ begin
           {$else}
           SetWindowOrgEx(PaintInfo.Canvas.Handle, 0, 0, nil);
           {$endif}
-          {$ifdef DEBUG_VTV}Logger.Watch([lcPaintDetails],'DrawSelectionRect',DrawSelectionRect);{$endif}
+          {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'DrawSelectionRect',DrawSelectionRect);{$endif}
           if DrawSelectionRect then
           begin
             R := OrderRect(FNewSelRect);
@@ -21881,7 +21881,7 @@ begin
           {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'NodeBitmap.Canvas.Height',NodeBitmap.Canvas.Height);{$endif}
           {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'NodeBitmap.Canvas.ClipRect',NodeBitmap.Canvas.ClipRect);{$endif}
           {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Target',Target);{$endif}
-          {$ifdef DEBUG_VTV}Logger.SendBitmap([lcPaintBitmap],'BackGroundBitmap',NodeBitmap);{$endif}
+          {$ifdef DEBUG_VTV}{Logger.SendBitmap([lcPaintBitmap],'BackGroundBitmap',NodeBitmap);}{$endif}
           if not (poUnBuffered in PaintOptions) then
             with Target, NodeBitmap do
               BitBlt(TargetCanvas.Handle, X, Y, Width, Height, Canvas.Handle, 0, 0, SRCCOPY);

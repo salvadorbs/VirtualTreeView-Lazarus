@@ -5,6 +5,8 @@
 
 interface
 
+{$I VTConfig.inc}
+
 uses
   LCLType, Graphics, Classes, SysUtils;
   

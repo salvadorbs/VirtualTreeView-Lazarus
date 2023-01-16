@@ -4,6 +4,8 @@ unit virtualdragmanager;
 
 interface
 
+{$I VTConfig.inc}
+
 uses
   Classes, Controls, Graphics, LCLType,
   {$ifdef Windows}

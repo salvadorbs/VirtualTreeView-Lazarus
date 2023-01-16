@@ -7,6 +7,8 @@
 
 interface
 
+{$I VTConfig.inc}
+
 uses
   {$ifdef Windows} Windows, {$endif} Classes, SysUtils, LCLType, Types;
 
