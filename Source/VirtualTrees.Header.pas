@@ -12,6 +12,9 @@ uses
   {$else}
   FakeActiveX,
   {$endif}
+  {$ifdef DEBUG_VTV}
+  VirtualTrees.Logger,
+  {$endif}
   SysUtils
   , DelphiCompat
   , VirtualTrees.Types

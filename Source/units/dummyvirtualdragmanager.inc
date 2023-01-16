@@ -7,6 +7,8 @@
 
 interface
 
+{$I VTConfig.inc}
+
 uses
   Classes, SysUtils, Types;
 
