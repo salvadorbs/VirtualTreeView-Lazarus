@@ -1,13 +1,19 @@
 unit Main;
 
+{$MODE Delphi}
+{.$define DEBUG_VTV}
+
 // Demonstration project for TVirtualStringTree to generally show how to get started.
 // Written by Mike Lischke.
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  VirtualTrees, StdCtrls, ExtCtrls;
+  {$ifdef DEBUG_VTV}
+  VirtualTrees.logger, ipcchannel,
+  {$endif}
+  LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  VirtualTrees, StdCtrls, ExtCtrls, LResources, Buttons, VirtualTrees.BaseTree;
 
 type
   TMainForm = class(TForm)
@@ -21,12 +27,12 @@ type
     procedure FormCreate(Sender: TObject);
     procedure ClearButtonClick(Sender: TObject);
     procedure AddButtonClick(Sender: TObject);
+    procedure VSTGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
+      var Text: String);
     procedure VSTFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure VSTInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure CloseButtonClick(Sender: TObject);
-    procedure VSTGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
-      Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
   end;
 
 var
@@ -36,7 +42,8 @@ var
 
 implementation
 
-{$R *.DFM}
+{$R *.lfm}
+
 
 type
   // This is a very simple record we use to store data in the nodes.
@@ -45,7 +52,7 @@ type
   // Extend it to whatever your application needs.
   PMyRec = ^TMyRec;
   TMyRec = record
-    Caption: WideString;
+    Caption: String;
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -53,6 +60,12 @@ type
 procedure TMainForm.FormCreate(Sender: TObject);
 
 begin
+  {$ifdef DEBUG_VTV}
+  Logger.ActiveClasses:=[];//[lcScroll,lcPaint];
+  Logger.Channels.Add(TIPCChannel.Create);
+  Logger.Clear;
+  Logger.MaxStackCount:=10;
+  {$endif}
   // Let the tree know how much data space we need.
   VST.NodeDataSize := SizeOf(TMyRec);
   // Set an initial number of nodes.
@@ -84,7 +97,7 @@ procedure TMainForm.AddButtonClick(Sender: TObject);
 var
   Count: Cardinal;
   Start: Cardinal;
-
+  
 begin
   // Add some nodes to the treeview.
   Screen.Cursor := crHourGlass;
@@ -114,8 +127,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TMainForm.VSTGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
-  Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+procedure TMainForm.VSTGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
+  var Text: String);
 
 var
   Data: PMyRec;
@@ -124,7 +137,7 @@ begin
   // A handler for the OnGetText event is always needed as it provides the tree with the string data to display.
   Data := Sender.GetNodeData(Node);
   if Assigned(Data) then
-    CellText := Data.Caption;
+    Text := Data.Caption;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -139,7 +152,8 @@ begin
   // Explicitely free the string, the VCL cannot know that there is one but needs to free
   // it nonetheless. For more fields in such a record which must be freed use Finalize(Data^) instead touching
   // every member individually.
-  Finalize(Data^);
+  if Assigned(Data) then
+    Data.Caption := '';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -168,7 +182,8 @@ begin
   Close;
 end;
 
+//----------------------------------------------------------------------------------------------------------------------
+
 
 end.
-
 

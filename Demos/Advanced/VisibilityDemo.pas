@@ -1,18 +1,19 @@
 unit VisibilityDemo;
 
+{$MODE Delphi}
+{$H+}
+
 // Virtual Treeview sample form demonstrating following features:
 //   - Hiding nodes.
 //   - Synchronization between 2 trees (expand, scroll, selection).
 //   - Wheel scrolling and panning.
 // Written by Mike Lischke.
-{$WARN UNSAFE_CODE OFF} // Prevent warnins that are not applicable 
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, VirtualTrees, ComCtrls, ExtCtrls, ImgList, VirtualTrees.BaseTree, VirtualTrees.BaseAncestorVCL,
-  VirtualTrees.AncestorVCL;
+  LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, VirtualTrees, ExtCtrls, LResources, VirtualTrees.BaseTree;
 
 type
   TVisibilityForm = class(TForm)
@@ -33,7 +34,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure RadioGroup1Click(Sender: TObject);
     procedure VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure VST3Scroll(Sender: TBaseVirtualTree; DeltaX, DeltaY: Integer);
     procedure VST2InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure VST2Scroll(Sender: TBaseVirtualTree; DeltaX, DeltaY: Integer);
@@ -43,12 +44,9 @@ type
       var Accept: Boolean);
     procedure Splitter2Paint(Sender: TObject);
     procedure VST1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure FormShow(Sender: TObject);
     procedure FormHide(Sender: TObject);
-    procedure VST3FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-    procedure VST2FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-    procedure VST1FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
     FChanging: Boolean;
     procedure HideNodes(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
@@ -61,14 +59,15 @@ var
 
 implementation
 
+{$R *.lfm}
+
 uses States;
 
-{$R *.DFM}
 
 type
   PLinkData = ^TLinkData;
   TLinkData = record
-    Caption: UnicodeString;
+    Caption: String;
     OtherNode: PVirtualNode;
   end;
 
@@ -95,7 +94,7 @@ end;
 procedure TVisibilityForm.VST1InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
 
 begin
-  ChildCount := Random(5) + 1;
+  ChildCount := Random(5);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -139,7 +138,7 @@ end;
 procedure TVisibilityForm.HideNodes(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
 
 begin
-  case Integer(Data) of
+  case PtrUInt(Data) of
     0: // show all nodes
       Sender.IsVisible[Node] := True;
     1: // hide every second
@@ -170,7 +169,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVisibilityForm.VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: string);
+  TextType: TVSTTextType; var CellText: String);
 
 var
   Data: PLinkData;
@@ -317,7 +316,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVisibilityForm.VST1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: UnicodeString);
+  TextType: TVSTTextType; var CellText: String);
 
 begin
   CellText := Format('Node Level %d, Index %d', [Sender.GetNodeLevel(Node), Node.Index]);
@@ -340,38 +339,6 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
-
-procedure TVisibilityForm.VST1FreeNode(Sender: TBaseVirtualTree;
-  Node: PVirtualNode);
-var
-  Data: PLinkData;
-begin
-  Data := Sender.GetNodeData(Node);
-  Finalize(Data^);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVisibilityForm.VST2FreeNode(Sender: TBaseVirtualTree;
-  Node: PVirtualNode);
-var
-  Data: PLinkData;
-begin
-  Data := Sender.GetNodeData(Node);
-  Finalize(Data^);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVisibilityForm.VST3FreeNode(Sender: TBaseVirtualTree;
-  Node: PVirtualNode);
-var
-  Data: PLinkData;
-
-begin
-  Data := Sender.GetNodeData(Node);
-  Finalize(Data^);
-end;
 
 
 end.

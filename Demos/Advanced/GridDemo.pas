@@ -1,5 +1,8 @@
 unit GridDemo;
 
+{$MODE Delphi}
+
+
 // Virtual Treeview sample form demonstrating following features:
 //   - TVirtualStringTree with enabled grid extensions and a fixed column.
 //   - Owner draw column to simulate a fixed column.
@@ -10,41 +13,38 @@ unit GridDemo;
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, VirtualTrees, ImgList, Menus, System.ImageList, VirtualTrees.BaseTree, VirtualTrees.BaseAncestorVCL,
-  VirtualTrees.AncestorVCL;
+  delphicompat, LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, VirtualTrees, LResources, LCLType, variants, VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
+
+  { TGridForm }
+
   TGridForm = class(TForm)
     VST5: TVirtualStringTree;
     GridLineCheckBox: TCheckBox;
     Label15: TLabel;
     TreeImages: TImageList;
     Label1: TLabel;
-    PopupMenu: TPopupMenu;
-    Edit1: TMenuItem;
-    Label2: TLabel;
-    AutoSpanCheckBox: TCheckBox;
-    procedure VST5BeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
-      Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
+    procedure VST5BeforeCellPaint(Sender: TBaseVirtualTree;
+      TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+      CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
     procedure VST5BeforeItemErase(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; ItemRect: TRect;
       var Color: TColor; var EraseAction: TItemEraseAction);
     procedure VST5CreateEditor(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; out EditLink: IVTEditLink);
     procedure VST5FocusChanging(Sender: TBaseVirtualTree; OldNode, NewNode: PVirtualNode; OldColumn,
       NewColumn: TColumnIndex; var Allowed: Boolean);
     procedure VST5GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure VST5InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure VST5PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType);
     procedure GridLineCheckBoxClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
     procedure VST5AfterCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       CellRect: TRect);
     procedure VST5StateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
-    procedure VST5FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-    procedure Edit1Click(Sender: TObject);
-    procedure AutoSpanCheckBoxClick(Sender: TObject);
   end;
 
 var
@@ -54,16 +54,18 @@ var
 
 implementation
 
+{$R *.lfm}
+
 uses
   Editors, States;
 
-{$R *.DFM}
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridForm.Edit1Click(Sender: TObject);
+procedure TGridForm.FormCreate(Sender: TObject);
+
 begin
-   VST5.EditNode(VST5.GetFirstSelected, VST5.FocusedColumn);
+  VST5.NodeDataSize := SizeOf(TGridData);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -79,7 +81,7 @@ begin
     if Node.Index mod 6 = 0 then
       Color := $49DDEF // $70A33F // $436BFF
     else
-      Color := VST5.Color;
+      Color := VST5.Brush.Color;
     EraseAction := eaColor;
   end;
 end;
@@ -94,23 +96,17 @@ begin
   Allowed := NewColumn > 0;
 end;
 
-procedure TGridForm.VST5FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-begin
-  Node.GetData<TGridData>().Free();
-end;
-
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TGridForm.VST5InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
   var InitialStates: TVirtualNodeInitStates);
 
 var
-  Data: TGridData;
+  Data: PGridData;
   D: TDateTime;
 
 begin
-  Data := TGridData.Create();
-  Sender.SetNodeData(Node, Data);
+  Data := Sender.GetNodeData(Node);
 
   // These are the editor kinds used in the grid tree.
   Data.ValueType[0] := vtNumber;
@@ -120,10 +116,7 @@ begin
 
   // fill some default values
   Data.Value[0] := Variant(Node.Index);
-  if random(100) mod 3 <> 0 then
-    Data.Value[1] := 'John'
-  else
-    Data.Value[1] := 'Long First Name Auto Spanning 2 Columns';
+  Data.Value[1] := 'John';
   Data.Value[2] := 'Doe';
   // A date value slightly randomized around today. Need the way
   // using a local variable to tell the compiler we are not
@@ -131,52 +124,50 @@ begin
   D := Date + Random(14) - 7;
   Data.Value[3] := D;
 
-  Data.Changed := False;
-
   if Sender.FocusedColumn < 1 then
     Sender.FocusedColumn := 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridForm.VST5GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+procedure TGridForm.VST5GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+  TextType: TVSTTextType; var CellText: String);
+
+var
+  Data: PGridData;
+
 begin
-  if not AutoSpanCheckBox.Checked then
+  if Column > 0 then
   begin
-    //Normal code
-    if Column > 0 then
-      CellText := Sender.GetNodeData<TGridData>(Node).Value[Column - 1]
-    else
-      CellText := '';
+    Data := Sender.GetNodeData(Node);
+    CellText := String(Data.Value[Column - 1]);
   end
   else
-  begin
-    VST5.Header.Columns[0].Options := VST5.Header.Columns[1].Options - [TVTColumnOption.coVisible]; //test:
-    //No text is shown for column 3 in addition to column 0 as in original code
-    if (Column > 0) and (Column <> 3) then
-      CellText := Sender.GetNodeData<TGridData>(Node).Value[Column - 1]
-    else
-      CellText := '';
-  end;
+    CellText := '';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TGridForm.VST5PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
   Column: TColumnIndex; TextType: TVSTTextType);
+
+var
+  Data: PGridData;
+
 begin
-  if Sender.GetNodeData<TGridData>(Node).Changed then
+  Data := Sender.GetNodeData(Node);
+  if Data.Changed then
     TargetCanvas.Font.Style := [fsBold];
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridForm.VST5BeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
-  Column: TColumnIndex; CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
-
+procedure TGridForm.VST5BeforeCellPaint(Sender: TBaseVirtualTree;
+  TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
+  CellPaintMode: TVTCellPaintMode; CellRect: TRect; var ContentRect: TRect);
 begin
   // Fill random cells with our own background, but don't touch the currently focused cell.
-  if Assigned(Node) and ((Column <> Sender.FocusedColumn) or (Node <> Sender.FocusedNode)) and
+  if ((Column <> Sender.FocusedColumn) or (Node <> Sender.FocusedNode)) and
     ((Column - 2) = (Integer(Node.Index) mod (VST5.Header.Columns.Count - 1))) then
   begin
     TargetCanvas.Brush.Color := $E0E0E0;
@@ -204,9 +195,9 @@ procedure TGridForm.GridLineCheckBoxClick(Sender: TObject);
 
 begin
   if GridLineCheckBox.Checked then
-    VST5.TreeOptions.PaintOptions := VST5.TreeOptions.PaintOptions + [TVTPaintOption.toShowHorzGridLines, TVTPaintOption.toShowVertGridLines]
+    VST5.TreeOptions.PaintOptions := VST5.TreeOptions.PaintOptions + [toShowHorzGridLines, toShowVertGridLines]
   else
-    VST5.TreeOptions.PaintOptions := VST5.TreeOptions.PaintOptions - [TVTPaintOption.toShowHorzGridLines, TVTPaintOption.toShowVertGridLines];
+    VST5.TreeOptions.PaintOptions := VST5.TreeOptions.PaintOptions - [toShowHorzGridLines, toShowVertGridLines];
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -219,9 +210,9 @@ begin
     with TargetCanvas do
     begin
       // Decorate the fixed indicator column by filling it with an edge similar to that of TCustomGrid.
-      if TVTPaintOption.toShowVertGridLines in VST5.TreeOptions.PaintOptions then
+      if toShowVertGridLines in VST5.TreeOptions.PaintOptions then
         Inc(CellRect.Right);
-      if TVTPaintOption.toShowHorzGridLines in VST5.TreeOptions.PaintOptions then
+      if toShowHorzGridLines in VST5.TreeOptions.PaintOptions then
         Inc(CellRect.Bottom);
       DrawEdge(Handle, CellRect, BDR_RAISEDINNER, BF_RECT or BF_MIDDLE);
       if Node = Sender.FocusedNode then
@@ -240,12 +231,5 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridForm.AutoSpanCheckBoxClick(Sender: TObject);
-begin
-  if AutoSpanCheckBox.Checked then
-    VST5.TreeOptions.AutoOptions := VST5.TreeOptions.AutoOptions + [TVTAutoOption.toAutoSpanColumns]
-  else
-    VST5.TreeOptions.AutoOptions := VST5.TreeOptions.AutoOptions - [TVTAutoOption.toAutoSpanColumns];
-end;
 
 end.

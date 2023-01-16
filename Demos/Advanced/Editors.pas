@@ -1,14 +1,15 @@
 unit Editors;
 
+{$MODE Delphi}
+
 // Utility unit for the advanced Virtual Treeview demo application which contains the implementation of edit link
 // interfaces used in other samples of the demo.
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ExtDlgs, ImgList, Buttons, ExtCtrls, ComCtrls, Mask,
-  VirtualTrees, VirtualTrees.EditLink, VirtualTrees.BaseTree;
+  LCLIntf, delphicompat, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, VirtualTrees, Buttons, ExtCtrls, MaskEdit, LCLType, EditBtn, VirtualTrees.BaseTree;
 
 type
   // Describes the type of value a property tree node stores in its data property.
@@ -29,25 +30,33 @@ type
   PPropertyData = ^TPropertyData;
   TPropertyData = record
     ValueType: TValueType;
-    Value: UnicodeString;      // This value can actually be a date or a number too.
+    Value: String;      // This value can actually be a date or a number too.
     Changed: Boolean;
   end;
 
   // Our own edit link to implement several different node editors.
 
-  // Base class for TPropertyEditLink and TGridEditLink implementing key handling
-  TBasePropertyEditLink = class(TWinControlEditLink)
-  protected
-    procedure EditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    procedure EditKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
-  public
-    procedure SetBounds(R: TRect); override; stdcall;
-  end;
+  { TPropertyEditLink }
 
-  TPropertyEditLink = class(TBasePropertyEditLink)
+  TPropertyEditLink = class(TInterfacedObject, IVTEditLink)
+  private
+    FEdit: TWinControl;        // One of the property editor classes.
+    FTree: TVirtualStringTree; // A back reference to the tree calling.
+    FNode: PVirtualNode;       // The node being edited.
+    FColumn: Integer;          // The column of the node being edited.
+  protected
+    procedure EditExit(Sender: TObject);
+    procedure EditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
   public
-    procedure DoEndEdit(var Result: Boolean); override;
-    procedure DoPrepareEdit(var Result: Boolean); override;
+    destructor Destroy; override;
+
+    function BeginEdit: Boolean; stdcall;
+    function CancelEdit: Boolean; stdcall;
+    function EndEdit: Boolean; stdcall;
+    function GetBounds: TRect; stdcall;
+    function PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex): Boolean; stdcall;
+    procedure ProcessMessage(var Message: TMessage); stdcall;
+    procedure SetBounds(R: TRect); stdcall;
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -162,37 +171,64 @@ const
 //----------------------------------------------------------------------------------------------------------------------
 
 type
-  TGridData = class
+  PGridData = ^TGridData;
+  TGridData = record
     ValueType: array[0..3] of TValueType; // one for each column
     Value: array[0..3] of Variant;
     Changed: Boolean;
   end;
 
   // Our own edit link to implement several different node editors.
-  TGridEditLink = class(TBasePropertyEditLink, IVTEditLink)
+
+  { TGridEditLink }
+
+  TGridEditLink = class(TPropertyEditLink, IVTEditLink)
   public
-    procedure DoEndEdit(var Result: Boolean); override;
-    procedure DoPrepareEdit(var Result: Boolean); override;
+    function EndEdit: Boolean; stdcall;
+    function PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex): Boolean; stdcall;
   end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 implementation
 
-//----------------- TBasePropertyEditLink ----------------------------------------------------------------------------------
+uses
+  PropertiesDemo, GridDemo;
 
-procedure TBasePropertyEditLink.EditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+//----------------- TPropertyEditLink ----------------------------------------------------------------------------------
+
+// This implementation is used in VST3 to make a connection beween the tree
+// and the actual edit window which might be a simple edit, a combobox
+// or a memo etc.
+
+destructor TPropertyEditLink.Destroy;
+
+begin
+  Application.ReleaseComponent(FEdit);
+  inherited;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TPropertyEditLink.EditExit(Sender: TObject);
+begin
+  FTree.EndEditNode;
+end;
+
+procedure TPropertyEditLink.EditKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 
 var
   CanAdvance: Boolean;
 
 begin
   CanAdvance := true;
-
+  
   case Key of
     VK_ESCAPE:
+      if CanAdvance then
       begin
-        Key := 0;//ESC will be handled in EditKeyUp()
+        FTree.CancelEditNode;
+        Key := 0;
       end;
     VK_RETURN:
       if CanAdvance then
@@ -208,8 +244,9 @@ begin
         CanAdvance := Shift = [];
         if FEdit is TComboBox then
           CanAdvance := CanAdvance and not TComboBox(FEdit).DroppedDown;
-        if FEdit is TDateTimePicker then
-          CanAdvance :=  CanAdvance and not TDateTimePicker(FEdit).DroppedDown;
+        //todo: there's no way to know if date is being edited in LCL
+        //if FEdit is TDateEdit then
+        //  CanAdvance := CanAdvance and not TDateEdit(FEdit).DroppedDown;
 
         if CanAdvance then
         begin
@@ -223,73 +260,82 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBasePropertyEditLink.EditKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
+function TPropertyEditLink.BeginEdit: Boolean; stdcall;
+
 begin
-  case Key of
-    VK_ESCAPE:
-      begin
-        FTree.CancelEditNode;
-        Key := 0;
-      end;//VK_ESCAPE
-  end;//case
+  Result := True;
+  FEdit.Show;
+  FEdit.SetFocus;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBasePropertyEditLink.SetBounds(R: TRect);
-
-var
-  Dummy: Integer;
+function TPropertyEditLink.CancelEdit: Boolean; stdcall;
 
 begin
-  // Since we don't want to activate grid extensions in the tree (this would influence how the selection is drawn)
-  // we have to set the edit's width explicitly to the width of the column.
-  FTree.Header.Columns.GetColumnBounds(FColumn, Dummy, R.Right);
-  FEdit.BoundsRect := R;
+  Result := True;
+  FEdit.Hide;
 end;
 
-//----------------- TPropertyEditLink ----------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
 
-procedure TPropertyEditLink.DoEndEdit(var Result: Boolean);
+function TPropertyEditLink.EndEdit: Boolean; stdcall;
 
 var
   Data: PPropertyData;
   Buffer: array[0..1024] of Char;
-  S: UnicodeString;
+  S: String;
 
 begin
-  inherited;
+  Result := True;
 
-  Data := FNode.GetData();
-  if Edit is TComboBox then
-    S := TComboBox(Edit).Text
+  Data := FTree.GetNodeData(FNode);
+  if FEdit is TComboBox then
+    S := TComboBox(FEdit).Text
   else
   begin
-    GetWindowText(Edit.Handle, Buffer, 1024);
-    S := Buffer;
+    if FEdit is TCustomEdit then
+      S := TCustomEdit(FEdit).Text
+    else
+      raise Exception.Create('Unknow edit control');
   end;
-
+  
   if S <> Data.Value then
   begin
     Data.Value := S;
     Data.Changed := True;
     FTree.InvalidateNode(FNode);
   end;
+  FEdit.Hide;
   FTree.SetFocus;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TPropertyEditLink.DoPrepareEdit(var Result: Boolean);
+function TPropertyEditLink.GetBounds: TRect; stdcall;
+
+begin
+  Result := FEdit.BoundsRect;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TPropertyEditLink.PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode;
+  Column: TColumnIndex): Boolean; stdcall;
 
 var
   Data: PPropertyData;
 
 begin
-  inherited;
+  Result := True;
+  FTree := Tree as TVirtualStringTree;
+  FNode := Node;
+  FColumn := Column;
 
   // determine what edit type actually is needed
-  Data := Node.GetData();
+  FEdit.Free;
+  FEdit := nil;
+  Data := FTree.GetNodeData(Node);
   case Data.ValueType of
     vtString:
       begin
@@ -299,8 +345,6 @@ begin
           Visible := False;
           Parent := Tree;
           Text := Data.Value;
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtPickString:
@@ -315,8 +359,6 @@ begin
           Items.Add('Standard');
           Items.Add('Additional');
           Items.Add('Win32');
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtNumber:
@@ -328,8 +370,6 @@ begin
           Parent := Tree;
           EditMask := '9999';
           Text := Data.Value;
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtPickNumber:
@@ -340,8 +380,6 @@ begin
           Visible := False;
           Parent := Tree;
           Text := Data.Value;
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtMemo:
@@ -355,47 +393,69 @@ begin
           Parent := Tree;
           Text := Data.Value;
           Items.Add(Data.Value);
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtDate:
       begin
-        FEdit := TDateTimePicker.Create(nil);
-        with FEdit as TDateTimePicker do
+        FEdit := TDateEdit.Create(nil);
+        with FEdit as TDateEdit do
         begin
           Visible := False;
           Parent := Tree;
-          CalColors.MonthBackColor := clWindow;
-          CalColors.TextColor := clBlack;
-          CalColors.TitleBackColor := clBtnShadow;
-          CalColors.TitleTextColor := clBlack;
-          CalColors.TrailingTextColor := clBtnFace;
           Date := StrToDate(Data.Value);
-          OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
   else
     Result := False;
   end;
+  if Result then
+  begin
+    FEdit.OnKeyDown := EditKeyDown;
+    FEdit.OnExit := EditExit;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TPropertyEditLink.ProcessMessage(var Message: TMessage); stdcall;
+
+begin
+  FEdit.WindowProc(Message);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TPropertyEditLink.SetBounds(R: TRect); stdcall;
+
+var
+  Dummy: Integer;
+
+begin
+  // Since we don't want to activate grid extensions in the tree (this would influence how the selection is drawn)
+  // we have to set the edit's width explicitly to the width of the column.
+  FTree.Header.Columns.GetColumnBounds(FColumn, Dummy, R.Right);
+  if FEdit is TDateEdit then
+    R.Right := R.Right - TDateEdit(FEdit).ButtonWidth;
+  FEdit.BoundsRect := R;
 end;
 
 //---------------- TGridEditLink ---------------------------------------------------------------------------------------
 
-procedure TGridEditLink.DoEndEdit(var Result: Boolean);
-var
-  Data: TGridData;
-  Buffer: array[0..1024] of Char;
-  S: UnicodeString;
-  I: Integer;
+function TGridEditLink.EndEdit: Boolean;
 
+var
+  Data: PGridData;
+  Buffer: array[0..1024] of Char;
+  //S: WideString;
+  S: String;
+  I: Integer;
+  
 begin
-  inherited;
-  Data := FNode.GetData<TGridData>();
-  if Edit is TComboBox then
+  Result := True;
+  Data := FTree.GetNodeData(FNode);
+  if FEdit is TComboBox then
   begin
-    S := TComboBox(Edit).Text;
+    S := TComboBox(FEdit).Text;
     if S <> Data.Value[FColumn - 1] then
     begin
       Data.Value[FColumn - 1] := S;
@@ -403,9 +463,9 @@ begin
     end;
   end
   else
-    if Edit is TMaskEdit then
+    if FEdit is TMaskEdit then
     begin
-      I := StrToInt(Trim(TMaskEdit(Edit).EditText));
+      I := StrToInt(Trim(TMaskEdit(FEdit).EditText));
       if I <> Data.Value[FColumn - 1] then
       begin
         Data.Value[FColumn - 1] := I;
@@ -413,32 +473,41 @@ begin
       end;
     end
     else
-    begin
-      GetWindowText(Edit.Handle, Buffer, 1024);
-      S := Buffer;
-      if S <> Data.Value[FColumn - 1] then
+      if FEdit is TCustomEdit then
       begin
-        Data.Value[FColumn - 1] := S;
-        Data.Changed := True;
-      end;
-    end;
+        S := TCustomEdit(FEdit).Text;
+        if S <> Data.Value[FColumn - 1] then
+        begin
+          Data.Value[FColumn - 1] := S;
+          Data.Changed := True;
+        end;
+      end
+      else
+        raise Exception.Create('Unknow Edit Control');
 
   if Data.Changed then
     FTree.InvalidateNode(FNode);
+  FEdit.Hide;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridEditLink.DoPrepareEdit(var Result: Boolean);
+function TGridEditLink.PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex): Boolean;
 
 var
-  Data: TGridData;
+  Data: PGridData;
+  TempText: String;
 begin
-  inherited;
+  Result := True;
+  FTree := Tree as TVirtualStringTree;
+  FNode := Node;
+  FColumn := Column;
 
   // Determine what edit type actually is needed.
-  Data := Tree.GetNodeData<TGridData>(Node);
-  case Data.ValueType[Column - 1] of
+  FEdit.Free;
+  FEdit := nil;
+  Data := FTree.GetNodeData(Node);
+  case Data.ValueType[FColumn - 1] of
     vtString:
       begin
         FEdit := TEdit.Create(nil);
@@ -446,9 +515,9 @@ begin
         begin
           Visible := False;
           Parent := Tree;
-          Text := Data.Value[Column - 1];
+          TempText:= Data.Value[FColumn - 1];
+          Text := TempText;
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtPickString:
@@ -458,10 +527,11 @@ begin
         begin
           Visible := False;
           Parent := Tree;
-          Text := Data.Value[Column - 1];
+          TempText:= Data.Value[FColumn - 1];
+          Text := TempText;
           // Here you would usually do a lookup somewhere to get
           // values for the combobox. We only add some dummy values.
-          case Column of
+          case FColumn of
             2:
               begin
                 Items.Add('John');
@@ -478,7 +548,6 @@ begin
               end;
           end;
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtNumber:
@@ -489,9 +558,9 @@ begin
           Visible := False;
           Parent := Tree;
           EditMask := '9999;0; ';
-          Text := Data.Value[Column - 1];
+          TempText:= Data.Value[FColumn - 1];
+          Text := TempText;
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtPickNumber:
@@ -501,9 +570,9 @@ begin
         begin
           Visible := False;
           Parent := Tree;
-          Text := Data.Value[Column - 1];
+          TempText:= Data.Value[FColumn - 1];
+          Text := TempText;
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtMemo:
@@ -515,27 +584,21 @@ begin
         begin
           Visible := False;
           Parent := Tree;
-          Text := Data.Value[Column - 1];
-          Items.Add(Data.Value[Column - 1]);
+          TempText:= Data.Value[FColumn - 1];
+          Text := TempText;
+          Items.Add(Data.Value[FColumn - 1]);
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
     vtDate:
       begin
-        FEdit := TDateTimePicker.Create(nil);
-        with FEdit as TDateTimePicker do
+        FEdit := TDateEdit.Create(nil);
+        with FEdit as TDateEdit do
         begin
           Visible := False;
           Parent := Tree;
-          CalColors.MonthBackColor := clWindow;
-          CalColors.TextColor := clBlack;
-          CalColors.TitleBackColor := clBtnShadow;
-          CalColors.TitleTextColor := clBlack;
-          CalColors.TrailingTextColor := clBtnFace;
-          Date := StrToDate(Data.Value[Column - 1]);
+          Date := StrToDate(Data.Value[FColumn - 1]);
           OnKeyDown := EditKeyDown;
-          OnKeyUp := EditKeyUp;
         end;
       end;
   else

@@ -1,5 +1,8 @@
 unit HeaderCustomDrawDemo;
 
+{$MODE Delphi}
+{$H+}
+
 // Virtual Treeview sample form demonstrating following features:
 //   - Advanced header custom draw.
 // Written by Mike Lischke.
@@ -7,9 +10,8 @@ unit HeaderCustomDrawDemo;
 interface
 
 uses
-  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, ImgList, VirtualTrees, StdCtrls, ExtCtrls, VirtualTrees.BaseTree, System.ImageList,
-  VirtualTrees.BaseAncestorVCL, VirtualTrees.AncestorVCL;
+  LCLIntf, VirtualTrees.Graphics, Types, SysUtils, Classes, Graphics, Controls, Forms,
+  Dialogs, VirtualTrees, StdCtrls, ExtCtrls, LCLType, LCLProc, VirtualTrees.Header, VirtualTrees.BaseTree;
 
 type
   THeaderOwnerDrawForm = class(TForm)
@@ -31,7 +33,7 @@ type
     procedure HeaderCustomDrawTreeStateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
     procedure HeaderCustomDrawTreeGetText(Sender: TBaseVirtualTree;
       Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
   private
     FBackBitmap1,
     FBackBitmap2,
@@ -50,10 +52,11 @@ var
 
 implementation
 
+{$R *.lfm}
+
 uses
-  States, Types,VirtualTrees.Utils;
-  
-{$R *.dfm}
+  States, LclExt;
+
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -105,7 +108,7 @@ begin
     begin
       if hpeBackground in Elements then
       begin
-        TargetCanvas.Brush.Color := clBackground;
+        TargetCanvas.Brush.Color := clBtnFace;
         TargetCanvas.FillRect(PaintRectangle);
       end;
     end
@@ -119,7 +122,7 @@ begin
             FBackBitmap1.Width := PaintRectangle.Right - PaintRectangle.Left;
             FBackBitmap1.Height := PaintRectangle.Bottom - PaintRectangle.Top;
             FillBackground(PaintRectangle, FBackbitmap1.Canvas);
-            if IsHoverIndex then
+            if IsHoverIndex and MMXAvailable then
               PaintSelection(FBackBitmap1);
             TargetCanvas.Draw(PaintRectangle.Left, Paintrectangle.Top, FBackbitmap1);
           end;
@@ -131,7 +134,7 @@ begin
                 Width := PaintRectangle.Right - PaintRectangle.Left;
                 Height := PaintRectangle.Bottom - PaintRectangle.Top;
                 TargetRect := Rect(0, 0, Width, Height);
-                Canvas.Brush.Color := clInfoBk;
+                Canvas.Brush.Color := $E1FFFF;
                 Canvas.FillRect(TargetRect);
                 InflateRect(TargetRect, - 10, -10);
                 SourceRect := TargetRect;
@@ -147,7 +150,7 @@ begin
               TargetCanvas.Font.Size := 60;
               if IsHoverIndex then
                 TargetCanvas.Font.Color := $80FF;
-              S := 'û';
+              S := 'Ã»';
               Size := TargetCanvas.TextExtent(S);
               SetBkMode(TargetCanvas.Handle, TRANSPARENT);
               TargetCanvas.TextOut(PaintRectangle.Left + 10, Paintrectangle.Bottom - Size.cy, S);
@@ -189,7 +192,7 @@ var
 
 begin
   R := Rect(0, 0, Bitmap.Width, Bitmap.Height);
-  VirtualTrees.Utils.AlphaBlend(0, Bitmap.Canvas.Handle, R, Point(0, 0), bmConstantAlphaAndColor, Alpha,
+  VirtualTrees.Graphics.AlphaBlend(0, Bitmap.Canvas.Handle, R, Point(0, 0), bmConstantAlphaAndColor, Alpha,
     ColorToRGB(clHighlight));
   with Bitmap do
   begin
@@ -235,12 +238,12 @@ procedure THeaderOwnerDrawForm.FormCreate(Sender: TObject);
 
 begin
   FBackBitmap1 := TBitmap.Create;
-  FBackBitmap1.PixelFormat := pf32Bit;
+  FBackBitmap1.PixelFormat := OptimalPixelFormat;
   FBackBitmap2 := TBitmap.Create;
-  FBackBitmap2.PixelFormat := pf32Bit;
+  //FBackBitmap2.PixelFormat := OptimalPixelFormat;
   CreateCheckerBackground;
   FHeaderBitmap := TBitmap.Create;
-  FHeaderBitmap.Handle := LoadImage(HInstance, 'Transcriptions', IMAGE_BITMAP, 0, 0, LR_DEFAULTCOLOR);
+  FHeaderBitmap.LoadFromResourceName(HINSTANCE, 'Transcriptions');
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -296,12 +299,13 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure THeaderOwnerDrawForm.HeaderCustomDrawTreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode;
-  Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
+  Column: TColumnIndex; TextType: TVSTTextType; var CellText: String);
 
 begin
   CellText := 'Some simple text.';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
 
 end.

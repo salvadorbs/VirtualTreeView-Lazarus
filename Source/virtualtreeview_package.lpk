@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <Package Version="4">
+    <Name Value="virtualtreeview_package"/>
+    <Type Value="RunAndDesignTime"/>
+    <Author Value="Mike Lischke (LCL Port: Luiz Américo)"/>
+    <CompilerOptions>
+      <Version Value="11"/>
+      <SearchPaths>
+        <IncludeFiles Value="include/intf/$(LCLWidgetType);units;include/intf"/>
+        <OtherUnitFiles Value="units/$(LCLWidgetType)"/>
+        <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)-$(LCLWidgetType)"/>
+      </SearchPaths>
+      <Conditionals Value="if VirtualTreeView_Debug = 'True' then
+begin
+  CustomOptions := '-dDEBUG_VTV';
+  UnitPath += ';$PkgOutDir(multiloglaz)';
+  UsageUnitPath += ';$PkgOutDir(multiloglaz)';
+end;"/>
+      <BuildMacros>
+        <Count Value="1"/>
+        <Item1>
+          <Identifier Value="VirtualTreeView_Debug"/>
+          <Description Value="Enables debugging of VTV. Requires MultiLog package"/>
+          <Values Count="2">
+            <Item1 Value="True"/>
+            <Item2 Value="False"/>
+          </Values>
+          <ValueDescriptions Count="2"/>
+        </Item1>
+      </BuildMacros>
+      <Parsing>
+        <SyntaxOptions>
+          <CStyleMacros Value="True"/>
+          <UseAnsiStrings Value="False"/>
+        </SyntaxOptions>
+      </Parsing>
+    </CompilerOptions>
+    <Description Value="Virtual Treeview is an advanced TreeView component
+"/>
+    <License Value=" Mozilla Public License 1.1 (MPL 1.1) or GNU Lesser General Public License
+"/>
+    <Version Major="5" Minor="5" Release="3" Build="1"/>
+    <Files Count="22">
+      <Item1>
+        <Filename Value="VirtualTrees.pas"/>
+        <UnitName Value="VirtualTrees"/>
+      </Item1>
+      <Item2>
+        <Filename Value="VirtualTrees.HeaderPopup.pas"/>
+        <UnitName Value="VirtualTrees.HeaderPopup"/>
+      </Item2>
+      <Item3>
+        <Filename Value="registervirtualtreeview.pas"/>
+        <HasRegisterProc Value="True"/>
+        <UnitName Value="registervirtualtreeview"/>
+      </Item3>
+      <Item4>
+        <Filename Value="ideicons.lrs"/>
+        <Type Value="LRS"/>
+      </Item4>
+      <Item5>
+        <Filename Value="VTConfig.inc"/>
+        <Type Value="Include"/>
+      </Item5>
+      <Item6>
+        <Filename Value="VirtualTrees.Graphics.pas"/>
+        <UnitName Value="VirtualTrees.Graphics"/>
+      </Item6>
+      <Item7>
+        <Filename Value="VirtualTrees.res"/>
+        <Type Value="Binary"/>
+      </Item7>
+      <Item8>
+        <Filename Value="VirtualTrees.IDEEditors.pas"/>
+        <UnitName Value="VirtualTrees.IDEEditors"/>
+      </Item8>
+      <Item9>
+        <Filename Value="VirtualTrees.ClipBoard.pas"/>
+        <UnitName Value="VirtualTrees.ClipBoard"/>
+      </Item9>
+      <Item10>
+        <Filename Value="VirtualTrees.Colors.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="VirtualTrees.Colors"/>
+      </Item10>
+      <Item11>
+        <Filename Value="VirtualTrees.WorkerThread.pas"/>
+        <UnitName Value="VirtualTrees.WorkerThread"/>
+      </Item11>
+      <Item12>
+        <Filename Value="VirtualTrees.Types.pas"/>
+        <UnitName Value="VirtualTrees.Types"/>
+      </Item12>
+      <Item13>
+        <Filename Value="VirtualTrees.Header.pas"/>
+        <UnitName Value="VirtualTrees.Header"/>
+      </Item13>
+      <Item14>
+        <Filename Value="VirtualTrees.DragImage.pas"/>
+        <UnitName Value="VirtualTrees.DragImage"/>
+      </Item14>
+      <Item15>
+        <Filename Value="VirtualTrees.Utils.pas"/>
+        <AddToUsesPkgSection Value="False"/>
+        <UnitName Value="VirtualTrees.Utils"/>
+      </Item15>
+      <Item16>
+        <Filename Value="VirtualTrees.DataObject.pas"/>
+        <UnitName Value="VirtualTrees.DataObject"/>
+      </Item16>
+      <Item17>
+        <Filename Value="VirtualTrees.DragnDrop.pas"/>
+        <UnitName Value="VirtualTrees.DragnDrop"/>
+      </Item17>
+      <Item18>
+        <Filename Value="VirtualTrees.Classes.pas"/>
+        <UnitName Value="VirtualTrees.Classes"/>
+      </Item18>
+      <Item19>
+        <Filename Value="VirtualTrees.Export.pas"/>
+        <UnitName Value="VirtualTrees.Export"/>
+      </Item19>
+      <Item20>
+        <Filename Value="VirtualTrees.EditLink.pas"/>
+        <UnitName Value="VirtualTrees.EditLink"/>
+      </Item20>
+      <Item21>
+        <Filename Value="VirtualTrees.DrawTree.pas"/>
+        <UnitName Value="VirtualTrees.DrawTree"/>
+      </Item21>
+      <Item22>
+        <Filename Value="VirtualTrees.BaseTree.pas"/>
+        <UnitName Value="VirtualTrees.BaseTree"/>
+      </Item22>
+    </Files>
+    <CompatibilityMode Value="True"/>
+    <RequiredPkgs Count="3">
+      <Item1>
+        <PackageName Value="IDEIntf"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="lclextensions_package"/>
+        <MaxVersion Minor="6"/>
+        <MinVersion Minor="6" Valid="True"/>
+      </Item2>
+      <Item3>
+        <PackageName Value="LCL"/>
+      </Item3>
+    </RequiredPkgs>
+    <UsageOptions>
+      <UnitPath Value="$(PkgOutDir)"/>
+    </UsageOptions>
+    <PublishOptions>
+      <Version Value="2"/>
+      <IgnoreBinaries Value="False"/>
+    </PublishOptions>
+    <CustomOptions Items="ExternHelp" Version="2">
+      <_ExternHelp Items="Count"/>
+    </CustomOptions>
+  </Package>
+</CONFIG>

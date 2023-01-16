@@ -1,236 +1,204 @@
-﻿unit VirtualTrees.Colors;
+unit VirtualTrees.Colors;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  System.Classes,
-  Vcl.Graphics,
-  Vcl.Themes,
-  Vcl.Controls;
+  Classes, Controls, Graphics, DelphiCompat;
 
 type
-  //class to collect all switchable colors into one place
+  // class to collect all switchable colors into one place
   TVTColors = class(TPersistent)
-  private type
-    TVTColorEnum = (
-	    cDisabledColor
-	  , cDropMarkColor
-	  , cDropTargetColor
-	  , cFocusedSelectionColor
-	  , cGridLineColor
-	  , cTreeLineColor
-	  , cUnfocusedSelectionColor
-	  , cBorderColor
-	  , cHotColor
-	  , cFocusedSelectionBorderColor
-	  , cUnfocusedSelectionBorderColor
-	  , cDropTargetBorderColor
-	  , cSelectionRectangleBlendColor
-	  , cSelectionRectangleBorderColor
-	  , cHeaderHotColor
-	  , cSelectionTextColor
-	  , cUnfocusedColor
-	  );
-
-    //Please make sure that the published Color properties at the corresponding index
-    //have the same color if you change anything here!
-  const
-    cDefaultColors : array [TVTColorEnum] of TColor = (
-	  clBtnShadow,            //DisabledColor
-      clHighlight,            //DropMarkColor
-      clHighlight,            //DropTargetColor
-      clHighlight,            //FocusedSelectionColor
-      clBtnFace,              //GridLineColor
-      clBtnShadow,            //TreeLineColor
-      clInactiveCaption,      //UnfocusedSelectionColor
-      clBtnFace,              //BorderColor
-      clWindowText,           //HotColor
-      clHighlight,            //FocusedSelectionBorderColor
-      clInactiveCaption,      //UnfocusedSelectionBorderColor
-      clHighlight,            //DropTargetBorderColor
-      clHighlight,            //SelectionRectangleBlendColor
-      clHighlight,            //SelectionRectangleBorderColor
-      clBtnShadow,            //HeaderHotColor
-      clHighlightText,        //SelectionTextColor
-      clInactiveCaptionText //UnfocusedColor  [IPK]
-    );
   private
-    FOwner  : TCustomControl;
-    FColors : array [TVTColorEnum] of TColor; //[IPK] 15 -> 16
-    function GetColor(const Index : TVTColorEnum) : TColor;
-    procedure SetColor(const Index : TVTColorEnum; const Value : TColor);
-    function GetBackgroundColor : TColor;
-    function GetHeaderFontColor : TColor;
-    function GetNodeFontColor : TColor;
+    FOwner: TCustomControl;
+    FColors: array[0..16] of TColor; // [IPK] 15 -> 16
+    function GetColor(const Index: Integer): TColor;
+    procedure SetColor(const Index: Integer; const Value: TColor);
+    function GetBackgroundColor: TColor;
+    function GetHeaderFontColor: TColor;
+    function GetNodeFontColor: TColor;
   public
-    constructor Create(AOwner : TCustomControl);
+    constructor Create(AOwner: TCustomControl);
 
-    procedure Assign(Source : TPersistent); override;
-    function GetSelectedNodeFontColor(Focused : boolean) : TColor;
-    property BackGroundColor : TColor read GetBackgroundColor;
-    property HeaderFontColor : TColor read GetHeaderFontColor;
-    property NodeFontColor : TColor read GetNodeFontColor;
-    //Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
-    function StyleServices(AControl : TControl = nil) : TCustomStyleServices;
+    procedure Assign(Source: TPersistent); override;
+    property BackGroundColor: TColor read GetBackgroundColor;
+    property HeaderFontColor: TColor read  GetHeaderFontColor;
+    property NodeFontColor: TColor read GetNodeFontColor;
   published
-    property BorderColor                   : TColor index cBorderColor read GetColor write SetColor default clBtnFace;
-    property DisabledColor                 : TColor index cDisabledColor read GetColor write SetColor default clBtnShadow;
-    property DropMarkColor                 : TColor index cDropMarkColor read GetColor write SetColor default clHighlight;
-    property DropTargetColor               : TColor index cDropTargetColor read GetColor write SetColor default clHighlight;
-    property DropTargetBorderColor         : TColor index cDropTargetBorderColor read GetColor write SetColor default clHighlight;
-    ///The background color of selected nodes in case the tree has the focus, or the toPopupMode flag is set.
-    property FocusedSelectionColor         : TColor index cFocusedSelectionColor read GetColor write SetColor default clHighlight;
-    ///The border color of selected nodes when the tree has the focus.
-    property FocusedSelectionBorderColor   : TColor index cFocusedSelectionBorderColor read GetColor write SetColor default clHighlight;
-    property GridLineColor                 : TColor index cGridLineColor read GetColor write SetColor default clBtnFace;
-    property HeaderHotColor                : TColor index cHeaderHotColor read GetColor write SetColor default clBtnShadow;
-    property HotColor                      : TColor index cHotColor read GetColor write SetColor default clWindowText;
-    property SelectionRectangleBlendColor  : TColor index cSelectionRectangleBlendColor read GetColor write SetColor default clHighlight;
-    property SelectionRectangleBorderColor : TColor index cSelectionRectangleBorderColor read GetColor write SetColor default clHighlight;
-    ///The text color of selected nodes
-    property SelectionTextColor            : TColor index cSelectionTextColor read GetColor write SetColor default clHighlightText;
-    property TreeLineColor                 : TColor index cTreeLineColor read GetColor write SetColor default clBtnShadow;
-    property UnfocusedColor                : TColor index cUnfocusedColor read GetColor write SetColor default clInactiveCaptionText; //[IPK] Added
-    ///The background color of selected nodes in case the tree does not have the focus and the toPopupMode flag is not set.
-    property UnfocusedSelectionColor       : TColor index cUnfocusedSelectionColor read GetColor write SetColor default clInactiveCaption;
-    ///The border color of selected nodes in case the tree does not have the focus and the toPopupMode flag is not set.
-    property UnfocusedSelectionBorderColor : TColor index cUnfocusedSelectionBorderColor read GetColor write SetColor default clInactiveCaption;
+    property BorderColor: TColor index 7 read GetColor write SetColor default clBtnFace;
+    property DisabledColor: TColor index 0 read GetColor write SetColor default clBtnShadow;
+    property DropMarkColor: TColor index 1 read GetColor write SetColor default clHighlight;
+    property DropTargetColor: TColor index 2 read GetColor write SetColor default clHighLight;
+    property DropTargetBorderColor: TColor index 11 read GetColor write SetColor default clHighLight;
+    property FocusedSelectionColor: TColor index 3 read GetColor write SetColor default clHighLight;
+    property FocusedSelectionBorderColor: TColor index 9 read GetColor write SetColor default clHighLight;
+    property GridLineColor: TColor index 4 read GetColor write SetColor default clBtnFace;
+    property HeaderHotColor: TColor index 14 read GetColor write SetColor default clBtnShadow;
+    property HotColor: TColor index 8 read GetColor write SetColor default clWindowText;
+    property SelectionRectangleBlendColor: TColor index 12 read GetColor write SetColor default clHighlight;
+    property SelectionRectangleBorderColor: TColor index 13 read GetColor write SetColor default clHighlight;
+    property SelectionTextColor: TColor index 15 read GetColor write SetColor default clHighlightText;
+    property TreeLineColor: TColor index 5 read GetColor write SetColor default clBtnShadow;
+    property UnfocusedColor: TColor index 16 read GetColor write SetColor default clBtnFace; // [IPK] Added
+    property UnfocusedSelectionColor: TColor index 6 read GetColor write SetColor default clBtnFace;
+    property UnfocusedSelectionBorderColor: TColor index 10 read GetColor write SetColor default clBtnFace;
   end;
 
 implementation
 
 uses
-  WinApi.Windows,
-  VirtualTrees,
-  VirtualTrees.Utils,
-  VirtualTrees.StyleHooks,
-  VirtualTrees.BaseTree;
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Types
+  {$ifdef Windows}
+  , Windows
+  {$endif}
+  ;
 
 type
   TBaseVirtualTreeCracker = class(TBaseVirtualTree);
 
+  { TVTColorsHelper }
+
   TVTColorsHelper = class helper for TVTColors
-    function TreeView : TBaseVirtualTreeCracker;
+    function TreeView: TBaseVirtualTreeCracker;
   end;
 
-  //----------------- TVTColors ------------------------------------------------------------------------------------------
+//----------------- TVTColors ------------------------------------------------------------------------------------------
 
-constructor TVTColors.Create(AOwner : TCustomControl);
-var
-  CE : TVTColorEnum;
+constructor TVTColors.Create(AOwner: TCustomControl);
+
 begin
   FOwner := AOwner;
-  for CE := Low(TVTColorEnum) to High(TVTColorEnum) do
-    FColors[CE] := cDefaultColors[CE];
+  FColors[0] := clBtnShadow;      // DisabledColor
+  FColors[1] := clHighlight;      // DropMarkColor
+  FColors[2] := clHighLight;      // DropTargetColor
+  FColors[3] := clHighLight;      // FocusedSelectionColor
+  FColors[4] := clBtnFace;        // GridLineColor
+  FColors[5] := clBtnShadow;      // TreeLineColor
+  FColors[6] := clBtnFace;        // UnfocusedSelectionColor
+  FColors[7] := clBtnFace;        // BorderColor
+  FColors[8] := clWindowText;     // HotColor
+  FColors[9] := clHighLight;      // FocusedSelectionBorderColor
+  FColors[10] := clBtnFace;       // UnfocusedSelectionBorderColor
+  FColors[11] := clHighlight;     // DropTargetBorderColor
+  FColors[12] := clHighlight;     // SelectionRectangleBlendColor
+  FColors[13] := clHighlight;     // SelectionRectangleBorderColor
+  FColors[14] := clBtnShadow;     // HeaderHotColor
+  FColors[15] := clHighlightText; // SelectionTextColor
+  FColors[16] := clBtnFace;       // UnfocusedColor  [IPK]
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.GetBackgroundColor : TColor;
+function TVTColors.GetBackgroundColor: TColor;
 begin
-  //XE2 VCL Style
-  if TreeView.VclStyleEnabled and (seClient in FOwner.StyleElements) then
+// XE2 VCL Style
+{$IF CompilerVersion >= 23}
+  if FOwner.VclStyleEnabled {$IF CompilerVersion >= 24}and (seClient in FOwner.StyleElements){$IFEND} then
     Result := StyleServices.GetStyleColor(scTreeView)
   else
-    Result := TreeView.Color;
+{$IFEND}
+    Result := FOwner.Brush.Color;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.GetColor(const Index : TVTColorEnum) : TColor;
+function TVTColors.GetColor(const Index: Integer): TColor;
+
 begin
-  //Only try to fetch the color via StyleServices if theses are enabled
-  //Return default/user defined color otherwise
-  if TreeView.VclStyleEnabled then
+{$IF CompilerVersion >= 23 }
+  if FOwner.VclStyleEnabled then
   begin
-    //If the ElementDetails are not defined, fall back to the SystemColor
     case Index of
-      cDisabledColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemDisabled), ecTextColor, Result) then
-          Result := StyleServices.GetSystemColor(FColors[Index]);
-      cTreeLineColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttBranch), ecBorderColor, Result) then
-          Result := StyleServices.GetSystemColor(FColors[Index]);
-      cBorderColor :
-        if (seBorder in FOwner.StyleElements) then
-          Result := StyleServices.GetSystemColor(FColors[Index])
-        else
-          Result := FColors[Index];
-      cHotColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemHot), ecTextColor, Result) then
-          Result := StyleServices.GetSystemColor(FColors[Index]);
-      cHeaderHotColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(thHeaderItemHot), ecTextColor, Result) then
-          Result := StyleServices.GetSystemColor(FColors[Index]);
-      cSelectionTextColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemSelected), ecTextColor, Result) then
-          Result := StyleServices.GetSystemColor(clHighlightText);
-      cUnfocusedColor :
-        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemSelectedNotFocus), ecTextColor, Result) then
-          Result := StyleServices.GetSystemColor(FColors[Index]);
-    else
-      Result := StyleServices.GetSystemColor(FColors[Index]);
+      0:
+        StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemDisabled), ecTextColor, Result); // DisabledColor
+      1:
+        Result := StyleServices.GetSystemColor(clHighlight); // DropMarkColor
+      2:
+        Result := StyleServices.GetSystemColor(clHighlight); // DropTargetColor
+      3:
+        Result := StyleServices.GetSystemColor(clHighlight); // FocusedSelectionColor
+      4:
+        Result := StyleServices.GetSystemColor(clBtnFace); // GridLineColor
+      5:
+        StyleServices.GetElementColor(StyleServices.GetElementDetails(ttBranch), ecBorderColor, Result); // TreeLineColor
+      6:
+        Result := StyleServices.GetSystemColor(clHighlight); // UnfocusedSelectionColor
+      7:
+        Result := StyleServices.GetSystemColor(clBtnFace); // BorderColor
+      8:
+        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemHot), ecTextColor, Result) or
+          (Result <> clWindowText) then
+          Result := NodeFontColor; // HotColor
+      9:
+        StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemSelected), ecFillColor, Result);
+      // FocusedSelectionBorderColor
+      10:
+        Result := StyleServices.GetSystemColor(clHighlight); // UnfocusedSelectionBorderColor
+      11:
+        Result := StyleServices.GetSystemColor(clBtnFace); // DropTargetBorderColor
+      12:
+        Result := StyleServices.GetSystemColor(clHighlight); // SelectionRectangleBlendColor
+      13:
+        Result := StyleServices.GetSystemColor(clHighlight); // SelectionRectangleBorderColor
+      14:
+        StyleServices.GetElementColor(StyleServices.GetElementDetails(thHeaderItemNormal), ecTextColor, Result); // HeaderHotColor
+      15:
+        if not StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemSelected), ecTextColor, Result) or
+          (Result <> clWindowText) then
+          Result := NodeFontColor; // SelectionTextColor
     end;
   end
   else
-    Result := FColors[Index];
+{$IFEND}
+  Result := FColors[Index];
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.GetHeaderFontColor : TColor;
+function TVTColors.GetHeaderFontColor: TColor;
 begin
-  //XE2+ VCL Style
-  if TreeView.VclStyleEnabled and (seFont in FOwner.StyleElements) then
+// XE2+ VCL Style
+{$IF CompilerVersion >= 23}
+  if FOwner.VclStyleEnabled {$IF CompilerVersion >= 24}and (seFont in FOwner.StyleElements){$IFEND} then
     StyleServices.GetElementColor(StyleServices.GetElementDetails(thHeaderItemNormal), ecTextColor, Result)
   else
+{$IFEND}
     Result := TreeView.Header.Font.Color;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.GetNodeFontColor : TColor;
+function TVTColors.GetNodeFontColor: TColor;
 begin
-  if TreeView.VclStyleEnabled and (seFont in FOwner.StyleElements) then
+{$IF CompilerVersion >= 23}
+  if FOwner.VclStyleEnabled {$IF CompilerVersion >= 24}and (seFont in FOwner.StyleElements){$IFEND} then
     StyleServices.GetElementColor(StyleServices.GetElementDetails(ttItemNormal), ecTextColor, Result)
   else
-    Result := TreeView.Font.Color;
+{$IFEND}
+    Result := FOwner.Font.Color;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.GetSelectedNodeFontColor(Focused : boolean) : TColor;
-begin
-  if Focused then
-  begin
-    if (tsUseExplorerTheme in TreeView.TreeStates) and not IsHighContrastEnabled then
-    begin
-      Result := NodeFontColor
-    end
-    else
-      Result := SelectionTextColor
-  end//if Focused
-  else
-    Result := UnfocusedColor;
-end;
+procedure TVTColors.SetColor(const Index: Integer; const Value: TColor);
 
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVTColors.SetColor(const Index : TVTColorEnum; const Value : TColor);
 begin
   if FColors[Index] <> Value then
   begin
     FColors[Index] := Value;
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
     begin
-      //Cause helper bitmap rebuild if the button color changed.
+      // Cause helper bitmap rebuild if the button color changed.
       case Index of
-        cTreeLineColor :
+        5:
           begin
             TreeView.PrepareBitmaps(True, False);
             FOwner.Invalidate;
           end;
-        cBorderColor :
+        7:
           RedrawWindow(FOwner.Handle, nil, 0, RDW_FRAME or RDW_INVALIDATE or RDW_NOERASE or RDW_NOCHILDREN)
       else
         FOwner.Invalidate;
@@ -241,16 +209,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTColors.StyleServices(AControl : TControl) : TCustomStyleServices;
-begin
-  if AControl = nil then
-    AControl := FOwner;
-  Result := VTStyleServices(AControl);
-end;
+procedure TVTColors.Assign(Source: TPersistent);
 
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVTColors.Assign(Source : TPersistent);
 begin
   if Source is TVTColors then
   begin
@@ -264,7 +224,7 @@ end;
 
 { TVTColorsHelper }
 
-function TVTColorsHelper.TreeView : TBaseVirtualTreeCracker;
+function TVTColorsHelper.TreeView: TBaseVirtualTreeCracker;
 begin
   Result := TBaseVirtualTreeCracker(FOwner);
 end;

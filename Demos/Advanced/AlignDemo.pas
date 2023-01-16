@@ -1,5 +1,5 @@
 unit AlignDemo;
-
+{$mode delphi}
 // Virtual Treeview sample form demonstrating following features:
 //   - Header with images and different glyph and column alignment.
 //   - Header popup with images.
@@ -9,15 +9,9 @@ unit AlignDemo;
 
 interface
 
-// For some things to work we need code, which is classified as being unsafe for .NET.
-{$warn UNSAFE_TYPE off}
-{$warn UNSAFE_CAST off}
-{$warn UNSAFE_CODE off}
-
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, Buttons, VirtualTrees, ComCtrls, ExtCtrls, ImgList, Menus, UITypes, VirtualTrees.BaseTree, System.ImageList,
-  VirtualTrees.BaseAncestorVCL, VirtualTrees.AncestorVCL;
+  SysUtils, Classes, Graphics, Controls, Forms, Dialogs, VirtualTrees.Header, VirtualTrees.Types,
+  StdCtrls, ComCtrls, VirtualTrees,  ExtCtrls, Menus, LResources, VirtualTrees.BaseTree;
 
 type
   TAlignForm = class(TForm)
@@ -45,9 +39,9 @@ type
     Label5: TLabel;
     LayoutCombo: TComboBox;
     procedure AlignTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var Index: TImageIndex);
+      var Ghosted: Boolean; var Index: Integer);
     procedure AlignTreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure AlignTreePaintText(Sender: TBaseVirtualTree; const Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       TextType: TVSTTextType);
     procedure AlignTreeGetNodeDataSize(Sender: TBaseVirtualTree; var NodeDataSize: Integer);
@@ -59,12 +53,12 @@ type
     procedure IconPopupPopup(Sender: TObject);
     procedure AlignComboChange(Sender: TObject);
     procedure BidiGroupClick(Sender: TObject);
-    procedure AlignTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+    procedure AlignTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState; X,
+      Y: Integer);
     procedure OptionBoxClick(Sender: TObject);
     procedure LayoutComboChange(Sender: TObject);
     procedure AlignTreeFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
     procedure AlignTreeStateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
-    procedure AlignTreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
     FArabicFont,
     FHebrewFont: TFont;
@@ -80,10 +74,10 @@ var
 
 implementation
 
+{$R *.lfm}
+
 uses
   Main, States;
-  
-{$R *.DFM}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -98,7 +92,7 @@ type
   TAlignData = record
     MainColumnText,
     GreekText,
-    RTLText: UnicodeString;
+    RTLText: String;
     ImageIndex: Integer;
   end;
 
@@ -107,9 +101,9 @@ type
 // Additionally, some greek text for another column is stored here too just because I like how it looks (the text,
 // not the storage ;-)).
 var
-  GreekStrings: array[0..8] of UnicodeString;
-  ArabicStrings: array[0..3] of UnicodeString;
-  HebrewStrings: array[0..2] of UnicodeString;
+  GreekStrings: array[0..8] of String;
+  ArabicStrings: array[0..3] of String;
+  HebrewStrings: array[0..2] of String;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -153,7 +147,7 @@ begin
       Canvas.Font.Color := clSilver;
     2:
       begin
-        if not Odd(Sender.NodeParent[Node].Index) then
+        if not Odd(Node.Parent.Index) then
           Canvas.Font := FArabicFont
         else
           Canvas.Font := FHebrewFont;
@@ -163,14 +157,14 @@ begin
   // Reset the text color for selected and drop target nodes.
   if ((Node = Sender.DropTargetNode) or (vsSelected in Node.States)) and (Column = Sender.FocusedColumn) then
     Canvas.Font.Color := clHighlightText;
-  if Sender.NodeParent[Node] = nil then
+  if Node.Parent = Sender.RootNode then
     Canvas.Font.Style := [fsBold];
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TAlignForm.AlignTreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: string);
+  TextType: TVSTTextType; var CellText: String);
 
 var
   Data: PAlignData;
@@ -190,7 +184,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TAlignForm.AlignTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-  Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
+  Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
 
 var
   Data: PAlignData;
@@ -201,8 +195,6 @@ begin
     Data := Sender.GetNodeData(Node);
     Index := Data.ImageIndex;
   end;
-  if (Kind = ikState) and (Column = Sender.Header.MainColumn) then
-    Index := 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -255,7 +247,6 @@ begin
       end;
     end;
   end;
-  Node.CheckType := TCheckType.ctTriStateCheckBox;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -278,10 +269,6 @@ var
  NewItem: TMenuItem;
 
 begin
-  // High color image lists look much better.
-  ConvertToHighColor(TreeImages);
-  ConvertToHighColor(HeaderImages);
-
   // To display the various texts in a nice manner we use some specialized fonts of the system.
   // We could directly assign the font names used here in the OnPaintText event, but since this
   // would then be the only reference for the font it would cause the font to be recreated every
@@ -325,9 +312,10 @@ begin
       NewItem.ImageIndex := I;
       NewItem.RadioItem := True;
       NewItem.OnClick := MenuItemClick;
-      if (I mod 10) = 0 then
-        NewItem.Break := mbBreak;
-      NewItem.OnMeasureItem := MeasureIconItem;
+      //todo
+      //if (I mod 10) = 0 then
+      //  NewItem.Break := mbBreak;
+      //NewItem.OnMeasureItem := MeasureIconItem;
       Items.Add(NewItem);
     end;
   end;
@@ -336,9 +324,9 @@ begin
   // allow to enter multiline strings (it does not allow to edit wide strings correctly at all).
   with AlignTree.Header do
   begin
-    Columns[0].Hint := DefaultHintColumn0 + #13 + CommonHeaderHint;
-    Columns[1].Hint := DefaultHintColumn1 + #13 + CommonHeaderHint;
-    Columns[2].Hint := DefaultHintColumn2 + #13 + CommonHeaderHint;
+    Columns[0].Hint := DefaultHintColumn0 + LineEnding + CommonHeaderHint;
+    Columns[1].Hint := DefaultHintColumn1 + LineEnding + CommonHeaderHint;
+    Columns[2].Hint := DefaultHintColumn2 + LineEnding + CommonHeaderHint;
   end;
 
   // Set up the initial values of the alignment and bidi-mode pickers as well as layout and options.
@@ -354,21 +342,21 @@ begin
 
     // Button layout
     LayoutCombo.ItemIndex := Ord(Columns[0].Layout);
-    if not (TVTHeaderOption.hoShowImages in Options) then
+    if not (hoShowImages in Options) then
       Height := 24
     else
-      if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
+      if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
         Height := 64
       else
         Height := 40;
 
     // Options
-    ShowGlyphsOptionBox.Checked := TVTHeaderOption.hoShowImages in Options;
-    HotTrackOptionBox.Checked := TVTHeaderOption.hoHotTrack in Options;
+    ShowGlyphsOptionBox.Checked := hoShowImages in Options;
+    HotTrackOptionBox.Checked := hoHotTrack in Options;
     ShowTextOptionBox.Checked := True;
     ChangeHeaderText;
-    VisibleOptionBox.Checked := TVTHeaderOption.hoVisible in Options;
-    EnabledOptionBox.Checked := TVTColumnOption.coEnabled in Columns[0].Options;
+    VisibleOptionBox.Checked := hoVisible in Options;
+    EnabledOptionBox.Checked := coEnabled in Columns[0].Options;
   end;
 end;
 
@@ -490,19 +478,20 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TAlignForm.AlignTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
+procedure TAlignForm.AlignTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState;
+  X, Y: Integer);
 
 // This method sets sort column and direction on a header click.
 // Note: this is only to show the header layout. There gets nothing really sorted.
 
 begin
-  if HitInfo.Button = mbLeft then
+  if Button = mbLeft then
   begin
     with Sender do
     begin
-      if SortColumn <> HitInfo.Column then
+      if SortColumn <> Column then
       begin
-        SortColumn := HitInfo.Column;
+        SortColumn := Column;
         SortDirection := sdAscending;
       end
       else
@@ -529,35 +518,35 @@ begin
       0:
         if Checked then
         begin
-          Options := Options + [TVTHeaderOption.hoShowImages];
-          if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
+          Options := Options + [hoShowImages];
+          if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
             Height := 64
           else
             Height := 40;
         end
         else
         begin
-          Options := Options - [TVTHeaderOption.hoShowImages];
+          Options := Options - [hoShowImages];
           Height := 24;
         end;
       1:
         if Checked then
-          Options := Options + [TVTHeaderOption.hoHotTrack]
+          Options := Options + [hoHotTrack]
         else
-          Options := Options - [TVTHeaderOption.hoHotTrack];
+          Options := Options - [hoHotTrack];
       2:
         ChangeHeaderText;
       3:
         if Checked then
-          Options := Options + [TVTHeaderOption.hoVisible]
+          Options := Options + [hoVisible]
         else
-          Options := Options - [TVTHeaderOption.hoVisible];
+          Options := Options - [hoVisible];
       4:
         for I := 0 to Columns.Count - 1 do
           if Checked then
-            Columns[I].Options := Columns[I].Options + [TVTColumnOption.coEnabled]
+            Columns[I].Options := Columns[I].Options + [coEnabled]
           else
-            Columns[I].Options := Columns[I].Options - [TVTColumnOption.coEnabled];
+            Columns[I].Options := Columns[I].Options - [coEnabled];
     end;
 end;
 
@@ -574,10 +563,10 @@ begin
     for I := 0 to Columns.Count - 1 do
       Columns[I].Layout := TVTHeaderColumnLayout(ItemIndex);
 
-    if not (TVTHeaderOption.hoShowImages in Options) then
+    if not (hoShowImages in Options) then
       Height := 24
     else
-      if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
+      if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
         Height := 64
       else
         Height := 40;
@@ -589,7 +578,7 @@ end;
 procedure TAlignForm.AlignTreeFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
 
 const
-  FocusedText = #13'Text of focused node is: ';
+  FocusedText = LineEnding + 'Text of focused node is: ';
 
 var
   Data: PAlignData;
@@ -600,9 +589,9 @@ begin
     Data := Sender.GetNodeData(Node);
     with AlignTree.Header do
     begin
-      Columns[0].Hint := DefaultHintColumn0 + #13 + CommonHeaderHint + FocusedText + Data.MainColumnText;
-      Columns[1].Hint := DefaultHintColumn1 + #13 + CommonHeaderHint + FocusedText + Data.GreekText;
-      Columns[2].Hint := DefaultHintColumn2 + #13 + CommonHeaderHint + FocusedText + Data.RTLText;
+      Columns[0].Hint := DefaultHintColumn0 + LineEnding + CommonHeaderHint + FocusedText + Data.MainColumnText;
+      Columns[1].Hint := DefaultHintColumn1 + LineEnding + CommonHeaderHint + FocusedText + Data.GreekText;
+      Columns[2].Hint := DefaultHintColumn2 + LineEnding + CommonHeaderHint + FocusedText + Data.RTLText;
     end;
   end;
 end;
@@ -618,14 +607,5 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TAlignForm.AlignTreeFreeNode(Sender: TBaseVirtualTree;
-  Node: PVirtualNode);
-var
-  Data: PAlignData;
-
-begin
-  Data := Sender.GetNodeData(Node);
-  Finalize(Data^);
-end;
 
 end.
