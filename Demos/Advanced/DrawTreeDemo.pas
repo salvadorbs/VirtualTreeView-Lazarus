@@ -1,5 +1,7 @@
 unit DrawTreeDemo;
 
+{$MODE Delphi}
+
 // Virtual Treeview sample form demonstrating following features:
 //   - General use of TVirtualDrawTree.
 //   - Use of vertical node image alignment.
@@ -11,22 +13,16 @@ unit DrawTreeDemo;
 // more image formats into the application.
 // Otherwise disable the conditional symbol to compile this demo.
 
-{.$define GraphicEx}
-
-// For some things to work we need code, which is classified as being unsafe for .NET.
-// Additionally, there are a few platform warnings, which also have no meaning at all for this project.
-{$warn UNSAFE_TYPE off}
-{$warn UNSAFE_CAST off}
-{$warn UNSAFE_CODE off}
-{$warn SYMBOL_PLATFORM off}
-{$warn UNIT_PLATFORM off}
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  VirtualTrees, StdCtrls, {$ifdef GraphicEx} GraphicEx, {$else} JPEG, {$endif}
-  ImgList, ComCtrls, UITypes, VirtualTrees.DrawTree, System.ImageList, VirtualTrees.Types;
+  {$ifdef Windows}
+  Windows,
+  {$endif}
+  LCLIntf, delphicompat, LCLType, SysUtils, Classes, ComCtrls, Graphics, Controls, Forms, Dialogs,
+  VirtualTrees, StdCtrls,  shlobjext, LResources, VirtualTrees.DrawTree,
+  VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
   TDrawTreeForm = class(TForm)
@@ -53,7 +49,6 @@ type
       var InitialStates: TVirtualNodeInitStates);
     procedure TrackBar1Change(Sender: TObject);
     procedure VDT1StateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
-    procedure FormDestroy(Sender: TObject);
   private
     FThumbSize: Integer;
     FExtensionsInitialized: Boolean;
@@ -61,7 +56,7 @@ type
     FDriveStrings: string;
     function CanDisplay(const Name: String): Boolean;
     function GetDriveString(Index: Integer): string;
-    function ReadAttributes(const Name: UnicodeString): Cardinal;
+    function ReadAttributes(const Name: String): Cardinal;
     procedure RescaleImage(Source, Target: TBitmap);
   end;
 
@@ -72,10 +67,10 @@ var
 
 implementation
 
-uses
-  FileCtrl, ShellAPI, Mask, ShlObj, ActiveX, States,VirtualTrees.Utils;
+{$R *.lfm}
 
-{$R *.DFM}
+uses
+  LazFileUtils, States, VirtualTrees.Utils;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -85,35 +80,14 @@ type
   PShellObjectData = ^TShellObjectData;
   TShellObjectData = record
     FullPath,
-    Display: UnicodeString;
+    Display: String;
     Attributes: Cardinal;
     OpenIndex,
     CloseIndex: Integer;      // image indices into the system image list
     Image: TBitmap;
-    Properties: UnicodeString;   // some image properties, preformatted
+    Properties: String;   // some image properties, preformatted
   end;
-
-//----------------- utility functions ----------------------------------------------------------------------------------
-
-function IncludeTrailingBackslash(const S: string): string;
-
-begin
-  if not IsPathDelimiter(S, Length(S)) then
-    Result := S + '\'
-  else
-    Result := S;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function ExcludeTrailingBackslash(const S: string): string;
-
-begin
-  Result := S;
-  if IsPathDelimiter(Result, Length(Result)) then
-    SetLength(Result, Length(Result) - 1);
-end;
-
+  
 //----------------------------------------------------------------------------------------------------------------------
 
 function HasChildren(const Folder: string): Boolean;
@@ -124,9 +98,10 @@ var
   SR: TSearchRec;
 
 begin
-  Result := FindFirst(IncludeTrailingBackslash(Folder) + '*.*', faReadOnly or faHidden or faSysFile or faArchive, SR) = 0;
+  Result := FindFirstUTF8(IncludeTrailingPathDelimiter(Folder) + {$ifdef Windows}'*.*'{$else}'*'{$endif},
+    faAnyFile, SR) = 0;
   if Result then
-    FindClose(SR);
+    FindCloseUTF8(SR);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -134,15 +109,19 @@ end;
 function GetIconIndex(Name: string; Flags: Cardinal): Integer;
 
 // Returns the index of the system icon for the given file object.
-
+{
 var
   SFI: TSHFileInfo;
-
+}
 begin
+  Result := -1;
+  //todo
+  {
   if SHGetFileInfo(PChar(Name), 0, SFI, SizeOf(TSHFileInfo), Flags) = 0 then
     Result := -1
   else
     Result := SFI.iIcon;
+  }
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -150,26 +129,26 @@ end;
 procedure GetOpenAndClosedIcons(Name: string; var Open, Closed: Integer);
 
 begin
+  //todo
+  Closed := 0;
+  Open := 0;
+  {
   Closed := GetIconIndex(Name, SHGFI_SYSICONINDEX or SHGFI_SMALLICON);
   Open := GetIconIndex(Name, SHGFI_SYSICONINDEX or SHGFI_SMALLICON or SHGFI_OPENICON);
+  }
 end;
 
 //----------------- TDrawTreeForm --------------------------------------------------------------------------------------
 
-procedure TDrawTreeForm.FormCreate(Sender: TObject);
-
+procedure GetLogicalDrivesInfo(var DriveStrings: String; var DriveCount: Integer);
 var
-  SFI: TSHFileInfo;
   I,
-  DriveCount: Integer;
-  Len: Integer;
+  BufferSize,
   DriveMap,
   Mask: Cardinal;
 
 begin
-  VDT1.NodeDataSize := SizeOf(TShellObjectData);
-
-  // Fill root level of image tree. Determine which drives are mapped.
+  {$ifdef Windows}
   DriveCount := 0;
   DriveMap := GetLogicalDrives;
   Mask := 1;
@@ -179,21 +158,34 @@ begin
       Inc(DriveCount);
     Mask := Mask shl 1;
   end;
-  // Determine drive strings which are used in the initialization process.
-  Len := GetLogicalDriveStrings(0, nil);
-  SetLength(FDriveStrings, Len);
-  GetLogicalDriveStrings(Len, PChar(FDriveStrings));
-  VDT1.RootNodeCount := DriveCount;
-
-  SystemImages.Handle := SHGetFileInfo('', 0, SFI, SizeOf(SFI), SHGFI_SYSICONINDEX or SHGFI_SMALLICON);
-  SystemImages.ShareImages := True;
-
-  FThumbSize := 200;
+  BufferSize := GetLogicalDriveStrings(0, nil);
+  SetLength(DriveStrings, BufferSize);
+  GetLogicalDriveStrings(BufferSize, PChar(DriveStrings));
+  {$else}
+  DriveCount := 1;
+  DriveStrings := '/';
+  {$endif}
 end;
 
-procedure TDrawTreeForm.FormDestroy(Sender: TObject);
+procedure TDrawTreeForm.FormCreate(Sender: TObject);
+
+var
+  //SFI: TSHFileInfo;
+  I,
+  Count: Integer;
+
 begin
-  FreeAndNil(FExtensionList);
+  VDT1.NodeDataSize := SizeOf(TShellObjectData);
+  GetLogicalDrivesInfo(FDriveStrings,Count);
+  VDT1.RootNodeCount := Count;
+
+  //todo
+  {
+  SystemImages.Handle := SHGetFileInfo('', 0, SFI, SizeOf(SFI), SHGFI_SYSICONINDEX or SHGFI_SMALLICON);
+  SystemImages.ShareImages := True;
+  }
+  
+  FThumbSize := 200;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -211,6 +203,7 @@ begin
   begin
     FExtensionsInitialized := True;
     FExtensionList := TStringList.Create;
+    FExtensionList.Sorted := True;
     {$ifdef GraphicEx}
       FileFormatList.GetExtensionList(FExtensionList);
       for I := 0 to FExtensionList.Count - 1 do
@@ -223,11 +216,10 @@ begin
       Add('.ico');
       Add('.jpg');
       Add('.jpeg');
-      Add('.wmf');
-      Add('.emf');
+      //Add('.wmf');
+      //Add('.emf');
     end;
     {$endif}
-    FExtensionList.Sort;
   end;
 
   Ext := ExtractFileExt(Name);
@@ -262,20 +254,24 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TDrawTreeForm.ReadAttributes(const Name: UnicodeString): Cardinal;
+function TDrawTreeForm.ReadAttributes(const Name: String): Cardinal;
 
 // Determines the attributes of the given shell object (file, folder).
 
 const
   SFGAO_CONTENTSMASK = $F0000000; // This value is wrongly defined in ShlObj.
 
-var
-  Desktop: IShellFolder;
+//var
+  //Desktop: IShellFolder;
+  {
   Eaten: Cardinal;
   PIDL: PItemIDList;
   Malloc: IMalloc;
-
+}
 begin
+  Result := 0;
+  //todo
+  {
   // Get the root folder of the shell name space.
   SHGetDesktopFolder(Desktop);
   // While parsing the name also the shell object's attributes are determined.
@@ -285,6 +281,7 @@ begin
   // Don't forget to free the returned PIDL. The shell folder is released automatically.
   SHGetMalloc(Malloc);
   Malloc.Free(PIDL);
+  }
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -341,63 +338,64 @@ begin
   end
   else
   begin
-    Data.Display := ExtractFileName(ExcludeTrailingBackslash(Data.FullPath));
+    Picture := TPicture.Create;
+    Data.Display := ExtractFileName(ExcludeTrailingPathDelimiter(Data.FullPath));
     if (Data.Attributes and SFGAO_FOLDER) = 0 then
-    begin
-      Picture := TPicture.Create;
+    try
       try
-        try
-          Data.Image := TBitmap.Create;
-          Picture.LoadFromFile(Data.FullPath);
-          if not (Picture.Graphic is TBitmap) then
+        Data.Image := TBitmap.Create;
+        Picture.LoadFromFile(Data.FullPath);
+        if not (Picture.Graphic is TBitmap) then
+        begin
+          // Some extra steps needed to keep non TBitmap descentants alive when
+          // scaling. This is needed because when accessing Picture.Bitmap all
+          // non-TBitmap content will simply be erased (definitly the wrong
+          // action, but we can't do anything to prevent this). Hence we
+          // must explicitly draw the graphic to a bitmap.
+          with Data.Image do
           begin
-            // Some extra steps needed to keep non TBitmap descentants alive when
-            // scaling. This is needed because when accessing Picture.Bitmap all
-            // non-TBitmap content will simply be erased (definitly the wrong
-            // action, but we can't do anything to prevent this). Hence we
-            // must explicitly draw the graphic to a bitmap.
-            with Data.Image do
-            begin
-              Width := Picture.Width;
-              Height := Picture.Height;
-              Canvas.Draw(0, 0, Picture.Graphic);
-            end;
-            Picture.Bitmap.Assign(Data.Image);
+            Width := Picture.Width;
+            Height := Picture.Height;
+            Canvas.Draw(0, 0, Picture.Graphic);
           end;
-          RescaleImage(Picture.Bitmap, Data.Image);
-
-          // Collect some additional image properties.
-          Data.Properties := Data.Properties + Format('%d x %d pixels', [Picture.Width, Picture.Height]);
-          case Picture.Bitmap.PixelFormat of
-            pf1bit:
-              Data.Properties := Data.Properties + ', 2 colors';
-            pf4bit:
-              Data.Properties := Data.Properties + ', 16 colors';
-            pf8bit:
-              Data.Properties := Data.Properties + ', 256 colors';
-            pf15bit:
-              Data.Properties := Data.Properties + ', 32K colors';
-            pf16bit:
-              Data.Properties := Data.Properties + ', 64K colors';
-            pf24bit:
-              Data.Properties := Data.Properties + ', 16M colors';
-            pf32bit:
-              Data.Properties := Data.Properties + ', 16M+ colors';
-          end;
-          if Data.Image.Height + 4 > TVirtualDrawTree(Sender).DefaultNodeHeight then
-              Sender.NodeHeight[Node] := Data.Image.Height + 4;
-        except
-          Data.Image.Free;
-          Data.Image := nil;
+          Picture.Bitmap.Assign(Data.Image);
         end;
-      finally
-        Picture.Free;
-      end;// try..finally
-    end;// if
-  end;// else
-  Data.Attributes := ReadAttributes(Data.FullPath);
-  if ((Data.Attributes and SFGAO_HASSUBFOLDER) <> 0) or
-    (((Data.Attributes and SFGAO_FOLDER) <> 0) and HasChildren(Data.FullPath)) then
+        RescaleImage(Picture.Bitmap, Data.Image);
+
+        // Collect some additional image properties.
+        Data.Properties := Data.Properties + Format('%d x %d pixels', [Picture.Width, Picture.Height]);
+        case Picture.Bitmap.PixelFormat of
+          pf1bit:
+            Data.Properties := Data.Properties + ', 2 colors';
+          pf4bit:
+            Data.Properties := Data.Properties + ', 16 colors';
+          pf8bit:
+            Data.Properties := Data.Properties + ', 256 colors';
+          pf15bit:
+            Data.Properties := Data.Properties + ', 32K colors';
+          pf16bit:
+            Data.Properties := Data.Properties + ', 64K colors';
+          pf24bit:
+            Data.Properties := Data.Properties + ', 16M colors';
+          pf32bit:
+            Data.Properties := Data.Properties + ', 16M+ colors';
+        end;
+        if Data.Image.Height + 4 > TVirtualDrawTree(Sender).DefaultNodeHeight then
+            Sender.NodeHeight[Node] := Data.Image.Height + 4;
+      except
+        Data.Image.Free;
+        Data.Image := nil;
+      end;
+    finally
+      Picture.Free;
+    end;
+  end;
+  //todo
+
+  //Data.Attributes := ReadAttributes(Data.FullPath);
+  //if ((Data.Attributes and SFGAO_HASSUBFOLDER) <> 0) or
+  //  (((Data.Attributes and SFGAO_FOLDER) <> 0) and HasChildren(Data.FullPath)) then
+  if HasChildren(Data.FullPath) then
     Include(InitialStates, ivsHasChildren);
 
 end;
@@ -426,7 +424,7 @@ procedure TDrawTreeForm.VDT1DrawNode(Sender: TBaseVirtualTree; const PaintInfo: 
 var
   Data: PShellObjectData;
   X: Integer;
-  S: UnicodeString;
+  S: String;
   R: TRect;
 
 begin   
@@ -465,7 +463,7 @@ begin
               if (NodeWidth - 2 * Margin) > (Right - Left) then
                 S := ShortenString(Canvas.Handle, S, Right - Left);
             end;
-            DrawTextW(Canvas.Handle, PWideChar(S), Length(S), R, DT_TOP or DT_LEFT or DT_VCENTER or DT_SINGLELINE);
+            DrawText(Canvas.Handle, PChar(S), Length(S), R, DT_TOP or DT_LEFT or DT_VCENTER or DT_SINGLELINE);
           end;
         end;
       1:
@@ -533,36 +531,39 @@ var
 
 begin
   Data := Sender.GetNodeData(Node);
-  if FindFirst(IncludeTrailingBackslash(Data.FullPath) + '*.*', faAnyFile, SR) = 0 then
+  if FindFirstUTF8(IncludeTrailingPathDelimiter(Data.FullPath) + {$ifdef Windows}'*.*'{$else}'*'{$endif},
+    faAnyFile, SR) = 0 then
   begin
     Screen.Cursor := crHourGlass;
-    Sender.BeginUpdate;
     try
       repeat
         if (SR.Name <> '.') and (SR.Name <> '..') then
         begin
-          NewName := IncludeTrailingBackslash(Data.FullPath) + SR.Name;
+          NewName := IncludeTrailingPathDelimiter(Data.FullPath) + SR.Name;
           if (SR.Attr and faDirectory <> 0) or CanDisplay(NewName) then
           begin
             ChildNode := Sender.AddChild(Node);
             ChildData := Sender.GetNodeData(ChildNode);
             ChildData.FullPath := NewName;
-            ChildData.Attributes := ReadAttributes(NewName);
-            if (ChildData.Attributes and SFGAO_FOLDER) = 0 then
-              ChildData.Properties := Format('%n KB, ', [SR.Size / 1024]);
+            ChildData.Attributes := 0; //ReadAttributes(NewName);
+            //if (ChildData.Attributes and SFGAO_FOLDER) = 0 then
+            if (SR.Attr and faDirectory = 0) then
+              ChildData.Properties := Format('%n KB, ', [SR.Size / 1024])
+            else
+              ChildData.Attributes := SFGAO_FOLDER;
             GetOpenAndClosedIcons(ChildData.FullPath, ChildData.OpenIndex, ChildData.CloseIndex);
 
             Sender.ValidateNode(Node, False);
-            Inc(ChildCount);
           end;
         end;
-      until FindNext(SR) <> 0;
+      until FindNextUTF8(SR) <> 0;
+      ChildCount := Sender.ChildCount[Node];
 
       // finally sort node
-      Sender.Sort(Node, 0, TVirtualStringTree(Sender).Header.SortDirection, False);
+      if ChildCount > 0 then
+        Sender.Sort(Node, 0, TVirtualStringTree(Sender).Header.SortDirection, False);
     finally
-      Sender.EndUpdate;
-      FindClose(SR);
+      FindCloseUTF8(SR);
       Screen.Cursor := crDefault;
     end;
   end;
@@ -744,5 +745,6 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
 
 end.

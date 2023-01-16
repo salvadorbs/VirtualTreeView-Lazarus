@@ -1,24 +1,21 @@
 unit Main;
 
+{$MODE Delphi}
+
 // Advanced demo for Virtual Treeview showing various effects and features in several forms.
 // This is the main form which serves as container window for the demo forms.
 // Written by Mike Lischke.
 
 interface
 
-// For some things to work we need code, which is classified as being unsafe for .NET.
-{$warn UNSAFE_TYPE off}
-{$warn UNSAFE_CAST off}
-{$warn UNSAFE_CODE off}
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  ComCtrls, ToolWin, Buttons, ExtCtrls, StdCtrls, ImgList, ActnList,
-  StdActns, VirtualTrees;
+  LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  ComCtrls, Buttons, ExtCtrls, StdCtrls, ActnList, LResources;
 
 type
   TMainForm = class(TForm)
-    PageScroller1: TPageScroller;
+    PageScroller1: TPanel;
     SpeedDemoButton: TSpeedButton;
     AbilitiesDemoButton: TSpeedButton;
     PropertiesDemoButton: TSpeedButton;
@@ -27,10 +24,7 @@ type
     AlignDemoButton: TSpeedButton;
     QuitButton: TSpeedButton;
     PaintTreeDemoButton: TSpeedButton;
-    Bevel1: TBevel;
     MainPanel: TPanel;
-    Bevel2: TBevel;
-    Bevel3: TBevel;
     StatusBar: TStatusBar;
     ContainerPanel: TPanel;
     Label1: TLabel;
@@ -47,59 +41,35 @@ type
 var
   MainForm: TMainForm;
 
-procedure ConvertToHighColor(ImageList: TImageList);
-procedure LoadUnicodeStrings(Name: string; var Strings: array of UnicodeString);
+procedure LoadUnicodeStrings(const Name: string; var Strings: array of String);
 procedure SetStatusbarText(const S: string);
 
 //----------------------------------------------------------------------------------------------------------------------
 
 implementation
 
+{$R *.lfm}
+
 uses
-  CommCtrl, VirtualTrees.Accessibility,
   SpeedDemo, GeneralAbilitiesDemo, DrawTreeDemo, PropertiesDemo,
   GridDemo, VisibilityDemo, AlignDemo, WindowsXPStyleDemo, MultilineDemo, HeaderCustomDrawDemo,
-  States;
-
-{$R *.DFM}
+  States, LCLType;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure ConvertToHighColor(ImageList: TImageList);
-
-// To show smooth images we have to convert the image list from 16 colors to high color.
-
-var
-  IL: TImageList;
-
-begin
-  // Have to create a temporary copy of the given list, because the list is cleared on handle creation.
-  IL := TImageList.Create(nil);
-  IL.Assign(ImageList);
-
-  with ImageList do
-    Handle := ImageList_Create(Width, Height, ILC_COLOR16 or ILC_MASK, Count, AllocBy);
-  ImageList.Assign(IL);
-  IL.Free;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure LoadUnicodeStrings(Name: string; var Strings: array of UnicodeString);
+procedure LoadUnicodeStrings(const Name: string; var Strings: array of String);
 
 // Loads the Unicode strings from the resource.
 
 var
   Stream: TResourceStream;
-  Head, Tail: PWideChar;
+  Head, Tail: PAnsiChar;
   I: Integer;
 
 begin
-  Stream := TResourceStream.Create(0, Name, 'Unicode');
+  Stream := TResourceStream.Create(HINSTANCE, Name, RT_RCDATA);
   try
     Head := Stream.Memory;
-    // Skip byte order mark.
-    Inc(Head);
     Tail := Head;
     for I := 0 to High(Strings) do
     begin
@@ -138,7 +108,6 @@ procedure TMainForm.FormCreate(Sender: TObject);
 begin
   // Show hints 10 seconds.
   Application.HintHidePause := 10000;
-  System.ReportMemoryLeaksOnShutdown:= true;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -185,13 +154,11 @@ begin
     if Assigned(NewDemoClass) then
     begin
       NewDemo := NewDemoClass.Create(Self);
+      NewDemo.Hide;
       NewDemo.BorderStyle := bsNone;
-      NewDemo.Align := alClient;
       NewDemo.Parent := ContainerPanel;
+      NewDemo.Align := alClient;
       NewDemo.Show;
-      {$if CompilerVersion >= 33}
-      NewDemo.ScaleForPPI(FCurrentPPI); // See issue #990
-      {$endif}
     end;
   end;
 end;

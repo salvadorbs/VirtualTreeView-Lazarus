@@ -1,17 +1,24 @@
-﻿unit VirtualTrees.DataObject;
+unit VirtualTrees.DataObject;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  WinApi.ActiveX,
-  WinApi.Windows,
-  System.Classes,
-  Vcl.Controls,
-  VirtualTrees.Types;
+  Classes, Controls, Graphics, LCLType, SysUtils, Types,
+  {$ifdef Windows}
+  Windows,
+  ActiveX,
+  JwaWinBase,
+  {$else}
+  FakeActiveX,
+  {$endif}
+  DelphiCompat
+  , VirtualTrees.Types;
 
 type
-  IDataObject = WinApi.ActiveX.IDataObject;
-
   // IDataObject.SetData support
   TInternalStgMedium = packed record
     Format : TClipFormat;
@@ -47,10 +54,10 @@ type
     constructor Create(AHeader : TPersistent; AOwner : TCustomControl); overload;
     destructor Destroy; override;
 
-    function DAdvise(const FormatEtc : TFormatEtc; advf : Integer; const advSink : IAdviseSink; out dwConnection : Integer) : HResult; virtual; stdcall;
-    function DUnadvise(dwConnection : Integer) : HResult; virtual; stdcall;
+    function DAdvise(const FormatEtc : TFormatEtc; advf : DWord; const advSink : IAdviseSink; out dwConnection : DWord) : HResult; virtual; stdcall;
+    function DUnadvise(dwConnection : DWord) : HResult; virtual; stdcall;
     function EnumDAdvise(out enumAdvise : IEnumStatData) : HResult; virtual; stdcall;
-    function EnumFormatEtc(Direction : Integer; out EnumFormatEtc : IEnumFormatEtc) : HResult; virtual; stdcall;
+    function EnumFormatEtc(Direction : DWord; out EnumFormatEtc : IEnumFormatEtc) : HResult; virtual; stdcall;
     function GetCanonicalFormatEtc(const FormatEtc : TFormatEtc; out FormatEtcOut : TFormatEtc) : HResult; virtual; stdcall;
     function GetData(const FormatEtcIn : TFormatEtc; out Medium : TStgMedium) : HResult; virtual; stdcall;
     function GetDataHere(const FormatEtc : TFormatEtc; out Medium : TStgMedium) : HResult; virtual; stdcall;
@@ -61,23 +68,28 @@ type
 implementation
 
 uses
-  VirtualTrees.ClipBoard,
-  VirtualTrees.DragnDrop,
-  VirtualTrees.BaseTree;
+  VirtualTrees.DragnDrop, VirtualTrees.BaseTree, VirtualTrees.ClipBoard;
 
 type
   TVTCracker = class(TBaseVirtualTree);
+
+{$IFDEF EnableWinDataObject}
+{$warnings off}
+{$hints off}
+{$ENDIF}
 
   //----------------- TVTDataObject --------------------------------------------------------------------------------------
 
 constructor TVTDataObject.Create(AOwner : TCustomControl; ForClipboard : Boolean);
 begin
   inherited Create;
+  {$IFDEF EnableWinDataObject}
 
   FOwner := AOwner;
   FForClipboard := ForClipboard;
   if Assigned(FOWner) then
     TVTCracker(FOwner).GetNativeClipboardFormats(FFormatEtcArray);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -95,6 +107,7 @@ var
   I         : Integer;
   StgMedium : PStgMedium;
 begin
+  {$IFDEF EnableWinDataObject}
   // Cancel a pending clipboard operation if this data object was created for the clipboard and
   // is freed because something else is placed there.
   if FForClipboard and not (tsClipboardFlushing in TBaseVirtualTree(FOwner).TreeStates) then
@@ -110,6 +123,7 @@ begin
 
   FormatEtcArray := nil;
   inherited;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -118,6 +132,7 @@ function TVTDataObject.CanonicalIUnknown(const TestUnknown : IUnknown) : IUnknow
 // Uses COM object identity: An explicit call to the IUnknown::QueryInterface method, requesting the IUnknown
 // interface, will always return the same pointer.
 begin
+  {$IFDEF EnableWinDataObject}
   if Assigned(TestUnknown) then
   begin
     if TestUnknown.QueryInterface(IUnknown, Result) = 0 then
@@ -127,14 +142,17 @@ begin
   end
   else
     Result := TestUnknown;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.EqualFormatEtc(FormatEtc1, FormatEtc2 : TFormatEtc) : Boolean;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := (FormatEtc1.cfFormat = FormatEtc2.cfFormat) and (FormatEtc1.ptd = FormatEtc2.ptd) and (FormatEtc1.dwAspect = FormatEtc2.dwAspect) and
     (FormatEtc1.lindex = FormatEtc2.lindex) and (FormatEtc1.tymed and FormatEtc2.tymed <> 0);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -143,6 +161,7 @@ function TVTDataObject.FindFormatEtc(TestFormatEtc : TFormatEtc; const FormatEtc
 var
   I : Integer;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := - 1;
   for I := 0 to High(FormatEtcArray) do
   begin
@@ -152,14 +171,18 @@ begin
       Break;
     end;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.FindInternalStgMedium(Format : TClipFormat) : PStgMedium;
+{$IFDEF EnableWinDataObject}
 var
-  I : Integer;
+  I : integer;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := nil;
   for I := 0 to High(InternalStgMediumArray) do
   begin
@@ -169,16 +192,20 @@ begin
       Break;
     end;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.HGlobalClone(HGlobal : THandle) : THandle;
 // Returns a global memory block that is a copy of the passed memory block.
+{$IFDEF EnableWinDataObject}
 var
   Size          : Cardinal;
   Data, NewData : PByte;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Size := GlobalSize(HGlobal);
   Result := GlobalAlloc(GPTR, Size);
   Data := GlobalLock(HGlobal);
@@ -192,6 +219,7 @@ begin
   finally
     GlobalUnLock(HGlobal);
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -199,15 +227,19 @@ end;
 function TVTDataObject.RenderInternalOLEData(const FormatEtcIn : TFormatEtc; var Medium : TStgMedium; var OLEResult : HResult) : Boolean;
 // Tries to render one of the formats which have been stored via the SetData method.
 // Since this data is already there it is just copied or its reference count is increased (depending on storage medium).
+{$IFDEF EnableWinDataObject}
 var
   InternalMedium : PStgMedium;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := True;
   InternalMedium := FindInternalStgMedium(FormatEtcIn.cfFormat);
   if Assigned(InternalMedium) then
     OLEResult := StgMediumIncRef(InternalMedium^, Medium, False, Self as IDataObject)
   else
     Result := False;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -222,9 +254,12 @@ function TVTDataObject.StgMediumIncRef(const InStgMedium : TStgMedium; var OutSt
 // This way we increase the reference count to ourselves and pass the STGMEDIUM structure initially stored in SetData.
 // This way when the caller frees the structure it sees the unkForRelease is not nil and calls Release on the object
 // instead of destroying the actual data.
+{$IFDEF EnableWinDataObject}
 var
   Len : Integer;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := S_OK;
 
   // Simply copy all fields to start with.
@@ -244,7 +279,7 @@ begin
         end
         else
           // Don't generate a copy just use ourselves and the copy previously saved.
-          OutStgMedium.unkForRelease := Pointer(DataObject); // Does not increase RefCount.
+          OutStgMedium.PunkForRelease := Pointer(DataObject); // Does not increase RefCount.
       end;
     TYMED_FILE :
       begin
@@ -253,74 +288,84 @@ begin
         Move(InStgMedium.lpszFileName^, OutStgMedium.lpszFileName^, 2 * Len);
       end;
     TYMED_ISTREAM :
-      IUnknown(OutStgMedium.stm)._AddRef;
+      IUnknown(OutStgMedium.Pstm)._AddRef;
     TYMED_ISTORAGE :
-      IUnknown(OutStgMedium.stg)._AddRef;
+      IUnknown(OutStgMedium.Pstg)._AddRef;
     TYMED_GDI :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy GDI objects right now.
     TYMED_MFPICT :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy MetaFile objects right now.
     TYMED_ENHMF :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy enhanced metafiles objects right now.
   else
     Result := DV_E_TYMED;
   end;
 
-  if (Result = S_OK) and Assigned(OutStgMedium.unkForRelease) then
-    IUnknown(OutStgMedium.unkForRelease)._AddRef;
+  if (Result = S_OK) and Assigned(OutStgMedium.PunkForRelease) then
+    IUnknown(OutStgMedium.PunkForRelease)._AddRef;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.DAdvise(const FormatEtc : TFormatEtc; advf : Integer; const advSink : IAdviseSink; out dwConnection : Integer) : HResult;
+function TVTDataObject.DAdvise(const FormatEtc : TFormatEtc; advf : DWord; const advSink : IAdviseSink; out dwConnection : DWord) : HResult;
 // Advise sink management is greatly simplified by the IDataAdviseHolder interface.
 // We use this interface and forward all concerning calls to it.
 begin
+  {$IFDEF EnableWinDataObject}
   Result := S_OK;
   if FAdviseHolder = nil then
     Result := CreateDataAdviseHolder(FAdviseHolder);
   if Result = S_OK then
     Result := FAdviseHolder.Advise(Self as IDataObject, FormatEtc, advf, advSink, dwConnection);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.DUnadvise(dwConnection : Integer) : HResult;
+function TVTDataObject.DUnadvise(dwConnection : DWord) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if FAdviseHolder = nil then
     Result := E_NOTIMPL
   else
     Result := FAdviseHolder.Unadvise(dwConnection);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.EnumDAdvise(out enumAdvise : IEnumStatData) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   if FAdviseHolder = nil then
     Result := OLE_E_ADVISENOTSUPPORTED
   else
     Result := FAdviseHolder.enumAdvise(enumAdvise);
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.EnumFormatEtc(Direction : Integer; out EnumFormatEtc : IEnumFormatEtc) : HResult;
+function TVTDataObject.EnumFormatEtc(Direction : DWord; out EnumFormatEtc : IEnumFormatEtc) : HResult;
+{$IFDEF EnableWinDataObject}
 var
   NewList : TEnumFormatEtc;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := E_FAIL;
   if Direction = DATADIR_GET then
   begin
@@ -332,13 +377,16 @@ begin
     EnumFormatEtc := nil;
   if EnumFormatEtc = nil then
     Result := OLE_S_USEREG;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.GetCanonicalFormatEtc(const FormatEtc : TFormatEtc; out FormatEtcOut : TFormatEtc) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := DATA_S_SAMEFORMATETC;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -346,9 +394,11 @@ end;
 function TVTDataObject.GetData(const FormatEtcIn : TFormatEtc; out Medium : TStgMedium) : HResult;
 // Data is requested by clipboard or drop target. This method dispatchs the call
 // depending on the data being requested.
+{$IFDEF EnableWinDataObject}
 var
   I    : Integer;
   Data : PVTReference;
+{$ENDIF}
 begin
   // See if this is a header column drag and drop
   if (FormatEtcIn.cfFormat = CF_VTHEADERREFERENCE) and Assigned(FHeader) then
@@ -364,6 +414,7 @@ begin
   end; // if CF_VTHEADERREFERENCE
 
 
+  {$IFDEF EnableWinDataObject}
   // The tree reference format is always supported and returned from here.
   if (FormatEtcIn.cfFormat = CF_VTREFERENCE) and Assigned(FOWner) then
   begin
@@ -379,7 +430,7 @@ begin
       Data.Tree := TBaseVirtualTree(FOwner);
       GlobalUnLock(Medium.HGlobal);
       Medium.tymed := TYMED_HGLOBAL;
-      Medium.unkForRelease := nil;
+      Medium.PunkForRelease := nil;
       Exit(S_OK);
     end;
   end; // if CF_VTREFERENCE
@@ -400,24 +451,30 @@ begin
       end;
     end;
   except
-    ZeroMemory(@Medium, SizeOf(Medium));
+    FillChar(Medium, SizeOf(Medium), #0);
     Result := E_FAIL;
   end; // try..except
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.GetDataHere(const FormatEtc : TFormatEtc; out Medium : TStgMedium) : HResult;
 begin
+  {$IFDEF EnableWinDataObject}
   Result := E_NOTIMPL;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDataObject.QueryGetData(const FormatEtc : TFormatEtc) : HResult;
+{$IFDEF EnableWinDataObject}
 var
   I : Integer;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   Result := DV_E_CLIPFORMAT;
   for I := 0 to High(FFormatEtcArray) do
   begin
@@ -442,6 +499,7 @@ begin
         Result := DV_E_TYMED;
     end;
   end;
+  {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -449,10 +507,13 @@ end;
 function TVTDataObject.SetData(const FormatEtc : TFormatEtc; var Medium : TStgMedium; DoRelease : BOOL) : HResult;
 // Allows dynamic adding to the IDataObject during its existance. Most noteably it is used to implement
 // IDropSourceHelper and allows to set a special format for optimized moves during a shell transfer.
+{$IFDEF EnableWinDataObject}
 var
   Index          : Integer;
   LocalStgMedium : PStgMedium;
+{$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   // See if we already have a format of that type available.
   Index := FindFormatEtc(FormatEtc, FormatEtcArray);
   if Index > - 1 then
@@ -462,7 +523,7 @@ begin
     if Assigned(LocalStgMedium) then
     begin
       ReleaseStgMedium(LocalStgMedium^);
-      ZeroMemory(LocalStgMedium, SizeOf(LocalStgMedium^));
+      FillChar(LocalStgMedium^, SizeOf(LocalStgMedium^), #0);
     end;
   end
   else
@@ -476,7 +537,7 @@ begin
     SetLength(FInternalStgMediumArray, Length(InternalStgMediumArray) + 1);
     InternalStgMediumArray[High(InternalStgMediumArray)].Format := FormatEtc.cfFormat;
     LocalStgMedium := @InternalStgMediumArray[High(InternalStgMediumArray)].Medium;
-    ZeroMemory(LocalStgMedium, SizeOf(LocalStgMedium^));
+    FillChar(LocalStgMedium^, SizeOf(LocalStgMedium^), #0);
   end;
 
   if DoRelease then
@@ -493,16 +554,17 @@ begin
     // Can get a circular reference if the client calls GetData then calls SetData with the same StgMedium.
     // Because the unkForRelease for the IDataObject can be marshalled it is necessary to get pointers that
     // can be correctly compared. See the IDragSourceHelper article by Raymond Chen at MSDN.
-    if Assigned(LocalStgMedium.unkForRelease) then
+    if Assigned(LocalStgMedium.PunkForRelease) then
     begin
-      if CanonicalIUnknown(Self) = CanonicalIUnknown(IUnknown(LocalStgMedium.unkForRelease)) then
-        IUnknown(LocalStgMedium.unkForRelease) := nil; // release the interface
+      if CanonicalIUnknown(Self) = CanonicalIUnknown(IUnknown(LocalStgMedium.PunkForRelease)) then
+        IUnknown(LocalStgMedium.PunkForRelease) := nil; // release the interface
     end;
   end;
 
   // Tell all registered advice sinks about the data change.
   if Assigned(FAdviseHolder) then
     FAdviseHolder.SendOnDataChange(Self as IDataObject, 0, 0);
+  {$ENDIF}
 end;
 
 end.

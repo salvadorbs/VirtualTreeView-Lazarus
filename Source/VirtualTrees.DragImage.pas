@@ -1,18 +1,31 @@
-﻿unit VirtualTrees.DragImage;
+unit VirtualTrees.DragImage;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  WinApi.Windows,
-  WinApi.ActiveX,
-  System.Types,
-  Vcl.Controls,
-  Vcl.Graphics;
-
-{$MINENUMSIZE 1, make enumerations as small as possible}
-
+  Classes, Controls, Graphics,
+  {$ifdef Windows}
+  Windows,
+  ActiveX,
+  CommCtrl,
+  UxTheme,
+  {$else}
+  FakeActiveX,
+  {$endif}   
+  LCLType
+  , Math
+  , DelphiCompat
+  , Types
+  , LCLIntf
+  , SysUtils;
 
 type
+  TBitmap = Graphics.TBitmap;
+
   // Drag image support for the tree.
   TVTTransparency = 0 .. 255;
 
@@ -51,14 +64,8 @@ type
 implementation
 
 uses
-  WinApi.ShlObj,
-  WinApi.Messages,
-  System.SysUtils,
-  System.Math,
-  VirtualTrees.DragnDrop,
-  VirtualTrees.Types,
-  VirtualTrees.Utils,
-  VirtualTrees.BaseTree;
+  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop,
+  virtualdragmanager;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 
@@ -126,6 +133,9 @@ begin
       DragInfo.sizeDragImage.cy := Height;
       DragInfo.ptOffset := HotSpot;
       DragInfo.hbmpDragImage := CopyImage(DragImage.Handle, IMAGE_BITMAP, Width, Height, LR_COPYRETURNORG);
+      {$else}
+      DragInfo.hbmpDragImage := 0;
+      {$endif}
       DragInfo.crColorKey := ColorToRGB(FColorKey);
       if not Succeeded(DragSourceHelper.InitializeFromBitmap(@DragInfo, DataObject)) then
       begin

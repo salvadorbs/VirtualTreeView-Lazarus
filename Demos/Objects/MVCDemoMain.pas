@@ -1,5 +1,7 @@
 unit MVCDemoMain;
 
+{$MODE Delphi}
+
 { (c) 2000 Marian Aldenhövel
            Hainstraße 8
            53121 Bonn
@@ -13,11 +15,13 @@ unit MVCDemoMain;
 
 interface
 
-uses Windows,Messages,SysUtils,Classes,Graphics,Controls,Forms,Dialogs,
-     MVCTypes,MVCPanel,StdCtrls,ExtCtrls,ImgList,VirtualTrees,ComCtrls,
-  Buttons, System.ImageList;
+uses
+  LCLIntf, SysUtils,Classes,Graphics,Controls,Forms,Dialogs, VirtualTrees.BaseTree,
+  MVCTypes,MVCPanel,StdCtrls,ExtCtrls,VirtualTrees,ComCtrls,
+  Buttons, LResources;
 
-type TfmMVCDemo=class(TForm)
+type
+  TfmMVCDemo=class(TForm)
        pnlControls:TPanel;
        ImageList1:TImageList;
        edCaption:TEdit;
@@ -50,11 +54,13 @@ type TfmMVCDemo=class(TForm)
        function CreateDefaultTree:TMVCTree;
      end;
 
-var fmMVCDemo:TfmMVCDemo;
+var
+  fmMVCDemo:TfmMVCDemo;
 
 implementation
 
-{$R *.DFM}
+{$R *.lfm}
+
 
 function TfmMVCDemo.CreateDefaultTree:TMVCTree;
 { recurse and curse :-) }
@@ -144,7 +150,7 @@ end;
 
 procedure TfmMVCDemo.edIncidenceKeyPress(Sender:TObject;var Key:Char);
 begin
-  if not CharInSet(Key, ['0'..'9',#8]) then Key:=#0;
+  if not(Key in ['0'..'9',#8]) then Key:=#0;
 end;
 
 procedure TfmMVCDemo.edSubcaptionChange(Sender:TObject);
@@ -185,7 +191,7 @@ end;
 
 procedure TfmMVCDemo.btnDeleteClick(Sender: TObject);
 begin
-  FocusedNode.Free;  
+  FocusedNode.Free;
 end;
 
 procedure TfmMVCDemo.cbLiveClick(Sender: TObject);
@@ -205,7 +211,7 @@ begin
       if N.ChildCount>0
         then N:=N.Child[random(N.ChildCount)]
         else N:=NIL;
-    end;    
+    end;
 end;
 
 initialization

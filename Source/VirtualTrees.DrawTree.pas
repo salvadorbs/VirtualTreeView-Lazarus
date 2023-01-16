@@ -1,27 +1,16 @@
-﻿unit VirtualTrees.DrawTree;
+unit VirtualTrees.DrawTree;
+
+{$mode delphi}
 
 interface
 
+{$I VTConfig.inc}
+
 uses
-  System.Types,
-  System.Classes,
-  Vcl.Themes,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree,
-{$IFDEF VT_FMX}
-  VirtualTrees.AncestorFMX,
-{$ELSE}
-  VirtualTrees.AncestorVCL
-{$ENDIF}
-  ;
+  Classes, Controls, Graphics, LCLVersion, VirtualTrees.BaseTree, VirtualTrees,
+  VirtualTrees.Types, Types;
 
 type
-{$IFDEF VT_FMX}
-  TVTAncestor = TVTAncestorFMX;
-{$ELSE}
-  TVTAncestor = TVTAncestorVcl;
-{$ENDIF}
-
   // Tree descendant to let an application draw its stuff itself.
   TCustomVirtualDrawTree = class(TVTAncestor)
   private
@@ -40,7 +29,6 @@ type
     property OnGetNodeWidth: TVTGetNodeWidthEvent read FOnGetNodeWidth write FOnGetNodeWidth;
   end;
 
-  [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
   TVirtualDrawTree = class(TCustomVirtualDrawTree)
   private
     function GetOptions: TVirtualTreeOptions;
@@ -64,12 +52,15 @@ type
     property BackgroundOffsetX;
     property BackgroundOffsetY;
     property BiDiMode;
+    {
     property BevelEdges;
     property BevelInner;
     property BevelOuter;
     property BevelKind;
     property BevelWidth;
-    property BorderStyle;
+    }
+    property BorderSpacing;
+    property BorderStyle default bsSingle;
     property BottomSpace;
     property ButtonFillMode;
     property ButtonStyle;
@@ -79,7 +70,9 @@ type
     property Color;
     property Colors;
     property Constraints;
+    {
     property Ctl3D;
+    }
     property CustomCheckImages;
     property DefaultNodeHeight;
     property DefaultPasteMode;
@@ -112,7 +105,9 @@ type
     property OperationCanceled;
     property ParentBiDiMode;
     property ParentColor default False;
+    {
     property ParentCtl3D;
+    }
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
@@ -128,6 +123,11 @@ type
     property TreeOptions: TVirtualTreeOptions read GetOptions write SetOptions;
     property Visible;
     property WantTabs;
+    {$IF LCL_FullVersion >= 2000000}
+    property ImagesWidth;
+    property StateImagesWidth;
+    property CustomCheckImagesWidth;
+    {$IFEND}
 
     property OnAddToSelection;
     property OnAdvancedHeaderDraw;
@@ -265,17 +265,17 @@ type
     property OnStateChange;
     property OnStructureChange;
     property OnUpdating;
+    property OnUTF8KeyPress;
+    {
     property OnCanResize;
     property OnGesture;
     property Touch;
     property StyleElements;
+    }
   end;
 
 
 implementation
-
-uses
-  VirtualTrees.StyleHooks;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -342,11 +342,5 @@ function TVirtualDrawTree.GetOptionsClass: TTreeOptionsClass;
 begin
   Result := TVirtualTreeOptions;
 end;
-
-initialization
-  TCustomStyleEngine.RegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
-
-finalization
-  TCustomStyleEngine.UnRegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
 
 end.

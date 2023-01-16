@@ -1,17 +1,19 @@
 unit VisibilityDemo;
 
+{$MODE Delphi}
+{$H+}
+
 // Virtual Treeview sample form demonstrating following features:
 //   - Hiding nodes.
 //   - Synchronization between 2 trees (expand, scroll, selection).
 //   - Wheel scrolling and panning.
 // Written by Mike Lischke.
-{$WARN UNSAFE_CODE OFF} // Prevent warnins that are not applicable 
 
 interface
 
 uses
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, VirtualTrees, ComCtrls, ExtCtrls, ImgList, VirtualTrees.Types;
+  LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, VirtualTrees, ExtCtrls, LResources, VirtualTrees.BaseTree;
 
 type
   TVisibilityForm = class(TForm)
@@ -32,7 +34,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure RadioGroup1Click(Sender: TObject);
     procedure VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure VST3Scroll(Sender: TBaseVirtualTree; DeltaX, DeltaY: Integer);
     procedure VST2InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure VST2Scroll(Sender: TBaseVirtualTree; DeltaX, DeltaY: Integer);
@@ -42,7 +44,7 @@ type
       var Accept: Boolean);
     procedure Splitter2Paint(Sender: TObject);
     procedure VST1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var CellText: string);
+      var CellText: String);
     procedure FormShow(Sender: TObject);
     procedure FormHide(Sender: TObject);
     procedure VST3FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
@@ -60,14 +62,15 @@ var
 
 implementation
 
-uses States;
+{$R *.lfm}
 
-{$R *.DFM}
+uses States, VirtualTrees.Types;
+
 
 type
   PLinkData = ^TLinkData;
   TLinkData = record
-    Caption: UnicodeString;
+    Caption: String;
     OtherNode: PVirtualNode;
   end;
 
@@ -169,7 +172,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVisibilityForm.VST2GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: string);
+  TextType: TVSTTextType; var CellText: String);
 
 var
   Data: PLinkData;
@@ -316,7 +319,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVisibilityForm.VST1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-  TextType: TVSTTextType; var CellText: UnicodeString);
+  TextType: TVSTTextType; var CellText: String);
 
 begin
   CellText := Format('Node Level %d, Index %d', [Sender.GetNodeLevel(Node), Node.Index]);
