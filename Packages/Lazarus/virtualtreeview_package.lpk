@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
-  <Package Version="4">
+  <Package Version="5">
     <Name Value="virtualtreeview_package"/>
     <Type Value="RunAndDesignTime"/>
     <Author Value="Mike Lischke (LCL Port: Luiz Américo)"/>
     <CompilerOptions>
       <Version Value="11"/>
       <SearchPaths>
-        <IncludeFiles Value="include/intf/$(LCLWidgetType);units;include/intf"/>
-        <OtherUnitFiles Value="units/$(LCLWidgetType)"/>
-        <UnitOutputDirectory Value="lib/$(TargetCPU)-$(TargetOS)-$(LCLWidgetType)"/>
+        <IncludeFiles Value="../../Source/include/intf/$(LCLWidgetType);../../Source/units;../../Source/include/intf;../../Source"/>
+        <OtherUnitFiles Value="../../Source/units/$(LCLWidgetType);../../Source"/>
+        <UnitOutputDirectory Value="../../Source/lib/$(TargetCPU)-$(TargetOS)-$(LCLWidgetType)"/>
       </SearchPaths>
-      <Conditionals Value="if VirtualTreeView_Debug = 'True' then
+      <Conditionals Value="if VirtualTreeView_Debug = &apos;True&apos; then
 begin
-  CustomOptions := '-dDEBUG_VTV';
-  UnitPath += ';$PkgOutDir(multiloglaz)';
-  UsageUnitPath += ';$PkgOutDir(multiloglaz)';
+  CustomOptions := &apos;-dDEBUG_VTV&apos;;
+  UnitPath += &apos;;$PkgOutDir(multiloglaz)&apos;;
+  UsageUnitPath += &apos;;$PkgOutDir(multiloglaz)&apos;;
 end;"/>
       <BuildMacros>
         <Count Value="1"/>
@@ -43,98 +43,98 @@ end;"/>
     <Version Major="5" Minor="5" Release="3" Build="1"/>
     <Files Count="23">
       <Item1>
-        <Filename Value="VirtualTrees.pas"/>
+        <Filename Value="../../Source/VirtualTrees.pas"/>
         <UnitName Value="VirtualTrees"/>
       </Item1>
       <Item2>
-        <Filename Value="VirtualTrees.HeaderPopup.pas"/>
+        <Filename Value="../../Source/VirtualTrees.HeaderPopup.pas"/>
         <UnitName Value="VirtualTrees.HeaderPopup"/>
       </Item2>
       <Item3>
-        <Filename Value="registervirtualtreeview.pas"/>
+        <Filename Value="../../Source/registervirtualtreeview.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="registervirtualtreeview"/>
       </Item3>
       <Item4>
-        <Filename Value="ideicons.lrs"/>
+        <Filename Value="../../Source/ideicons.lrs"/>
         <Type Value="LRS"/>
       </Item4>
       <Item5>
-        <Filename Value="VTConfig.inc"/>
+        <Filename Value="../../Source/VTConfig.inc"/>
         <Type Value="Include"/>
       </Item5>
       <Item6>
-        <Filename Value="VirtualTrees.res"/>
+        <Filename Value="../../Source/VirtualTrees.res"/>
         <Type Value="Binary"/>
       </Item6>
       <Item7>
-        <Filename Value="VirtualTrees.IDEEditors.pas"/>
+        <Filename Value="../../Source/VirtualTrees.IDEEditors.pas"/>
         <UnitName Value="VirtualTrees.IDEEditors"/>
       </Item7>
       <Item8>
-        <Filename Value="VirtualTrees.ClipBoard.pas"/>
+        <Filename Value="../../Source/VirtualTrees.ClipBoard.pas"/>
         <UnitName Value="VirtualTrees.ClipBoard"/>
       </Item8>
       <Item9>
-        <Filename Value="VirtualTrees.Colors.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Colors.pas"/>
         <AddToUsesPkgSection Value="False"/>
         <UnitName Value="VirtualTrees.Colors"/>
       </Item9>
       <Item10>
-        <Filename Value="VirtualTrees.WorkerThread.pas"/>
+        <Filename Value="../../Source/VirtualTrees.WorkerThread.pas"/>
         <UnitName Value="VirtualTrees.WorkerThread"/>
       </Item10>
       <Item11>
-        <Filename Value="VirtualTrees.Types.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Types.pas"/>
         <UnitName Value="VirtualTrees.Types"/>
       </Item11>
       <Item12>
-        <Filename Value="VirtualTrees.Header.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Header.pas"/>
         <UnitName Value="VirtualTrees.Header"/>
       </Item12>
       <Item13>
-        <Filename Value="VirtualTrees.DragImage.pas"/>
+        <Filename Value="../../Source/VirtualTrees.DragImage.pas"/>
         <UnitName Value="VirtualTrees.DragImage"/>
       </Item13>
       <Item14>
-        <Filename Value="VirtualTrees.Utils.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Utils.pas"/>
         <AddToUsesPkgSection Value="False"/>
         <UnitName Value="VirtualTrees.Utils"/>
       </Item14>
       <Item15>
-        <Filename Value="VirtualTrees.DataObject.pas"/>
+        <Filename Value="../../Source/VirtualTrees.DataObject.pas"/>
         <UnitName Value="VirtualTrees.DataObject"/>
       </Item15>
       <Item16>
-        <Filename Value="VirtualTrees.DragnDrop.pas"/>
+        <Filename Value="../../Source/VirtualTrees.DragnDrop.pas"/>
         <UnitName Value="VirtualTrees.DragnDrop"/>
       </Item16>
       <Item17>
-        <Filename Value="VirtualTrees.Classes.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Classes.pas"/>
         <UnitName Value="VirtualTrees.Classes"/>
       </Item17>
       <Item18>
-        <Filename Value="VirtualTrees.Export.pas"/>
+        <Filename Value="../../Source/VirtualTrees.Export.pas"/>
         <UnitName Value="VirtualTrees.Export"/>
       </Item18>
       <Item19>
-        <Filename Value="VirtualTrees.EditLink.pas"/>
+        <Filename Value="../../Source/VirtualTrees.EditLink.pas"/>
         <UnitName Value="VirtualTrees.EditLink"/>
       </Item19>
       <Item20>
-        <Filename Value="VirtualTrees.DrawTree.pas"/>
+        <Filename Value="../../Source/VirtualTrees.DrawTree.pas"/>
         <UnitName Value="VirtualTrees.DrawTree"/>
       </Item20>
       <Item21>
-        <Filename Value="VirtualTrees.BaseTree.pas"/>
+        <Filename Value="../../Source/VirtualTrees.BaseTree.pas"/>
         <UnitName Value="VirtualTrees.BaseTree"/>
       </Item21>
       <Item22>
-        <Filename Value="VirtualTrees.BaseAncestorLcl.pas"/>
+        <Filename Value="../../Source/VirtualTrees.BaseAncestorLcl.pas"/>
         <UnitName Value="VirtualTrees.BaseAncestorLCL"/>
       </Item22>
       <Item23>
-        <Filename Value="VirtualTrees.AncestorLcl.pas"/>
+        <Filename Value="../../Source/VirtualTrees.AncestorLcl.pas"/>
         <UnitName Value="VirtualTrees.AncestorLCL"/>
       </Item23>
     </Files>
@@ -157,7 +157,6 @@ end;"/>
     </UsageOptions>
     <PublishOptions>
       <Version Value="2"/>
-      <IgnoreBinaries Value="False"/>
     </PublishOptions>
     <CustomOptions Items="ExternHelp" Version="2">
       <_ExternHelp Items="Count"/>
