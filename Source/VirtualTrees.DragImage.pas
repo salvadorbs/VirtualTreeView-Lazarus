@@ -18,18 +18,14 @@ type
   TVTBias = - 128 .. 127;
 
   // Simple move limitation for the drag image.
-  TVTDragMoveRestriction = (
-    dmrNone,
-    dmrHorizontalOnly,
-    dmrVerticalOnly
-  );
+  TVTDragMoveRestriction = (dmrNone, dmrHorizontalOnly, dmrVerticalOnly);
 
   TVTDragImageStates = set of (
-    disHidden,                            // Internal drag image is currently hidden (always hidden if drag image helper interfaces are used).																															
-    disInDrag,                            // Drag image class is currently being used.
-    disPrepared,                          // Drag image class is prepared.
-    disSystemSupport                      // Running on Windows 2000 or higher. System supports drag images natively.
-    );
+    disHidden,          // Internal drag image is currently hidden (always hidden if drag image helper interfaces are used).
+    disInDrag,          // Drag image class is currently being used.
+    disPrepared,        // Drag image class is prepared.
+    disSystemSupport    // Running on Windows 2000 or higher. System supports drag images natively.
+  );
 
   // Class to manage header and tree drag image during a drag'n drop operation.
   TVTDragImage = class
@@ -75,14 +71,7 @@ type
 implementation
 
 uses
-  WinApi.ShlObj,
-  WinApi.Messages,
-  System.SysUtils,
-  System.Math,
-  VirtualTrees.DragnDrop,
-  VirtualTrees.Types,
-  VirtualTrees.Utils,
-  VirtualTrees.BaseTree;
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Graphics, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 

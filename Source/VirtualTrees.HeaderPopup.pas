@@ -66,10 +66,7 @@
 interface
 
 uses
-  System.Classes,
-  Vcl.Menus,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree;
+  Menus, LCLVersion, VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
   TVTHeaderPopupOption = (
@@ -108,9 +105,7 @@ type
 implementation
 
 uses
-  Winapi.Windows,
-  System.Types,
-  VirtualTrees.Header;
+  Classes, VirtualTrees.Header;
 
 resourcestring
   sResizeColumnToFit = 'Size &Column to Fit';

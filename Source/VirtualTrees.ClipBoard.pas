@@ -29,10 +29,14 @@ interface
 {$WARN UNSAFE_CAST OFF}
 
 uses
-  Winapi.Windows,
-  Winapi.ActiveX,
-  System.Classes,
-  VirtualTrees.BaseTree;
+  Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.Types, VirtualTrees.BaseTree
+
+  {$ifdef Windows}
+  , ActiveX
+  {$else}
+  , FakeActiveX
+  {$endif}
+  ;
 
 type
   TClipboardFormatEntry = record
@@ -415,4 +419,3 @@ finalization
   FreeAndNil(_List);
 
 end.
-

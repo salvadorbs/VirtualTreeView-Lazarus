@@ -19,18 +19,13 @@ procedure ContentToCustom(Tree: TCustomVirtualStringTree; Source: TVSTTextSource
 implementation
 
 uses
-  System.Classes,
-  System.SysUtils,
-  System.StrUtils,
-  System.Generics.Collections,
-  System.UITypes,
-  Vcl.Graphics,
-  Vcl.Controls,
-  Vcl.Forms,
-  VirtualTrees.Types,
-  VirtualTrees.ClipBoard,
-  VirtualTrees.Header,
-  VirtualTrees.BaseTree;
+  Graphics, VirtualTrees.Header, VirtualTrees.Types,
+  {$ifdef Windows}
+  Windows,
+  ActiveX
+  {$else}
+  FakeActiveX
+  {$endif};
 
 type
   TCustomVirtualStringTreeCracker = class(TCustomVirtualStringTree)
@@ -729,7 +724,7 @@ begin
           end;
 
           // Call back the application to know about font customization.
-          CrackTree.Canvas.Font.Assign(CrackTree.Font);
+          CrackTree.Canvas.Font := CrackTree.Font;
           CrackTree.FFontChanged := False;
           CrackTree.DoPaintText(Run, CrackTree.Canvas, Index, ttNormal);
 

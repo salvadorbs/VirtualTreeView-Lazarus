@@ -3,9 +3,7 @@
 interface
 
 uses
-  System.Classes,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree;
+  Classes, VirtualTrees.BaseTree, SyncObjs, LCLType, LCLIntf, VirtualTrees.Types;
 
 type
   // internal worker thread
@@ -49,37 +47,22 @@ type
 
 var
   WorkerThread: TWorkerThread = nil;
-
 //----------------- TWorkerThread --------------------------------------------------------------------------------------
 
 class procedure TWorkerThread.EnsureCreated();
 begin
   if not Assigned(WorkerThread) then
     // Create worker thread, initialize it and send it to its wait loop.
-    WorkerThread := TWorkerThread.Create();
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class procedure TWorkerThread.Dispose(CanBlock: Boolean);
-var
-  LRef: TThread;
-begin
-  WorkerThread.FreeOnTerminate := not CanBlock;
-  WorkerThread.Terminate();
-  SetEvent(WorkerThread.FWorkEvent);
-  LRef := WorkerThread;
-  WorkerThread := nil; //Will be freed usinf TThread.FreeOnTerminate
-  if CanBlock then
-    LRef.Free;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-class procedure TWorkerThread.AddThreadReference;
-begin
-  TWorkerThread.EnsureCreated();
-  InterlockedIncrement(WorkerThread.FRefCount);
+    WorkerThread := TWorkerThread.Create(False);
+    // Create an event used to trigger our worker thread when something is to do.
+    WorkerThread.FWorkEvent := TEvent.Create(nil, False, False, '');
+    //todo: see how to check if a event was succesfully created under linux since handle is allways 0
+    {$ifdef Windows}
+    if WorkerThread.FWorkEvent.Handle = TEventHandle(0) then
+      Raise Exception.Create('VirtualTreeView - Error creating TEvent instance');
+    {$endif}
+  end;
+  Inc(WorkerThread.FRefCount);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

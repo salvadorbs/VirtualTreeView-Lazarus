@@ -7,11 +7,7 @@
 
 interface
 
-uses
-  Winapi.Windows, Winapi.ActiveX, Winapi.oleacc,
-  System.Classes, System.Types,
-  Vcl.Controls,
-  VirtualTrees, VirtualTrees.AccessibilityFactory, VirtualTrees.BaseTree;
+uses Windows, Classes, ActiveX, oleacc, VirtualTrees, VirtualTrees.AccessibilityFactory, Controls;
 
 type
   TVirtualTreeAccessibility = class(TInterfacedObject, IDispatch, IAccessible)
@@ -100,16 +96,7 @@ type
 
 implementation
 
-uses
-  System.SysUtils, System.Variants, System.Math,
-  Vcl.Forms,
-  VirtualTrees.Types;
-
-type
-
-/// For getting access to protected members of this class
-THackVirtualStringTree = class(TVirtualStringTree)
-end;
+uses Variants, SysUtils, Types, Forms;
 
 { TVirtualTreeAccessibility }
 //----------------------------------------------------------------------------------------------------------------------

@@ -96,20 +96,8 @@ var
   Len: NativeInt;
 
 begin
-  Len := Length(S);
-  // Make room for the new string.
-  if FEnd - FPosition <= Len then
-  begin
-    // Round up NewLen so it is always a multiple of AllocIncrement.
-    NewLen := FEnd - FStart + (Len + AllocIncrement - 1) and not (AllocIncrement - 1);
-    // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
-    LastOffset := FPosition - FStart;
-    ReallocMem(FStart, NewLen);
-    FPosition := FStart + LastOffset;
-    FEnd := FStart + NewLen;
-  end;
-  System.Move(PAnsiChar(S)^, FPosition^, Len);
-  System.Inc(FPosition, Len);
+  //todo: optimize
+  Result := UTF8Decode(AsUTF8String);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -121,21 +109,7 @@ var
   LastOffset: NativeInt;
 
 begin
-  // Make room for the CR/LF characters.
-  if FEnd - FPosition <= 2 then
-  begin
-    // Round up NewLen so it is always a multiple of AllocIncrement.
-    NewLen := FEnd - FStart + (2 + AllocIncrement - 1) and not (AllocIncrement - 1);
-    // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
-    LastOffset := FPosition - FStart;
-    ReallocMem(FStart, NewLen);
-    FPosition := FStart + LastOffset;
-    FEnd := FStart + NewLen;
-  end;
-  FPosition^ := #13;
-  System.Inc(FPosition);
-  FPosition^ := #10;
-  System.Inc(FPosition);
+  SetString(Result, FStart, FPosition - FStart);
 end;
 
 //----------------- TBufferedString --------------------------------------------------------------------------------
@@ -179,8 +153,8 @@ begin
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
-  System.Move(PWideChar(S)^, FPosition^, 2 * Len);
-  System.Inc(FPosition, Len);
+  System.Move(PChar(S)^, FPosition^, Len);
+  Inc(FPosition, Len);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -204,9 +178,9 @@ begin
     FEnd := FStart + NewLen;
   end;
   FPosition^ := #13;
-  System.Inc(FPosition);
+  Inc(FPosition);
   FPosition^ := #10;
-  System.Inc(FPosition);
+  Inc(FPosition);
 end;
 
 

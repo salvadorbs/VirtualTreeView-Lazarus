@@ -3,25 +3,9 @@
 interface
 
 uses
-  System.Types,
-  System.Classes,
-  Vcl.Themes,
-  VirtualTrees.Types,
-  VirtualTrees.BaseTree,
-{$IFDEF VT_FMX}
-  VirtualTrees.AncestorFMX,
-{$ELSE}
-  VirtualTrees.AncestorVCL
-{$ENDIF}
-  ;
+  Classes, Controls, Graphics, LCLVersion, VirtualTrees.BaseTree, VirtualTrees.Types, Types;
 
 type
-{$IFDEF VT_FMX}
-  TVTAncestor = TVTAncestorFMX;
-{$ELSE}
-  TVTAncestor = TVTAncestorVcl;
-{$ENDIF}
-
   // Tree descendant to let an application draw its stuff itself.
   TCustomVirtualDrawTree = class(TVTAncestor)
   private
@@ -274,9 +258,6 @@ type
 
 implementation
 
-uses
-  VirtualTrees.StyleHooks;
-
 //----------------------------------------------------------------------------------------------------------------------
 
 function TCustomVirtualDrawTree.DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
@@ -343,10 +324,13 @@ begin
   Result := TVirtualTreeOptions;
 end;
 
-initialization
-  TCustomStyleEngine.RegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
+//----------------------------------------------------------------------------------------------------------------------
 
-finalization
-  TCustomStyleEngine.UnRegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
+{$if CompilerVersion >= 23}
+class constructor TVirtualDrawTree.Create();
+begin
+  TCustomStyleEngine.RegisterStyleHook(TVirtualDrawTree, TVclStyleScrollBarsHook);
+end;
+{$ifend}
 
 end.
