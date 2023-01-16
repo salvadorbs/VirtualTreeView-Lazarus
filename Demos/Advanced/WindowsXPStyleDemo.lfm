@@ -58,7 +58,6 @@ object WindowsXPForm: TWindowsXPForm
     Anchors = [akTop, akLeft, akRight]
     AutoScrollDelay = 500
     ButtonFillMode = fmShaded
-    CheckImageKind = ckXP
     ClipboardFormats.Strings = (
       'CSV'
       'HTML Format'

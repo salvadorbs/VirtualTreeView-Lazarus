@@ -11,13 +11,15 @@ uses
   VirtualTrees.Classes, LCLType, DelphiCompat;
 
 function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Caption: string = ''): String;
-function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType): AnsiString;
+function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType): RawByteString;
+function ContentToUnicodeString(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Separator: string): string;
+function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source: TVSTTextSourceType): HGLOBAL;
 procedure ContentToCustom(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType);
 
 implementation
 
 uses
-  Graphics, VirtualTrees.Header, VirtualTrees.Types
+  Graphics, VirtualTrees.Header, VirtualTrees.Types, VirtualTrees.ClipBoard
   {$ifdef Windows}
   , Windows
   {$endif};
@@ -31,15 +33,15 @@ const
   WideLF = Char(#10);
 
 
-function ContentToHTML(Tree: TCustomVirtualStringTree;
-  Source: TVSTTextSourceType; const Caption: string): String;
+
+function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Caption: string): String;
 
 // Renders the current tree content (depending on Source) as HTML text encoded in UTF-8.
 // If Caption is not empty then it is used to create and fill the header for the table built here.
 // Based on ideas and code from Frank van den Bergh and Andreas H??emeier.
 
 var
-  Buffer: TBufferedUTF8String;
+  Buffer: TBufferedString;
 
   //--------------- local functions -------------------------------------------
 
@@ -77,7 +79,7 @@ var
 
   //---------------------------------------------------------------------------
 
-  procedure WriteStyle(const Name: AnsiString; Font: TFont);
+  procedure WriteStyle(const Name: String; Font: TFont);
 
   // Creates a CSS style entry with the given name for the given font.
   // If Name is empty then the entry is created as inline style.
@@ -98,9 +100,9 @@ var
     else
       Buffer.Add(Format('font-size: %dpt; ', [Font.Size]));
 
-    Buffer.Add(Format('font-style: %s; ', [IfThen(fsItalic in Font.Style, 'italic', 'normal')]));
-    Buffer.Add(Format('font-weight: %s; ', [IfThen(fsBold in Font.Style, 'bold', 'normal')]));
-    Buffer.Add(Format('text-decoration: %s; ', [IfThen(fsUnderline in Font.Style, 'underline', 'none')]));
+    Buffer.Add(Format('font-style: %s; ', [IfThen(TFontStyle.fsItalic in Font.Style, 'italic', 'normal')]));
+    Buffer.Add(Format('font-weight: %s; ', [IfThen(TFontStyle.fsBold in Font.Style, 'bold', 'normal')]));
+    Buffer.Add(Format('text-decoration: %s; ', [IfThen(TFontStyle.fsUnderline in Font.Style, 'underline', 'none')]));
 
     Buffer.Add('color: ');
     WriteColorAsHex(Font.Color);
@@ -136,7 +138,7 @@ begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
   
   CrackTree.StartOperation(TVTOperationKind.okExport);
-  Buffer := TBufferedUTF8String.Create;
+  Buffer := TBufferedString.Create;
   lGetCellTextEventArgs.ExportType := TVTExportType.etHtml;
   try
     // For customization by the application or descendants we use again the redirected font change event.
@@ -419,7 +421,7 @@ begin
           // Get the text
           lGetCellTextEventArgs.Node := Run;
           lGetCellTextEventArgs.Column := Index;
-          CrackTree.DoGetText(lGetCellTextEventArgs.Node, lGetCellTextEventArgs.Column, ttNormal, lGetCellTextEventArgs.CellText);
+          CrackTree.DoGetText(lGetCellTextEventArgs);
           Buffer.Add(lGetCellTextEventArgs.CellText);
           if not lGetCellTextEventArgs.StaticText.IsEmpty and (toShowStaticText in TStringTreeOptions(CrackTree.TreeOptions).StringOptions) then
             Buffer.Add(' ' + lGetCellTextEventArgs.StaticText);
@@ -440,15 +442,14 @@ begin
 
     CrackTree.RestoreFontChangeEvent(CrackTree.Canvas);
 
-    Result := Buffer.AsUTF8String;
+    Result := Buffer.AsString;
   finally
     CrackTree.EndOperation(TVTOperationKind.okExport);
     Buffer.Free;
   end;
 end;
 
-function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType
-  ): AnsiString;
+function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType): RawByteString;
 
 // Renders the current tree content (depending on Source) as RTF (rich text).
 // Based on ideas and code from Frank van den Bergh and Andreas H??emeier.
@@ -459,7 +460,7 @@ var
   CurrentFontIndex,
   CurrentFontColor,
   CurrentFontSize: Integer;
-  Buffer: TBufferedUTF8String;
+  Buffer: TBufferedRawByteString;
 
   //--------------- local functions -------------------------------------------
 
@@ -526,18 +527,17 @@ var
     UseItalic,
     UseBold: Boolean;
     I: Integer;
-    WText: UnicodeString;
+
   begin
     if Length(Text) > 0 then
     begin
-      WText := UTF8Decode(Text);
-      UseUnderline := fsUnderline in Font.Style;
+      UseUnderline := TFontStyle.fsUnderline in Font.Style;
       if UseUnderline then
         Buffer.Add('\ul');
-      UseItalic := fsItalic in Font.Style;
+      UseItalic := TFontStyle.fsItalic in Font.Style;
       if UseItalic then
         Buffer.Add('\i');
-      UseBold := fsBold in Font.Style;
+      UseBold := TFontStyle.fsBold in Font.Style;
       if UseBold then
         Buffer.Add('\b');
       SelectFont(Font.Name);
@@ -553,14 +553,14 @@ var
       Buffer.Add(' ');
       // Note: Unicode values > 32767 must be expressed as negative numbers. This is implicitly done
       //       by interpreting the wide chars (word values) as small integers.
-      for I := 1 to Length(WText) do
+      for I := 1 to Length(Text) do
       begin
         if (Text[I] = WideLF) then
           Buffer.Add( '{\par}' )
         else
           if (Text[I] <> WideCR) then
           begin
-            Buffer.Add(Format('\u%d\''3f', [SmallInt(WText[I])]));
+            Buffer.Add(Format('\u%d\''3f', [SmallInt(Text[I])]));
             Continue;
           end;
       end;
@@ -580,8 +580,7 @@ var
   I, J: Integer;
   Save, Run: PVirtualNode;
   GetNextNode: TGetNextNodeProc;
-  S, Tabs : String;
-  Text: String;
+  S, Tabs : RawByteString;
   Twips: Integer;
 
   RenderColumns: Boolean;
@@ -595,7 +594,7 @@ var
 begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
 
-  Buffer := TBufferedUTF8String.Create;
+  Buffer := TBufferedRawByteString.Create;
   lGetCellTextEventArgs.ExportType := TVTExportType.etRtf;
   CrackTree.StartOperation(TVTOperationKind.okExport);
   try
@@ -708,7 +707,7 @@ begin
           // Get the text
           lGetCellTextEventArgs.Node := Run;
           lGetCellTextEventArgs.Column := Index;
-          CrackTree.DoGetText(lGetCellTextEventArgs.Node, lGetCellTextEventArgs.Column, ttNormal, lGetCellTextEventArgs.CellText);
+          CrackTree.DoGetText(lGetCellTextEventArgs);
           Buffer.Add('\pard\intbl');
 
           // Alignment is not supported with older RTF formats, however it will be ignored.
@@ -806,8 +805,268 @@ begin
   end;
 end;
 
-procedure ContentToCustom(Tree: TCustomVirtualStringTree;
-  Source: TVSTTextSourceType);
+
+function ContentToUnicodeString(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Separator: string): string;
+
+// Renders the current tree content (depending on Source) as Unicode text.
+// If an entry contains the separator char then it is wrapped with double quotation marks.
+var
+  Buffer: TBufferedString;
+
+  procedure CheckQuotingAndAppend(const pText: string);
+  begin
+    // Wrap the text with quotation marks if it contains the separator character.
+    if Pos(Separator, pText) > 0 then
+      Buffer.Add(AnsiQuotedStr(pText, '"'))
+    else
+      Buffer.Add(pText);
+  end;
+
+var
+  RenderColumns: Boolean;
+  Tabs: string;
+  GetNextNode: TGetNextNodeProc;
+  Run, Save: PVirtualNode;
+
+  Columns: TColumnsArray;
+  LastColumn: TVirtualTreeColumn;
+  Level, MaxLevel: Cardinal;
+  Index,
+  I: Integer;
+  CrackTree: TCustomVirtualStringTreeCracker;
+  lGetCellTextEventArgs: TVSTGetCellTextEventArgs;
+begin
+  CrackTree := TCustomVirtualStringTreeCracker(Tree);
+
+  Buffer := TBufferedString.Create;
+  lGetCellTextEventArgs.ExportType := TVTExportType.etText;
+  CrackTree.StartOperation(TVTOperationKind.okExport);
+  try
+    Columns := nil;
+    RenderColumns := CrackTree.Header.UseColumns;
+    if RenderColumns then
+      Columns := CrackTree.Header.Columns.GetVisibleColumns;
+
+    CrackTree.GetRenderStartValues(Source, Run, GetNextNode);
+    Save := Run;
+
+    // The text consists of visible groups representing the columns, which are separated by one or more separator
+    // characters. There are always MaxLevel separator chars in a line (main column only). Either before the caption
+    // to ident it or after the caption to make the following column aligned.
+    MaxLevel := 0;
+    while Assigned(Run) and not CrackTree.OperationCanceled do
+    begin
+      Level := CrackTree.GetNodeLevel(Run);
+      if Level > MaxLevel then
+        MaxLevel := Level;
+      Run := GetNextNode(Run);
+    end;
+
+    Tabs := DupeString(Separator, MaxLevel);
+
+    // First line is always the header if used.
+    if RenderColumns then
+    begin
+      LastColumn := Columns[High(Columns)];
+      for I := 0 to High(Columns) do
+      begin
+        Buffer.Add(Columns[I].Text);
+        if Columns[I] <> LastColumn then
+        begin
+          if Columns[I].Index = CrackTree.Header.MainColumn then
+          begin
+            Buffer.Add(Tabs);
+            Buffer.Add(Separator);
+          end
+          else
+            Buffer.Add(Separator);
+        end;
+      end;
+      Buffer.AddNewLine;
+    end
+    else
+      LastColumn := nil;
+
+    Run := Save;
+    if RenderColumns then
+    begin
+      while Assigned(Run)  and not CrackTree.OperationCanceled do
+      begin
+        for I := 0 to High(Columns) do
+        begin
+          if coVisible in Columns[I].Options then
+          begin
+            Index := Columns[I].Index;
+            lGetCellTextEventArgs.Node := Run;
+            lGetCellTextEventArgs.Column := Index;
+            CrackTree.DoGetText(lGetCellTextEventArgs);
+            if Index = CrackTree.Header.MainColumn then
+              Buffer.Add(Copy(Tabs, 1, Integer(CrackTree.GetNodeLevel(Run)) * Length(Separator)));
+            if not lGetCellTextEventArgs.StaticText.IsEmpty and (toShowStaticText in TStringTreeOptions(CrackTree.TreeOptions).StringOptions) then
+              CheckQuotingAndAppend(lGetCellTextEventArgs.CellText + ' ' + lGetCellTextEventArgs.StaticText)
+            else
+              CheckQuotingAndAppend(lGetCellTextEventArgs.CellText);
+            if Index = CrackTree.Header.MainColumn then
+              Buffer.Add(Copy(Tabs, 1, Integer(MaxLevel - CrackTree.GetNodeLevel(Run)) * Length(Separator)));
+
+            if Columns[I] <> LastColumn then
+              Buffer.Add(Separator);
+          end;
+        end;
+        Run := GetNextNode(Run);
+        Buffer.AddNewLine;
+      end;
+    end
+    else
+    begin
+      lGetCellTextEventArgs.Column := NoColumn;
+      while Assigned(Run) and not CrackTree.OperationCanceled do
+      begin
+        lGetCellTextEventArgs.Node := Run;
+        CrackTree.DoGetText(lGetCellTextEventArgs);
+        Level := CrackTree.GetNodeLevel(Run);
+        Buffer.Add(Copy(Tabs, 1, Integer(Level) * Length(Separator)));
+        Buffer.Add(lGetCellTextEventArgs.CellText);
+        Buffer.AddNewLine;
+
+        Run := GetNextNode(Run);
+      end;
+    end;
+    Result := Buffer.AsString;
+  finally
+    CrackTree.EndOperation(TVTOperationKind.okExport);
+    Buffer.Free;
+  end;
+end;
+
+function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source: TVSTTextSourceType): HGLOBAL;
+{$ifdef LCLWin32}
+// This method constructs a shareable memory object filled with string data in the required format. Supported are:
+// CF_TEXT - plain ANSI text (Unicode text is converted using the user's current locale)
+// CF_UNICODETEXT - plain Unicode text
+// CF_CSV - comma separated plain ANSI text
+// CF_VRTF + CF_RTFNOOBS - rich text (plain ANSI)
+// CF_HTML - HTML text encoded using UTF-8
+//
+// Result is the handle to a globally allocated memory block which can directly be used for clipboard and drag'n drop
+// transfers. The caller is responsible for freeing the memory. If for some reason the content could not be rendered
+// the Result is 0.
+
+  //--------------- local function --------------------------------------------
+
+  procedure MakeFragment(var HTML: Utf8String);
+
+  // Helper routine to build a properly-formatted HTML fragment.
+
+  const
+    Version = 'Version:1.0'#13#10;
+    StartHTML = 'StartHTML:';
+    EndHTML = 'EndHTML:';
+    StartFragment = 'StartFragment:';
+    EndFragment = 'EndFragment:';
+    DocType = '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">';
+    HTMLIntro = '<html><head><META http-equiv=Content-Type content="text/html; charset=utf-8">' +
+      '</head><body><!--StartFragment-->';
+    HTMLExtro = '<!--EndFragment--></body></html>';
+    NumberLengthAndCR = 10;
+
+    // Let the compiler determine the description length.
+    DescriptionLength = Length(Version) + Length(StartHTML) + Length(EndHTML) + Length(StartFragment) +
+      Length(EndFragment) + 4 * NumberLengthAndCR;
+
+  var
+    Description: Utf8String;
+    StartHTMLIndex,
+    EndHTMLIndex,
+    StartFragmentIndex,
+    EndFragmentIndex: Integer;
+
+  begin
+    // The HTML clipboard format is defined by using byte positions in the entire block where HTML text and
+    // fragments start and end. These positions are written in a description. Unfortunately the positions depend on the
+    // length of the description but the description may change with varying positions.
+    // To solve this dilemma the offsets are converted into fixed length strings which makes it possible to know
+    // the description length in advance.
+    StartHTMLIndex := DescriptionLength;              // position 0 after the description
+    StartFragmentIndex := StartHTMLIndex + Length(DocType) + Length(HTMLIntro);
+    EndFragmentIndex := StartFragmentIndex + Length(HTML);
+    EndHTMLIndex := EndFragmentIndex + Length(HTMLExtro);
+
+    Description := Version +
+    SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
+    HTML := Description + DocType + HTMLIntro + HTML + HTMLExtro;
+  end;
+
+  //--------------- end local function ----------------------------------------
+
+var
+  Data: Pointer;
+  DataSize: Cardinal;
+  S: AnsiString;
+  WS: string;
+  lUtf8String: Utf8string;
+  P: Pointer;
+  CrackTree: TCustomVirtualStringTreeCracker;
+{$endif}
+begin
+  Result := 0;
+
+{$ifdef LCLWin32}
+  CrackTree := TCustomVirtualStringTreeCracker(Tree);
+
+  DataSize := 0;
+  Data := nil;
+  case Format of
+    CF_TEXT:
+      begin
+        S := AnsiString(ContentToUnicodeString(CrackTree, Source, #9) + #0);
+        Data := PAnsiChar(S);
+        DataSize := Length(S);
+      end;
+    CF_UNICODETEXT:
+      begin
+        WS := ContentToUnicodeString(CrackTree, Source, #9) + #0;
+        Data := PWideChar(WS);
+        DataSize := 2 * Length(WS);
+      end;
+  else
+    if Format = CF_CSV then
+    begin
+      S := AnsiString(ContentToUnicodeString(CrackTree, Source, FormatSettings.ListSeparator) + #0);
+      Data := PAnsiChar(S);
+      DataSize := Length(S);
+    end// CF_CSV
+    else if (Format = CF_VRTF) or (Format = CF_VRTFNOOBJS) then
+    begin
+      S := ContentToRTF(CrackTree, Source) + #0;
+      Data := PAnsiChar(S);
+      DataSize := Length(S);
+    end
+    else if Format = CF_HTML then
+    begin
+      lUtf8String := ContentToHTML(CrackTree, Source);
+      // Build a valid HTML clipboard fragment.
+      MakeFragment(lUtf8String);
+      lUtf8String := lUtf8String + #0;
+      Data := PAnsiChar(lUtf8String);
+      DataSize := Length(lUtf8String);
+    end;
+  end;
+
+  if DataSize > 0 then
+  begin
+    Result := GlobalAlloc(GHND or GMEM_SHARE, DataSize);
+    P := GlobalLock(Result);
+    Move(Data^, P^, DataSize);
+    GlobalUnlock(Result);
+  end;
+{$endif}
+end;
+
+procedure ContentToCustom(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType);
 
 // Generic export procedure which polls the application at every stage of the export.
 

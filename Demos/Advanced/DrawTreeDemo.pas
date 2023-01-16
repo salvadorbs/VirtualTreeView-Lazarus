@@ -39,11 +39,10 @@ type
     procedure VDT1FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure VDT1GetHintSize(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var R: TRect);
     procedure VDT1GetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var Index: Integer);
+      var Ghosted: Boolean; var Index: TImageIndex);
     procedure VDT1GetNodeWidth(Sender: TBaseVirtualTree; Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       var NodeWidth: Integer);
-    procedure VDT1HeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState; X,
-      Y: Integer);
+    procedure VDT1HeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
     procedure VDT1InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure VDT1InitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
@@ -380,7 +379,7 @@ begin
           pf32bit:
             Data.Properties := Data.Properties + ', 16M+ colors';
         end;
-        if Cardinal(Data.Image.Height) + 4 > TVirtualDrawTree(Sender).DefaultNodeHeight then
+        if Data.Image.Height + 4 > TVirtualDrawTree(Sender).DefaultNodeHeight then
             Sender.NodeHeight[Node] := Data.Image.Height + 4;
       except
         Data.Image.Free;
@@ -431,7 +430,7 @@ begin
   with Sender as TVirtualDrawTree, PaintInfo do
   begin
     Data := Sender.GetNodeData(Node);
-    if (Column = FocusedColumn) and (Node = FocusedNode) then
+    if (Column = FocusedColumn) and (Selected[Node]) then
       Canvas.Font.Color := clHighlightText
     else
       if (Data.Attributes and SFGAO_COMPRESSED) <> 0 then
@@ -500,7 +499,7 @@ begin
     case Column of
       0:
         begin
-          if Node.Parent = Sender.RootNode then
+          if Sender.NodeParent[Node] = nil then
             NodeWidth := Canvas.TextWidth(Data.FullPath) + 2 * AMargin
           else
             NodeWidth := Canvas.TextWidth(ExtractFileName(Data.FullPath)) + 2 * AMargin;
@@ -572,7 +571,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TDrawTreeForm.VDT1GetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-  Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
+  Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
 
 // Returns the proper node image which has been determine on initialization time. Also overlay images are
 // used properly for shared folders.
@@ -615,7 +614,7 @@ var
   
 begin
   Data := Sender.GetNodeData(Node);
-  if Assigned(Data) and Assigned(Data.Image) and (Column = 1) then
+  if Assigned(Data) and Assigned(Data.Image) then
     R := Rect(0, 0, 2 * Data.Image.Width, 2 * Data.Image.Height)
   else
     R := Rect(0, 0, 0, 0);
@@ -633,7 +632,7 @@ var
 
 begin
   Data := Sender.GetNodeData(Node);
-  if Assigned(Data) and Assigned(Data.Image) and (Column = 1) then
+  if Assigned(Data) and Assigned(Data.Image) then
   begin
     SetStretchBltMode(Canvas.Handle, HALFTONE);
     StretchBlt(Canvas.Handle, 0, 0, 2 * Data.Image.Width, 2 * Data.Image.Height, Data.Image.Canvas.Handle, 0, 0,
@@ -676,24 +675,23 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TDrawTreeForm.VDT1HeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState;
-  X, Y: Integer);
+procedure TDrawTreeForm.VDT1HeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
 
 // Click handler to switch the column on which will be sorted. Since we cannot sort image data sorting is actually
 // limited to the main column.
 
 begin
-  if Button = mbLeft then
+  if HitInfo.Button = mbLeft then
   begin
     with Sender do
     begin
-      if Column <> MainColumn then
+      if HitInfo.Column <> MainColumn then
         SortColumn := NoColumn
       else
       begin
         if SortColumn = NoColumn then
         begin
-          SortColumn := Column;
+          SortColumn := HitInfo.Column;
           SortDirection := sdAscending;
         end
         else

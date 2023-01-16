@@ -57,14 +57,14 @@ type
     procedure ShowHeader2CheckBoxChange(Sender: TObject);
     procedure TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure Tree1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-      var Text: String);
+      var CellText: string);
     procedure FormCreate(Sender: TObject);
     procedure TreeDragDrop(Sender: TBaseVirtualTree; Source: TObject; DataObject: IDataObject;
       Formats: TFormatArray; Shift: TShiftState; Pt: TPoint; var Effect: Integer; Mode: TDropMode);
     procedure Button2Click(Sender: TObject);
     procedure TreeInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
-    procedure Tree1NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; Text: String);
+    procedure Tree1NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
     procedure Button3Click(Sender: TObject);
     procedure Tree2DragAllowed(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
     procedure TreeDragOver(Sender: TBaseVirtualTree; Source: TObject; Shift: TShiftState; State: TDragState;
@@ -75,7 +75,7 @@ type
     procedure AddUnicodeText(DataObject: IDataObject; Target: TVirtualStringTree; Mode: TVTNodeAttachMode);
     procedure AddVCLText(Target: TVirtualStringTree; const Text: String; Mode: TVTNodeAttachMode);
     function FindCPFormatDescription(CPFormat: Word): string;
-    procedure InsertData(Sender: TVirtualStringTree; DataObject: IDataObject; Formats: TFormatArray; Effect: LongWord;
+    procedure InsertData(Sender: TVirtualStringTree; DataObject: IDataObject; Formats: TFormatArray; Effect: Integer;
       Mode: TVTNodeAttachMode);
   end;
 
@@ -150,7 +150,7 @@ var
   EnumFormat: IEnumFormatEtc;
   Format: TFormatEtc;
   Formats: TFormatArray;
-  Fetched: LongWord;
+  Fetched: Integer;
   Tree: TVirtualStringTree;
   
 begin
@@ -220,7 +220,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TMainForm.Tree1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
-  var Text: String);
+  var CellText: string);
 
 var
   Data: PNodeData;
@@ -229,7 +229,7 @@ begin
   if TextType = ttNormal then
   begin
     Data := Sender.GetNodeData(Node);
-    Text := Data.Caption;
+    CellText := Data.Caption;
   end
   else
     Text := '';
@@ -586,7 +586,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TMainForm.Tree1NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; Text: String);
+procedure TMainForm.Tree1NewText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; NewText: string);
 
 var
   Data: PNodeData;
@@ -598,7 +598,7 @@ var
 
 begin
   Data := Sender.GetNodeData(Node);
-  Data.Caption := Text;
+  Data.Caption := NewText;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -655,7 +655,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TMainForm.InsertData(Sender: TVirtualStringTree; DataObject: IDataObject; Formats: TFormatArray;
-  Effect: LongWord; Mode: TVTNodeAttachMode);
+  Effect: Integer; Mode: TVTNodeAttachMode);
 
 var
   FormatAccepted: Boolean;

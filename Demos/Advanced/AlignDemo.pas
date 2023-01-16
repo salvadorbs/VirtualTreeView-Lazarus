@@ -39,7 +39,7 @@ type
     Label5: TLabel;
     LayoutCombo: TComboBox;
     procedure AlignTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var Index: Integer);
+      var Ghosted: Boolean; var Index: TImageIndex);
     procedure AlignTreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: String);
     procedure AlignTreePaintText(Sender: TBaseVirtualTree; const Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
@@ -53,12 +53,12 @@ type
     procedure IconPopupPopup(Sender: TObject);
     procedure AlignComboChange(Sender: TObject);
     procedure BidiGroupClick(Sender: TObject);
-    procedure AlignTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState; X,
-      Y: Integer);
+    procedure AlignTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
     procedure OptionBoxClick(Sender: TObject);
     procedure LayoutComboChange(Sender: TObject);
     procedure AlignTreeFocusChanged(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex);
     procedure AlignTreeStateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
+    procedure AlignTreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
     FArabicFont,
     FHebrewFont: TFont;
@@ -147,7 +147,7 @@ begin
       Canvas.Font.Color := clSilver;
     2:
       begin
-        if not Odd(Node.Parent.Index) then
+        if not Odd(Sender.NodeParent[Node].Index) then
           Canvas.Font := FArabicFont
         else
           Canvas.Font := FHebrewFont;
@@ -157,7 +157,7 @@ begin
   // Reset the text color for selected and drop target nodes.
   if ((Node = Sender.DropTargetNode) or (vsSelected in Node.States)) and (Column = Sender.FocusedColumn) then
     Canvas.Font.Color := clHighlightText;
-  if Node.Parent = Sender.RootNode then
+  if Sender.NodeParent[Node] = nil then
     Canvas.Font.Style := [fsBold];
 end;
 
@@ -184,7 +184,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TAlignForm.AlignTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-  Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
+  Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
 
 var
   Data: PAlignData;
@@ -195,6 +195,8 @@ begin
     Data := Sender.GetNodeData(Node);
     Index := Data.ImageIndex;
   end;
+  if (Kind = ikState) and (Column = Sender.Header.MainColumn) then
+    Index := 1;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -247,6 +249,7 @@ begin
       end;
     end;
   end;
+  Node.CheckType := TCheckType.ctTriStateCheckBox;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -342,21 +345,21 @@ begin
 
     // Button layout
     LayoutCombo.ItemIndex := Ord(Columns[0].Layout);
-    if not (hoShowImages in Options) then
+    if not (TVTHeaderOption.hoShowImages in Options) then
       Height := 24
     else
-      if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
+      if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
         Height := 64
       else
         Height := 40;
 
     // Options
-    ShowGlyphsOptionBox.Checked := hoShowImages in Options;
-    HotTrackOptionBox.Checked := hoHotTrack in Options;
+    ShowGlyphsOptionBox.Checked := TVTHeaderOption.hoShowImages in Options;
+    HotTrackOptionBox.Checked := TVTHeaderOption.hoHotTrack in Options;
     ShowTextOptionBox.Checked := True;
     ChangeHeaderText;
-    VisibleOptionBox.Checked := hoVisible in Options;
-    EnabledOptionBox.Checked := coEnabled in Columns[0].Options;
+    VisibleOptionBox.Checked := TVTHeaderOption.hoVisible in Options;
+    EnabledOptionBox.Checked := TVTColumnOption.coEnabled in Columns[0].Options;
   end;
 end;
 
@@ -478,20 +481,19 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TAlignForm.AlignTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState;
-  X, Y: Integer);
+procedure TAlignForm.AlignTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
 
 // This method sets sort column and direction on a header click.
 // Note: this is only to show the header layout. There gets nothing really sorted.
 
 begin
-  if Button = mbLeft then
+  if HitInfo.Button = mbLeft then
   begin
     with Sender do
     begin
-      if SortColumn <> Column then
+      if SortColumn <> HitInfo.Column then
       begin
-        SortColumn := Column;
+        SortColumn := HitInfo.Column;
         SortDirection := sdAscending;
       end
       else
@@ -518,35 +520,35 @@ begin
       0:
         if Checked then
         begin
-          Options := Options + [hoShowImages];
-          if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
+          Options := Options + [TVTHeaderOption.hoShowImages];
+          if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
             Height := 64
           else
             Height := 40;
         end
         else
         begin
-          Options := Options - [hoShowImages];
+          Options := Options - [TVTHeaderOption.hoShowImages];
           Height := 24;
         end;
       1:
         if Checked then
-          Options := Options + [hoHotTrack]
+          Options := Options + [TVTHeaderOption.hoHotTrack]
         else
-          Options := Options - [hoHotTrack];
+          Options := Options - [TVTHeaderOption.hoHotTrack];
       2:
         ChangeHeaderText;
       3:
         if Checked then
-          Options := Options + [hoVisible]
+          Options := Options + [TVTHeaderOption.hoVisible]
         else
-          Options := Options - [hoVisible];
+          Options := Options - [TVTHeaderOption.hoVisible];
       4:
         for I := 0 to Columns.Count - 1 do
           if Checked then
-            Columns[I].Options := Columns[I].Options + [coEnabled]
+            Columns[I].Options := Columns[I].Options + [TVTColumnOption.coEnabled]
           else
-            Columns[I].Options := Columns[I].Options - [coEnabled];
+            Columns[I].Options := Columns[I].Options - [TVTColumnOption.coEnabled];
     end;
 end;
 
@@ -563,10 +565,10 @@ begin
     for I := 0 to Columns.Count - 1 do
       Columns[I].Layout := TVTHeaderColumnLayout(ItemIndex);
 
-    if not (hoShowImages in Options) then
+    if not (TVTHeaderOption.hoShowImages in Options) then
       Height := 24
     else
-      if Columns[0].Layout in [blGlyphTop, blGlyphBottom] then
+      if Columns[0].Layout in [TVTHeaderColumnLayout.blGlyphTop, TVTHeaderColumnLayout.blGlyphBottom] then
         Height := 64
       else
         Height := 40;
@@ -607,5 +609,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TAlignForm.AlignTreeFreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PAlignData;
+
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
 
 end.

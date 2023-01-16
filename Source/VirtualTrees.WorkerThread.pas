@@ -140,7 +140,7 @@ procedure TWorkerThread.Execute();
 // Does some background tasks, like validating tree caches.
 
 var
-  EnterStates, LeaveStates: TChangeStates;
+  EnterStates, LeaveStates: TVirtualTreeStates;
   lCurrentTree: TBaseVirtualTree;
 begin
   TThread.NameThreadForDebugging('VirtualTrees.TWorkerThread');
@@ -172,15 +172,14 @@ begin
     if Assigned(lCurrentTree) then
     begin
       try
-        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync([csValidating], [csUseCache, csValidationNeeded]);
+        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync([tsValidating], [tsUseCache, tsValidationNeeded]);
         FCurrentTree := lCurrentTree;
         EnterStates := [];
         if not (tsStopValidation in FCurrentTree.TreeStates) and TBaseVirtualTreeCracker(FCurrentTree).DoValidateCache then
-          EnterStates := [csUseCache];
+          EnterStates := [tsUseCache];
       finally
-        LeaveStates := [csValidating, csStopValidation];
         FCurrentTree := nil; // Important: Clear variable before calling ChangeTreeStatesAsync() to prevent deadlock in WaitForValidationTermination(). See issue #1001
-        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync(EnterStates, LeaveStates);
+        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync(EnterStates, [tsValidating, tsStopValidation]);
       end;
     end;
   end;//while

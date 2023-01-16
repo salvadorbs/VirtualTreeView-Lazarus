@@ -2549,7 +2549,7 @@ begin
     if UpdateNowFlag then
       Flags := Flags or RDW_UPDATENOW;
     //lclheader
-    RedrawWindow(Handle, @R, 0, Flags);
+    RedrawWindow(@R, 0, Flags);
   end;
 end;
 
@@ -5742,7 +5742,6 @@ var
     Theme: HTHEME;
     {$endif}
     w, h: Integer;
-    Rsrc, Rdest: TRect;
     IdState: Integer;
   begin
     ColImageInfo.Ghosted := False;
@@ -5924,13 +5923,10 @@ var
           end;
 
           FHasImage := True;
-          with TWithSafeRect(FImageRect) do
-          begin
-            Left := GlyphPos.X;
-            Top := GlyphPos.Y;
-            Right := Left + w;
-            Bottom := Top + h;
-          end;
+          FImageRect.Left := GlyphPos.X;
+          FImageRect.Top := GlyphPos.Y;
+          FImageRect.Right := FImageRect.Left + w;
+          FImageRect.Bottom := FImageRect.Top + h;
         end;
 
         // caption
@@ -5948,8 +5944,6 @@ var
         // sort glyph
         if not (hpeSortGlyph in ActualElements) and ShowSortGlyph then
         begin
-          Rsrc := Rect(0, 0, UtilityImageSize-1, UtilityImageSize-1);
-          Rdest := Rsrc;
           if tsUseExplorerTheme in TreeViewControl.TreeStates then
           begin
             Pos.TopLeft := SortGlyphPos;

@@ -122,7 +122,7 @@ begin
   else
   begin
     Result := TreeView.DoCreateDataObject;
-    if Result = nil then
+    if (Result = nil) and not Assigned(TreeView.OnCreateDataObject) then
       // Do not create a TVTDataObject if the event handler explicitely decided not to supply one, issue #736.
       Result := TVTDataObject.Create(FOwner, False) as IDataObject;
   end;
@@ -167,8 +167,12 @@ begin
   if not FFullDragging then
     LockWindowUpdate(0);
   if Assigned(FDropTargetHelper) and FFullDragging then
-    FDropTargetHelper.DragEnter(FOwner.Handle, DataObject, Pt, Effect);
-
+  begin
+    if toAutoScroll in TreeView.TreeOptions.AutoOptions then
+      FDropTargetHelper.DragEnter(FOwner.Handle, DataObject, Pt, Effect)
+    else
+      FDropTargetHelper.DragEnter(0, DataObject, Pt, Effect); // Do not pass handle, otherwise the IDropTargetHelper will perform autoscroll. Issue #486
+  end;
   FDragSource := TreeView.GetTreeFromDataObject(DataObject);
   Result := TreeView.DragEnter(KeyState, Pt, Effect);
 end;

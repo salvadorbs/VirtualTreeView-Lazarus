@@ -24,7 +24,7 @@ const
   VTMajorVersion = 5;
   VTMinorVersion = 9;
   VTReleaseVersion = 0;
-  VTTreeStreamVersion = 2;
+  VTTreeStreamVersion = 3;
   VTHeaderStreamVersion = 6;    // The header needs an own stream version to indicate changes only relevant to the header.
 
   CacheThreshold = 2000;        // Number of nodes a tree must at least have to start caching and at the same
@@ -183,10 +183,16 @@ const
   {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
 
 type
-  TVTBackground = TPicture;
+  TDimension = Integer; 
+  PDimension = ^Integer;
   TVTCursor = HCURSOR;
+  TVTDragDataObject = IDataObject;
+  TVTBackground = TPicture;
+  TVTPaintContext = HDC;
+  TVTBrush = HBRUSH;
   TColumnIndex = type Integer;
   TColumnPosition = type Cardinal;
+  PCardinal = ^Cardinal;
 
   // The exception used by the trees.
   EVirtualTreeError = class(Exception);
@@ -228,9 +234,37 @@ type
     csCheckedNormal,    // checked and not pressed
     csCheckedPressed,   // checked and pressed
     csMixedNormal,      // 3-state check box and not pressed
-    csMixedPressed      // 3-state check box and pressed
+    csMixedPressed,      // 3-state check box and pressed
+    csUncheckedDisabled, // disabled checkbox, not checkable
+    csCheckedDisabled,   // disabled checkbox, not uncheckable
+    csMixedDisabled      // disabled 3-state checkbox
   );
 
+  /// Adds some convenience methods to type TCheckState
+  TCheckStateHelper = record helper for TCheckState
+  strict private
+  const
+    // Lookup to quickly convert a specific check state into its pressed counterpart and vice versa.
+    cPressedState : array [TCheckState] of TCheckState   = (
+      csUncheckedPressed, csUncheckedPressed, csCheckedPressed, csCheckedPressed, csMixedPressed, csMixedPressed, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
+    cUnpressedState : array [TCheckState] of TCheckState = (
+      csUncheckedNormal, csUncheckedNormal, csCheckedNormal, csCheckedNormal, csMixedNormal, csMixedNormal, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
+    cEnabledState : array [TCheckState] of TCheckState   = (
+      csUncheckedNormal, csUncheckedPressed, csCheckedNormal, csCheckedPressed, csMixedNormal, csMixedPressed, csUncheckedNormal, csCheckedNormal, csMixedNormal);
+    cToggledState : array [TCheckState] of TCheckState   = (
+      csCheckedNormal, csCheckedPressed, csUncheckedNormal, csUncheckedPressed, csCheckedNormal, csCheckedPressed, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
+  public
+    function GetPressed() : TCheckState; inline;
+    function GetUnpressed() : TCheckState; inline;
+    function GetEnabled() : TCheckState; inline;
+    function GetToggled() : TCheckState; inline;
+    function IsDisabled() : Boolean; inline;
+    function IsChecked() : Boolean; inline;
+    function IsUnChecked() : Boolean; inline;
+    function IsMixed() : Boolean; inline;
+  end;
+
+type
   // Options per column.
   TVTColumnOption = (
     coAllowClick,            // Column can be clicked (must be enabled too).
@@ -271,6 +305,15 @@ type
     sdAscending,
     sdDescending
   );
+
+  TSortDirectionHelper = record helper for VirtualTrees.Types.TSortDirection
+  strict private
+  const
+    cSortDirectionToInt : Array [TSortDirection] of Integer = (1, - 1);
+  public
+    /// Returns +1 for ascending and -1 for descending sort order.
+    function ToInt() : Integer; inline;
+  end;
 
   // Used during owner draw of the header to indicate which drop mark for the column must be drawn.
   TVTDropMarkMode = (
@@ -366,8 +409,12 @@ type
                                // selection rectangle.
     toAlwaysSelectNode,        // If this flag is set to true, the tree view tries to always have a node selected.
                                // This behavior is closer to the Windows TreeView and useful in Windows Explorer style applications.
-    toRestoreSelection         // Set to true if upon refill the previously selected nodes should be selected again.
-                               // The nodes will be identified by its caption only.
+    toRestoreSelection,              // Set to true if upon refill the previously selected nodes should be selected again.
+                                     // The nodes will be identified by its caption (text in MainColumn)
+                                     // You may use TVTHeader.RestoreSelectiuonColumnIndex to define an other column that should be used for indentification.
+    toSyncCheckboxesWithSelection    // If checkboxes are shown, they follow the change in selections. When checkboxes are
+                                     // changed, the selections follow them and vice-versa.
+                                     // **Only supported for ctCheckBox type checkboxes.
   );
   TVTSelectionOptions = set of TVTSelectionOption;
 
@@ -430,10 +477,10 @@ type
 const
   DefaultPaintOptions = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
   DefaultAnimationOptions = [];
-  DefaultAutoOptions = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort];
+  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
   DefaultSelectionOptions = [];
-  DefaultMiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning,
-    toEditOnClick];
+  DefaultMiscOptions      = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick];
+
   DefaultStringOptions = [toSaveCaptions, toAutoAcceptEditChange];
 
 type
@@ -575,7 +622,10 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree;
+  VirtualTrees,
+  VirtualTrees.BaseTree,
+  VirtualTrees.BaseAncestorLcl{to eliminate H2443 about inline expanding}
+  ;
 
 type
   TVTCracker = class(TBaseVirtualTree);
@@ -593,14 +643,6 @@ begin
   FSelectionOptions := DefaultSelectionOptions;
   FMiscOptions := DefaultMiscOptions;
 end;
-
-procedure TCustomVirtualTreeOptions.InternalSetMiscOptions(
-  const Value: TVTMiscOptions);
-begin
-  FMiscOptions := Value;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
 
 procedure TCustomVirtualTreeOptions.SetAnimationOptions(const Value: TVTAnimationOptions);
 
@@ -625,6 +667,14 @@ begin
       if (toAutoSpanColumns in ChangedOptions) and not (csLoading in ComponentState) and HandleAllocated then
         Invalidate;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TCustomVirtualTreeOptions.InternalSetMiscOptions(
+  const Value: TVTMiscOptions);
+begin
+  FMiscOptions := Value;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -747,7 +797,7 @@ begin
               DoStateChange([], [tsUseThemes]);
 
             PrepareBitmaps(True, False);
-            RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_VALIDATE or RDW_FRAME);
+            RedrawWindow(nil, 0, RDW_INVALIDATE or RDW_VALIDATE or RDW_FRAME);
           end;
 
           if toChildrenAbove in ToBeSet + ToBeCleared then
@@ -857,7 +907,10 @@ begin
   if Dest is TCustomStringTreeOptions then
   begin
     with TCustomStringTreeOptions(Dest) do
+    begin
       StringOptions := Self.StringOptions;
+      EditOptions := Self.EditOptions;
+    end;
   end;
 
   // Let ancestors assign their options to the destination class.
@@ -941,6 +994,57 @@ begin
   end
   else
     inherited;
+end;
+
+
+
+{ TCheckStateHelper }
+
+function TCheckStateHelper.IsDisabled : Boolean;
+begin
+  Result := Self >= TCheckState.csUncheckedDisabled;
+end;
+
+function TCheckStateHelper.IsChecked : Boolean;
+begin
+  Result := Self in [csCheckedNormal, csCheckedPressed, csCheckedDisabled];
+end;
+
+function TCheckStateHelper.IsUnChecked : Boolean;
+begin
+  Result := Self in [csUncheckedNormal, csUncheckedPressed, csUncheckedDisabled];
+end;
+
+function TCheckStateHelper.IsMixed : Boolean;
+begin
+  Result := Self in [csMixedNormal, csMixedPressed, csMixedDisabled];
+end;
+
+function TCheckStateHelper.GetEnabled : TCheckState;
+begin
+  Result := cEnabledState[Self];
+end;
+
+function TCheckStateHelper.GetPressed() : TCheckState;
+begin
+  Result := cPressedState[Self];
+end;
+
+function TCheckStateHelper.GetUnpressed() : TCheckState;
+begin
+  Result := cUnpressedState[Self];
+end;
+
+function TCheckStateHelper.GetToggled() : TCheckState;
+begin
+  Result := cToggledState[Self];
+end;
+
+{ TSortDirectionHelper }
+
+function TSortDirectionHelper.ToInt() : Integer;
+begin
+  Result := cSortDirectionToInt[Self];
 end;
 
 class function StyleServices.Enabled: Boolean;

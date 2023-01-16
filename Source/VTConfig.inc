@@ -57,3 +57,17 @@
 {$if defined(LCLGtk) or defined(LCLGtk2) or defined(LCLGtk3)}
      {$undef windows}
 {$endif}
+
+
+
+{$if defined(LCLGtk) or defined(LCLGtk2)}
+	{$define Gtk}
+{$endif}
+
+{$if defined(Gtk) or defined(LCLCocoa)}
+	{$define ManualClipNeeded}
+{$endif}
+
+{$if defined(LCLGtk2) or defined(LCLCarbon) or defined(LCLQt)}
+	{$define ContextMenuBeforeMouseUp}
+{$endif}

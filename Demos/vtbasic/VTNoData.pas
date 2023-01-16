@@ -212,10 +212,11 @@ implementation
          'MultiSelect'                                                                             ,
          'RightClickSelect'                                                                        ,
          'SiblingSelectConstraint'                                                                 ,
-         'CenterScrollIntoView',
-         'SimpleDrawSelection',
-         'toAlwaysSelectNode',
-         'toRestoreSelection'
+         'CenterScrollIntoView'                                                                    ,
+         'SimpleDrawSelection'                                                                     ,
+         'toAlwaysSelectNode'                                                                      ,
+         'toRestoreSelection',
+         'toSyncCheckboxesWithSelection'
       );
       
       aStrOpts : array[0..Ord(High(TVTStringOption ))] of string[25] = 

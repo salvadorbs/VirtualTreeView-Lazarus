@@ -217,12 +217,12 @@ type { TMVCNode is the encapsulation of a single Node in the structure.
        details on what they do and why they are overridden. }
      function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): Integer; override;
      procedure DoPaintNode(var PaintInfo: TVTPaintInfo); override;
-     function DoInitChildren(Node: PVirtualNode; var AChildCount: Cardinal): Boolean; override;
+         function DoInitChildren(Node: PVirtualNode; var ChildCount: Cardinal): Boolean; override;
      procedure DoInitNode(aParent,aNode:PVirtualNode;
                           var aInitStates:TVirtualNodeInitStates); override;
      procedure DoFreeNode(aNode:PVirtualNode); override;
      function DoGetImageIndex(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-       var Ghosted: Boolean; var Index: Integer): TCustomImageList; override;
+           var Ghosted: Boolean; var Index: TImageIndex): TCustomImageList; override;
      procedure DoChecked(aNode:PVirtualNode); override;
      function DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink; override;
      function InternalData(Node: PVirtualNode): Pointer;
@@ -512,9 +512,10 @@ function TMVCTreeView.GetMVCNode(VirtualNode:PVirtualNode):TMVCNode;
 begin
   { Return the reference to the TMVCNode that is represented by
     Virtualnode }
-  if VirtualNode=NIL
-    then Result:=NIL
-    else Result:=PMyNodeData(InternalData(VirtualNode)).Node;
+  if VirtualNode.IsAssigned() then
+    Result := PMyNodeData(InternalData(VirtualNode)).Node
+  else
+    Result := nil;
 end;
 
 procedure TMVCTreeView.SetMVCNode(VirtualNode:PVirtualNode;aNode:TMVCNode);
@@ -735,10 +736,10 @@ begin
   inherited DoFreeNode(aNode);
 end;
 
-function TMVCTreeView.DoInitChildren(Node:PVirtualNode;var AChildCount:Cardinal): Boolean;
+function TMVCTreeView.DoInitChildren(Node: PVirtualNode; var ChildCount: Cardinal): Boolean;
 begin
-  inherited DoInitChildren(Node,AChildCount);
-  AChildCount:=MVCNode[Node].ChildCount;
+  inherited DoInitChildren(Node,ChildCount);
+  ChildCount:=MVCNode[Node].ChildCount;
   Result := True;
 end;
 
@@ -771,11 +772,12 @@ begin
 end;
 
 function TMVCTreeView.DoGetImageIndex(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-  var Ghosted: Boolean; var Index: Integer): TCustomImageList;
+  var Ghosted: Boolean; var Index: TImageIndex): TCustomImageList;
 { The tree requests the image-index for a Node and column. }
 var N:TMVCNode;
 begin
-  Result:= nil;
+  if (Column > 0) or (Kind <> TVTImageKind.ikNormal) then
+    exit(nil);
   case Column of
     -1,0:begin
            { We only want Icons in the first column. Ask the node which
@@ -787,6 +789,7 @@ begin
          end;
     else Index:=-1;
   end;
+  Result := Images;
 end;
 
 procedure TMVCTreeView.DoChecked(aNode:PVirtualNode);

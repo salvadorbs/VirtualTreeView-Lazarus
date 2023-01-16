@@ -83,13 +83,16 @@ jobs:
         
     - name: Install Dependencies (Ubuntu - only GTK3)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'gtk3'
-      run: sudo apt-get -m -y install libgtk-3-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get -m -y install libgtk-3-dev
         
     - name: Install Dependencies (Ubuntu - only QT5)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt5'
       run: |
         wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas1_2.12-2_amd64.deb
         wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas-dev_2.12-2_amd64.deb
+        sudo apt-get update
         sudo apt-get -m -y install qt5-qmake qtbase5-dev qt5-default libqt5x11extras5-dev libxcb-keysyms1-dev
         sudo apt-get -m -y install ./libqt5pas1_2.12-2_amd64.deb
         sudo apt-get -m -y install ./libqt5pas-dev_2.12-2_amd64.deb
@@ -99,6 +102,7 @@ jobs:
       run: |
         wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.5/libqt6pas6_6.2.5-1_amd64.deb
         wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.5/libqt6pas6-dev_6.2.5-1_amd64.deb
+        sudo apt-get update
         sudo apt-get -m -y install qt6-base-dev libxcb-keysyms1-dev libgl-dev qt6-base-private-dev
         sudo apt-get -m -y install ./libqt6pas6_6.2.5-1_amd64.deb
         sudo apt-get -m -y install ./libqt6pas6-dev_6.2.5-1_amd64.deb
@@ -110,7 +114,7 @@ jobs:
       id: cache
       uses: actions/cache@v3.0.11
       env:
-        cache-name: cache-laz-v0.1.0
+        cache-name: cache-laz-v0.1.1
       with:
         path: |
           ${{ env.LAZ_DIR }}

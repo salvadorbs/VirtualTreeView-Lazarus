@@ -34,7 +34,6 @@ object frmVTCheckList: TfrmVTCheckList
       Top = 7
       Width = 387
       Align = alClient
-      CheckImageKind = ckFlat
       Header.AutoSizeIndex = 0
       Header.Columns = <>
       Header.Font.Height = -11

@@ -31,7 +31,7 @@ type
     procedure VST3GetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
       var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: String);
     procedure VST3GetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var Ghosted: Boolean; var Index: Integer);
+      var Ghosted: Boolean; var Index: TImageIndex);
     procedure VST3GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: String);
     procedure VST3InitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
@@ -39,10 +39,11 @@ type
       var InitialStates: TVirtualNodeInitStates);
     procedure VST3PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType);
-    procedure VST3IncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const Text: String;
+    procedure VST3IncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const SearchText: string;
       var Result: Integer);
     procedure RadioGroup1Click(Sender: TObject);
     procedure VST3StateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
+    procedure VST3FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   private
     procedure WMStartEditing(var Message: TLMessage); message WM_STARTEDITING;
   end;
@@ -117,7 +118,7 @@ begin
   if TextType = ttNormal then
     case Column of
       0:
-        if Node.Parent = Sender.RootNode then
+        if Sender.NodeParent[Node] = nil then
         begin
           // root nodes
           if Node.Index = 0 then
@@ -126,7 +127,7 @@ begin
             CellText := 'Origin';
         end
         else
-          CellText := PropertyTexts[Node.Parent.Index, Node.Index, ptkText];
+          CellText := PropertyTexts[Sender.NodeParent[Node].Index, Node.Index, ptkText];
       1:
         begin
           Data := Sender.GetNodeData(Node);
@@ -142,14 +143,26 @@ procedure TPropertiesForm.VST3GetHint(Sender: TBaseVirtualTree; Node: PVirtualNo
 
 begin
   // Add a dummy hint to the normal hint to demonstrate multiline hints.
-  if (Column = 0) and (Node.Parent <> Sender.RootNode) then
-    HintText := PropertyTexts[Node.Parent.Index, Node.Index, ptkHint] + LineEnding + '(Multiline hints are supported too).';
+  if (Column = 0) and (Sender.NodeParent[Node] <> nil) then
+  begin
+    HintText := PropertyTexts[Sender.NodeParent[Node].Index, Node.Index, ptkHint];
+    { Related to #Issue 623
+      Observed when solving issue #623. For hmToolTip, the multi-line mode
+      depends on the node's multi-lin emode. Hence, append a line only
+      if not hmToolTip. Otherwise, if you must append lines, force the
+      lineBreakStyle := hlbForceMultiLine for hmToolTip.
+    }
+    if (Sender as TVirtualStringTree).Hintmode <> hmTooltip then
+       HintText := HintText
+          + #13 + '(Multiline hints are supported too).'
+          ;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TPropertiesForm.VST3GetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-  Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
+  Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
 
 var
   Data: PPropertyData;
@@ -157,7 +170,7 @@ var
 begin
   if (Kind in [ikNormal, ikSelected]) and (Column = 0) then
   begin
-    if Node.Parent = Sender.RootNode then
+    if Sender.NodeParent[Node] = nil then
       Index := 12 // root nodes, this is an open folder
     else
     begin
@@ -181,7 +194,7 @@ begin
   with Sender do
   begin
     Data := GetNodeData(Node);
-    Allowed := (Node.Parent <> RootNode) and (Column = 1) and (Data.ValueType <> vtNone);
+    Allowed := (Sender.NodeParent[Node] <> nil) and (Column = 1) and (Data.ValueType <> vtNone);
   end;
 end;
 
@@ -193,7 +206,7 @@ begin
   with Sender do
   begin
     // Start immediate editing as soon as another node gets focused.
-    if Assigned(Node) and (Node.Parent <> RootNode) and not (tsIncrementalSearching in TreeStates) then
+    if Assigned(Node) and (Sender.NodeParent[Node] <> nil) and not (tsIncrementalSearching in TreeStates) then
     begin
       // We want to start editing the currently selected node. However it might well happen that this change event
       // here is caused by the node editor if another node is currently being edited. It causes trouble
@@ -229,7 +242,7 @@ var
 
 begin
   // Make the root nodes underlined and draw changed nodes in bold style.
-  if Node.Parent = Sender.RootNode then
+  if Sender.NodeParent[Node] = nil then
     TargetCanvas.Font.Style := [fsUnderline]
   else
   begin
@@ -243,7 +256,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TPropertiesForm.VST3IncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const Text: String;
+procedure TPropertiesForm.VST3IncrementalSearch(Sender: TBaseVirtualTree; Node: PVirtualNode; const SearchText: string;
   var Result: Integer);
 
 var
@@ -251,10 +264,10 @@ var
   PropText: string;
 
 begin
-  S := Text;
+  S := SearchText;
   SetStatusbarText('Searching for: ' + S);
 
-  if Node.Parent = Sender.RootNode then
+  if Sender.NodeParent[Node] = nil then
   begin
     // root nodes
     if Node.Index = 0 then
@@ -264,7 +277,7 @@ begin
   end
   else
   begin
-    PropText := PropertyTexts[Node.Parent.Index, Node.Index, ptkText];
+    PropText := PropertyTexts[Sender.NodeParent[Node].Index, Node.Index, ptkText];
   end;
 
   // By using StrLIComp we can specify a maximum length to compare. This allows us to find also nodes
@@ -314,7 +327,17 @@ begin
   // Note: the test whether a node can really be edited is done in the OnEditing event.
   VST3.EditNode(Node, 1);
 end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TPropertiesForm.VST3FreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PPropertyData;
+
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
 
 end.

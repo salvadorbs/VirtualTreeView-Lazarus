@@ -34,15 +34,14 @@ type
     Label2: TLabel;
     Label4: TLabel;
     procedure XPTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; Kind: TVTImageKind;
-      Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
+      Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
     procedure FormCreate(Sender: TObject);
     procedure XPTreeInitNode(Sender: TBaseVirtualTree; ParentNode, Node: PVirtualNode;
       var InitialStates: TVirtualNodeInitStates);
     procedure XPTreeInitChildren(Sender: TBaseVirtualTree; Node: PVirtualNode; var ChildCount: Cardinal);
     procedure XPTreeGetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
       TextType: TVSTTextType; var CellText: String);
-    procedure XPTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton; Shift: TShiftState;
-      X, Y: Integer);
+    procedure XPTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
     procedure XPTreeCompareNodes(Sender: TBaseVirtualTree; Node1, Node2: PVirtualNode; Column: TColumnIndex;
       var Result: Integer);
     procedure XPTreeGetHint(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
@@ -50,6 +49,7 @@ type
     procedure Label4Click(Sender: TObject);
     procedure ToolButton9Click(Sender: TObject);
     procedure XPTreeStateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
+    procedure XPTreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
   end;
 
 var
@@ -97,7 +97,7 @@ var
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TWindowsXPForm.XPTreeGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode;
-  Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var Index: Integer);
+  Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var Index: TImageIndex);
 
 var
   Data: PEntry;
@@ -106,12 +106,12 @@ begin
   Data := Sender.GetNodeData(Node);
   case Kind of
     ikNormal, ikSelected:
-      if (Column = 0) and (Node.Parent = Sender.RootNode) then
+      if (Column = 0) and (Sender.NodeParent[Node] = nil) then
         Index := Data.Image;
     ikState:
       case Column of
         0:
-          if Node.Parent <> Sender.RootNode then
+          if Sender.NodeParent[Node] <> nil then
             Index := 21;
       end;
   end;
@@ -172,40 +172,39 @@ begin
   Data := Sender.GetNodeData(Node);
   case Column of
     0:
-      if Node.Parent = Sender.RootNode then
+      if Sender.NodeParent[Node] = nil then
         CellText := Data.Caption
       else
-        Text := 'More entries';
+        CellText := 'More entries';
     1:
-      if Node.Parent = Sender.RootNode then
+      if Sender.NodeParent[Node] = nil then
         CellText := FloatToStr(Data.Size / 1000) + ' MB';
     2:
-      if Node.Parent = Sender.RootNode then
+      if Sender.NodeParent[Node] = nil then
         CellText := 'System Folder';
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TWindowsXPForm.XPTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex; Button: TMouseButton;
-  Shift: TShiftState; X, Y: Integer);
+procedure TWindowsXPForm.XPTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
 
 begin
-  if Button = mbLeft then
+  if HitInfo.Button = mbLeft then
   begin
-    with Sender, Treeview do
+    with Sender do
     begin
       if SortColumn > NoColumn then
-        Columns[SortColumn].Options := Columns[SortColumn].Options + [coParentColor];
+        Columns[SortColumn].Options := Columns[SortColumn].Options + [TVTColumnOption.coParentColor];
         
       // Do not sort the last column, it contains nothing to sort.
-      if Column = 2 then
+      if HitInfo.Column = 2 then
         SortColumn := NoColumn
       else
       begin
-        if (SortColumn = NoColumn) or (SortColumn <> Column) then
+        if (SortColumn = NoColumn) or (SortColumn <> HitInfo.Column) then
         begin
-          SortColumn := Column;
+          SortColumn := HitInfo.Column;
           SortDirection := sdAscending;
         end
         else
@@ -214,8 +213,11 @@ begin
           else
             SortDirection := sdAscending;
 
-        Columns[SortColumn].Color := $F7F7F7;
-        TBaseVirtualTree(Treeview).SortTree(SortColumn, SortDirection, False);
+        if SortColumn <> NoColumn then begin
+          Columns[SortColumn].Color := $F7F7F7;
+        end;
+        TBaseVirtualTree(Sender.Treeview).SortTree(SortColumn, SortDirection, True);
+
       end;
     end;
   end;
@@ -281,5 +283,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TWindowsXPForm.XPTreeFreeNode(Sender: TBaseVirtualTree;
+  Node: PVirtualNode);
+var
+  Data: PEntry;
+
+begin
+  Data := Sender.GetNodeData(Node);
+  Finalize(Data^);
+end;
 
 end.

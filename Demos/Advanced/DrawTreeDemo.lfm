@@ -94,8 +94,7 @@ object DrawTreeForm: TDrawTreeForm
     ScrollBarOptions.VerticalIncrement = 32
     ShowHint = True
     TabOrder = 0
-    TreeOptions.AnimationOptions = [toAnimatedToggle]
-    TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScroll, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes]
+    TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScroll, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes, toAutoChangeScale]
     TreeOptions.PaintOptions = [toShowBackground, toShowButtons, toShowDropmark, toShowHorzGridLines, toShowRoot, toShowTreeLines, toShowVertGridLines, toThemeAware]
     TreeOptions.SelectionOptions = [toFullRowSelect]
     OnCompareNodes = VDT1CompareNodes

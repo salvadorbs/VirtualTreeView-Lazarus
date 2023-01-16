@@ -32,7 +32,6 @@ object HeaderOwnerDrawForm: THeaderOwnerDrawForm
     Top = 10
     Width = 749
     Anchors = [akTop, akLeft, akRight, akBottom]
-    CheckImageKind = ckDarkTick
     ClipboardFormats.Strings = (
       'CSV'
       'HTML Format'

@@ -172,7 +172,7 @@ const
 
 type
   PGridData = ^TGridData;
-  TGridData = record
+  TGridData = class
     ValueType: array[0..3] of TValueType; // one for each column
     Value: array[0..3] of Variant;
     Changed: Boolean;
