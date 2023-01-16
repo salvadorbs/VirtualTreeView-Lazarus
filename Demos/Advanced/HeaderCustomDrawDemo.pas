@@ -10,7 +10,7 @@ unit HeaderCustomDrawDemo;
 interface
 
 uses
-  LCLIntf, VirtualTrees.Graphics, Types, SysUtils, Classes, Graphics, Controls, Forms,
+  LCLIntf, VirtualTrees.Utils, Types, SysUtils, Classes, Graphics, Controls, Forms,
   Dialogs, VirtualTrees, StdCtrls, ExtCtrls, LCLType, LCLProc, VirtualTrees.Header, VirtualTrees.BaseTree;
 
 type
@@ -192,7 +192,7 @@ var
 
 begin
   R := Rect(0, 0, Bitmap.Width, Bitmap.Height);
-  VirtualTrees.Graphics.AlphaBlend(0, Bitmap.Canvas.Handle, R, Point(0, 0), bmConstantAlphaAndColor, Alpha,
+  VirtualTrees.Utils.AlphaBlend(0, Bitmap.Canvas.Handle, R, Point(0, 0), bmConstantAlphaAndColor, Alpha,
     ColorToRGB(clHighlight));
   with Bitmap do
   begin

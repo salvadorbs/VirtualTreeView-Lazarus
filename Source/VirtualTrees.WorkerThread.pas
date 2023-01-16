@@ -1,57 +1,63 @@
-﻿unit VirtualTrees.WorkerThread;
+unit VirtualTrees.WorkerThread;
+
+{$mode delphi}
 
 interface
+
+{$I VTConfig.inc}
 
 uses
   Classes, VirtualTrees.BaseTree, SyncObjs, LCLType, LCLIntf, VirtualTrees.Types;
 
 type
-  // internal worker thread
+  { TWorkerThread }
+
   TWorkerThread = class(TThread)
   private
     FCurrentTree: TBaseVirtualTree;
     FWaiterList: TThreadList;
     FRefCount: Integer;
-    FWorkEvent: THandle;
+    FWorkEvent: TEvent;
+
     class procedure EnsureCreated();
-    class procedure Dispose(CanBlock: Boolean);
-    procedure WaitForValidationTermination(Tree: TBaseVirtualTree);
   protected
+    procedure CancelValidation(Tree: TBaseVirtualTree);
     procedure Execute; override;
   public
-    constructor Create();
+    constructor Create(CreateSuspended: Boolean);
     destructor Destroy; override;
+
+    class procedure AddTree(Tree: TBaseVirtualTree);
+    class procedure RemoveTree(Tree: TBaseVirtualTree);
 
     /// For lifeteime management of the TWorkerThread
     class procedure AddThreadReference;
-    class procedure ReleaseThreadReference(ACanBlock: Boolean = False);
+    class procedure ReleaseThreadReference(Tree: TBaseVirtualTree);
 
-    class procedure AddTree(Tree: TBaseVirtualTree);
-    class procedure RemoveTree(pTree: TBaseVirtualTree; pWaitForValidationTermination: Boolean);
+    property CurrentTree: TBaseVirtualTree read FCurrentTree;
   end;
-
-
-
-
 
 implementation
 
 uses
-  Winapi.Windows,
-  System.Types,
-  System.SysUtils;
+  SysUtils
+  {$ifdef Windows}
+  , Windows
+  {$endif}
+  ;
 
 type
-  TBaseVirtualTreeCracker = class(TBaseVirtualTree)
-  end;
+  TBaseVirtualTreeCracker = class(TBaseVirtualTree);
 
 var
   WorkerThread: TWorkerThread = nil;
+
 //----------------- TWorkerThread --------------------------------------------------------------------------------------
 
-class procedure TWorkerThread.EnsureCreated();
+class procedure TWorkerThread.AddThreadReference;
 begin
   if not Assigned(WorkerThread) then
+  begin
     // Create worker thread, initialize it and send it to its wait loop.
     WorkerThread := TWorkerThread.Create(False);
     // Create an event used to trigger our worker thread when something is to do.
@@ -67,27 +73,41 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class procedure TWorkerThread.ReleaseThreadReference(ACanBlock: Boolean);
+class procedure TWorkerThread.ReleaseThreadReference(Tree: TBaseVirtualTree);
 begin
   if Assigned(WorkerThread) then
   begin
-    if InterlockedDecrement(WorkerThread.FRefCount) = 0 then
+    Dec(WorkerThread.FRefCount);
+
+    // Make sure there is no reference remaining to the releasing tree.
+    TBaseVirtualTreeCracker(Tree).InterruptValidation;
+
+    if WorkerThread.FRefCount = 0 then
     begin
-      WorkerThread.Dispose(ACanBlock);
+      WorkerThread.Terminate;
+      WorkerThread.FWorkEvent.SetEvent;
+
+      WorkerThread.FWorkEvent.Free;
+      WorkerThread.Free;
+      WorkerThread := nil;
     end;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constructor TWorkerThread.Create();
+constructor TWorkerThread.Create(CreateSuspended: Boolean);
 
 begin
+  inherited Create(CreateSuspended);
   FWaiterList := TThreadList.Create;
   // Create an event used to trigger our worker thread when something is to do.
-  FWorkEvent := CreateEvent(nil, False, False, nil);
-  if FWorkEvent = 0 then
-    RaiseLastOSError;
+  FWorkEvent := TEvent.Create(nil, False, False, '');
+  //todo: see how to check if a event was succesfully created under linux since handle is allways 0
+  {$ifdef Windows}
+  if FWorkEvent.Handle = TEventHandle(0) then
+    Raise Exception.Create('VirtualTreeView - Error creating TEvent instance');
+  {$endif}
   inherited Create(False);
   FreeOnTerminate := True;
 end;
@@ -99,38 +119,57 @@ destructor TWorkerThread.Destroy;
 begin
   // First let the ancestor stop the thread before freeing our resources.
   inherited;
-  CloseHandle(FWorkEvent);
+  FWorkEvent.Free;
   FWaiterList.Free;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TWorkerThread.WaitForValidationTermination(Tree: TBaseVirtualTree);
+class procedure TWorkerThread.EnsureCreated;
+begin
+  if not Assigned(WorkerThread) then
+    // Create worker thread, initialize it and send it to its wait loop.
+    TWorkerThread.AddThreadReference();
+end;
+
+procedure TWorkerThread.CancelValidation(Tree: TBaseVirtualTree);
+
+var
+  Msg: TMsg;
+
 begin
   // Wait for any references to this tree to be released.
+  // Pump WM_CHANGESTATE messages so the thread doesn't block on SendMessage calls.
   while FCurrentTree = Tree do
   begin
-    Sleep(1); // Don't do busy waiting, let the OS scheduler give other threads a time slice
-    CheckSynchronize(); // We need to call CheckSynchronize here because we are using TThread.Synchronize in TBaseVirtualTree.MeasureItemHeight() and ChangeTreeStatesAsync()
+    if Tree.HandleAllocated and PeekMessage(Msg, Tree.Handle, WM_CHANGESTATE, WM_CHANGESTATE, PM_REMOVE) then
+    begin
+      //todo: see if is correct / will work
+      Application.ProcessMessages;
+      continue;
+      //TranslateMessage(Msg);
+      //DispatchMessage(Msg);
+    end;
+    //Todo splitting files
+    //if (toVariableNodeHeight in TBaseVirtualTreeCracker(Tree).TreeOptions.MiscOptions) then
+      CheckSynchronize(); // We need to call CheckSynchronize here because we are using TThread.Synchronize in TBaseVirtualTree.MeasureItemHeight()
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TWorkerThread.Execute();
+procedure TWorkerThread.Execute;
 
 // Does some background tasks, like validating tree caches.
 
 var
-  EnterStates: TVirtualTreeStates;
-  lExceptAddr: Pointer;
-  lException: TObject;
+  EnterStates, LeaveStates: TChangeStates;
   lCurrentTree: TBaseVirtualTree;
+
 begin
-  TThread.NameThreadForDebugging('VirtualTrees.TWorkerThread');
   while not Terminated do
-  try
-    WaitForSingleObject(FWorkEvent, INFINITE);
+  begin
+    FWorkEvent.WaitFor(INFINITE);
     if Terminated then
       exit;
 
@@ -144,7 +183,7 @@ begin
         Delete(0);
         // If there is yet another tree to work on then set the work event to keep looping.
         if Count > 0 then
-          SetEvent(FWorkEvent);
+          FWorkEvent.SetEvent;
       end
       else
         lCurrentTree := nil;
@@ -155,27 +194,19 @@ begin
     // Something to do?
     if Assigned(lCurrentTree) then
     begin
+      // Get the next waiting tree.
+      with FWaiterList.LockList do
       try
-        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync([tsValidating], [tsUseCache, tsValidationNeeded]);
+        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync([csValidating], [csUseCache, csValidationNeeded]);
         FCurrentTree := lCurrentTree;
         EnterStates := [];
         if not (tsStopValidation in FCurrentTree.TreeStates) and TBaseVirtualTreeCracker(FCurrentTree).DoValidateCache then
-          EnterStates := [tsUseCache];
+          EnterStates := [csUseCache];
       finally
+        LeaveStates := [csValidating, csStopValidation];
         FCurrentTree := nil; // Important: Clear variable before calling ChangeTreeStatesAsync() to prevent deadlock in WaitForValidationTermination(). See issue #1001
-        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync(EnterStates, [tsValidating, tsStopValidation]);
+        TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync(EnterStates, LeaveStates);
       end;
-    end;
-  except
-    on Exception do
-    begin
-      lExceptAddr := ExceptAddr;
-      lException := AcquireExceptionObject;
-      TThread.Synchronize(nil, procedure
-        begin
-          raise lException at lExceptAddr;
-        end);
-      Continue; //the thread should continue to run
     end;
   end;//while
 end;
@@ -198,26 +229,25 @@ begin
     WorkerThread.FWaiterList.UnlockList;
   end;
 
-  SetEvent(WorkerThread.FWorkEvent);
+  WorkerThread.FWorkEvent.SetEvent;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class procedure TWorkerThread.RemoveTree(pTree: TBaseVirtualTree; pWaitForValidationTermination: Boolean);
+class procedure TWorkerThread.RemoveTree(Tree: TBaseVirtualTree);
 begin
   if not Assigned(WorkerThread) then
     exit;
-  Assert(Assigned(pTree), 'pTree must not be nil.');
+
+  Assert(Assigned(Tree), 'Tree must not be nil.');
 
   with WorkerThread.FWaiterList.LockList do
   try
-    Remove(pTree);
+    Remove(Tree);
   finally
     WorkerThread.FWaiterList.UnlockList; // Seen several AVs in this line, was called from TWorkerThrea.Destroy. Joachim Marder.
   end;
-  if pWaitForValidationTermination then
-    WorkerThread.WaitForValidationTermination(pTree);
+  WorkerThread.CancelValidation(Tree);
 end;
-
 
 end.

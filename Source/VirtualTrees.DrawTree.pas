@@ -1,13 +1,17 @@
-﻿unit VirtualTrees.DrawTree;
+unit VirtualTrees.DrawTree;
+
+{$mode delphi}
 
 interface
+
+{$I VTConfig.inc}
 
 uses
   Classes, Controls, Graphics, LCLVersion, VirtualTrees.BaseTree, VirtualTrees.Types, Types;
 
 type
   // Tree descendant to let an application draw its stuff itself.
-  TCustomVirtualDrawTree = class(TVTAncestor)
+  TCustomVirtualDrawTree = class(TBaseVirtualTree)
   private
     FOnDrawNode: TVTDrawNodeEvent;
     FOnGetCellContentMargin: TVTGetCellContentMarginEvent;
@@ -15,7 +19,7 @@ type
   protected
     function DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
       CellContentMarginType: TVTCellContentMarginType = ccmtAllSides; Canvas: TCanvas = nil): TPoint; override;
-    function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
+    function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): Integer; override;
     procedure DoPaintNode(var PaintInfo: TVTPaintInfo); override;
     function GetDefaultHintKind: TVTHintKind; override;
 
@@ -24,17 +28,18 @@ type
     property OnGetNodeWidth: TVTGetNodeWidthEvent read FOnGetNodeWidth write FOnGetNodeWidth;
   end;
 
-  [ComponentPlatformsAttribute(pidWin32 or pidWin64)]
   TVirtualDrawTree = class(TCustomVirtualDrawTree)
   private
     function GetOptions: TVirtualTreeOptions;
     procedure SetOptions(const Value: TVirtualTreeOptions);
   protected
     function GetOptionsClass: TTreeOptionsClass; override;
+    {$if CompilerVersion >= 23}
+    class constructor Create();
+    {$ifend}
   public
     property Canvas;
     property LastDragEffect;
-    property CheckImageKind; // should no more be published to make #622 fix working
   published
     property Action;
     property Align;
@@ -48,22 +53,23 @@ type
     property BackgroundOffsetX;
     property BackgroundOffsetY;
     property BiDiMode;
-    property BevelEdges;
-    property BevelInner;
-    property BevelOuter;
-    property BevelKind;
-    property BevelWidth;
-    property BorderStyle;
+    //property BevelEdges;
+    //property BevelInner;
+    //property BevelOuter;
+    //property BevelKind;
+   // property BevelWidth;
+    property BorderSpacing;
+    property BorderStyle default bsSingle;
     property BottomSpace;
     property ButtonFillMode;
     property ButtonStyle;
     property BorderWidth;
     property ChangeDelay;
+    property CheckImageKind;
     property ClipboardFormats;
     property Color;
     property Colors;
     property Constraints;
-    property Ctl3D;
     property CustomCheckImages;
     property DefaultNodeHeight;
     property DefaultPasteMode;
@@ -96,7 +102,6 @@ type
     property OperationCanceled;
     property ParentBiDiMode;
     property ParentColor default False;
-    property ParentCtl3D;
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
@@ -112,6 +117,11 @@ type
     property TreeOptions: TVirtualTreeOptions read GetOptions write SetOptions;
     property Visible;
     property WantTabs;
+    {$IF LCL_FullVersion >= 2000000}
+    property ImagesWidth;
+    property StateImagesWidth;
+    property CustomCheckImagesWidth;
+    {$IFEND}
 
     property OnAddToSelection;
     property OnAdvancedHeaderDraw;
@@ -151,13 +161,10 @@ type
     property OnClick;
     property OnCollapsed;
     property OnCollapsing;
-    property OnColumnChecked;
-    property OnColumnChecking;
     property OnColumnClick;
     property OnColumnDblClick;
     property OnColumnExport;
     property OnColumnResize;
-    property OnColumnVisibilityChanged;
     property OnColumnWidthDblClickResize;
     property OnColumnWidthTracking;
     property OnCompareNodes;
@@ -196,7 +203,6 @@ type
     property OnGetNodeWidth;
     property OnGetPopupMenu;
     property OnGetUserClipboardFormats;
-    property OnHeaderAddPopupItem;
     property OnHeaderClick;
     property OnHeaderDblClick;
     property OnHeaderDragged;
@@ -234,7 +240,6 @@ type
     property OnNodeMoved;
     property OnNodeMoving;
     property OnPaintBackground;
-    property OnPrepareButtonBitmaps;
     property OnRemoveFromSelection;
     property OnRenderOLEData;
     property OnResetNode;
@@ -249,12 +254,8 @@ type
     property OnStateChange;
     property OnStructureChange;
     property OnUpdating;
-    property OnCanResize;
-    property OnGesture;
-    property Touch;
-    property StyleElements;
+    property OnUTF8KeyPress;
   end;
-
 
 implementation
 
@@ -274,7 +275,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualDrawTree.DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension;
+function TCustomVirtualDrawTree.DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): Integer;
 
 begin
   Result := 2 * TextMargin;

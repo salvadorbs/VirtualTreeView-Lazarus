@@ -1,6 +1,10 @@
-﻿unit VirtualTrees.Types;
+unit VirtualTrees.Types;
+
+{$mode delphi}
 
 interface
+
+{$I VTConfig.inc}
 
 uses
   LMessages, Types, LCLIntf, LCLType, Controls, Classes, StdCtrls, Themes,
@@ -15,33 +19,37 @@ uses
   SysUtils;
 
 const
-  VTTreeStreamVersion      = 3;
-  VTHeaderStreamVersion    = 6;    // The header needs an own stream version to indicate changes only relevant to the header.
+  {$I lclconstants.inc}
 
-  CacheThreshold           = 2000; // Number of nodes a tree must at least have to start caching and at the same
-                                   // time the maximum number of nodes between two cache entries.
-  FadeAnimationStepCount   = 255;  // Number of animation steps for hint fading (0..255).
-  ShadowSize               = 5;    // Size in pixels of the hint shadow. This value has no influence on Win2K and XP systems
-                                   // as those OSes have native shadow support.
-  cDefaultTextMargin       = 4;    // The default margin of text
+  VTMajorVersion = 5;
+  VTMinorVersion = 9;
+  VTReleaseVersion = 0;
+  VTTreeStreamVersion = 2;
+  VTHeaderStreamVersion = 6;    // The header needs an own stream version to indicate changes only relevant to the header.
+
+  CacheThreshold = 2000;        // Number of nodes a tree must at least have to start caching and at the same
+                                // time the maximum number of nodes between two cache entries.
+  FadeAnimationStepCount = 255; // Number of animation steps for hint fading (0..255).
+  ShadowSize = 5;               // Size in pixels of the hint shadow. This value has no influence on Win2K and XP systems
+                                // as those OSes have native shadow support.
 
   // Special identifiers for columns.
-  NoColumn                 = - 1;
-  InvalidColumn            = - 2;
+  NoColumn = -1;
+  InvalidColumn = -2;
 
   // Indices for check state images used for checking.
-  ckEmpty                  = 0;    // an empty image used as place holder
+  ckEmpty                  =  0;  // an empty image used as place holder
   // radio buttons
-  ckRadioUncheckedNormal   = 1;
-  ckRadioUncheckedHot      = 2;
-  ckRadioUncheckedPressed  = 3;
-  ckRadioUncheckedDisabled = 4;
-  ckRadioCheckedNormal     = 5;
-  ckRadioCheckedHot        = 6;
-  ckRadioCheckedPressed    = 7;
-  ckRadioCheckedDisabled   = 8;
+  ckRadioUncheckedNormal   =  1;
+  ckRadioUncheckedHot      =  2;
+  ckRadioUncheckedPressed  =  3;
+  ckRadioUncheckedDisabled =  4;
+  ckRadioCheckedNormal     =  5;
+  ckRadioCheckedHot        =  6;
+  ckRadioCheckedPressed    =  7;
+  ckRadioCheckedDisabled   =  8;
   // check boxes
-  ckCheckUncheckedNormal   = 9;
+  ckCheckUncheckedNormal   =  9;
   ckCheckUncheckedHot      = 10;
   ckCheckUncheckedPressed  = 11;
   ckCheckUncheckedDisabled = 12;
@@ -61,55 +69,68 @@ const
 
   // Instead using a TTimer class for each of the various events I use Windows timers with messages
   // as this is more economical.
-  ExpandTimer              = 1;
-  EditTimer                = 2;
-  HeaderTimer              = 3;
-  ScrollTimer              = 4;
-  ChangeTimer              = 5;
-  StructureChangeTimer     = 6;
-  SearchTimer              = 7;
-  ThemeChangedTimer        = 8;
+  ExpandTimer = 1;
+  EditTimer = 2;
+  HeaderTimer = 3;
+  ScrollTimer = 4;
+  ChangeTimer = 5;
+  StructureChangeTimer = 6;
+  SearchTimer = 7;
+  ThemeChangedTimer = 8;
 
-  ThemeChangedTimerDelay   = 500;
+  ThemeChangedTimerDelay = 500;
+
+  // Need to use this message to release the edit link interface asynchronously.
+  WM_CHANGESTATE = WM_APP + 32;
 
   // Virtual Treeview does not need to be subclassed by an eventual Theme Manager instance as it handles
   // Windows XP theme painting itself. Hence the special message is used to prevent subclassing.
-  CM_DENYSUBCLASSING       = CM_BASE + 2000;
+  CM_DENYSUBCLASSING = CM_BASE + 2000;
 
   // Decoupling message for auto-adjusting the internal edit window.
-  CM_AUTOADJUST            = CM_BASE + 2005;
+  CM_AUTOADJUST = CM_BASE + 2005;
 
   // Drag image helpers for Windows 2000 and up.
-  IID_IDropTargetHelper : TGUID = (D1 : $4657278B; D2 : $411B; D3 : $11D2; D4 : ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
-  IID_IDragSourceHelper : TGUID = (D1 : $DE5BF786; D2 : $477A; D3 : $11D2; D4 : ($83, $9D, $00, $C0, $4F, $D9, $18, $D0));
-  IID_IDropTarget : TGUID       = (D1 : $00000122; D2 : $0000; D3 : $0000; D4 : ($C0, $00, $00, $00, $00, $00, $00, $46));
+  IID_IDropTargetHelper: TGUID = (D1: $4657278B; D2: $411B; D3: $11D2; D4: ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
+  IID_IDragSourceHelper: TGUID = (D1: $DE5BF786; D2: $477A; D3: $11D2; D4: ($83, $9D, $00, $C0, $4F, $D9, $18, $D0));
+  IID_IDropTarget: TGUID = (D1: $00000122; D2: $0000; D3: $0000; D4: ($C0, $00, $00, $00, $00, $00, $00, $46));
+  CLSID_DragDropHelper: TGUID = (D1: $4657278A; D2: $411B; D3: $11D2; D4: ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
+
+  CM_UPDATE_VCLSTYLE_SCROLLBARS = CM_BASE + 2050;
 
   // VT's own clipboard formats,
   // Note: The reference format is used internally to allow to link to a tree reference
   //       to implement optimized moves and other back references.
-  CFSTR_VIRTUALTREE        = 'Virtual Tree Data';
-  CFSTR_VTREFERENCE        = 'Virtual Tree Reference';
-  CFSTR_HTML               = 'HTML Format';
-  CFSTR_RTF                = 'Rich Text Format';
-  CFSTR_RTFNOOBJS          = 'Rich Text Format Without Objects';
-  CFSTR_CSV                = 'CSV';
+  CFSTR_VIRTUALTREE = 'Virtual Tree Data';
+  CFSTR_VTREFERENCE = 'Virtual Tree Reference';
+  CFSTR_HTML = 'HTML Format';
+  CFSTR_RTF = 'Rich Text Format';
+  CFSTR_RTFNOOBJS = 'Rich Text Format Without Objects';
+  CFSTR_CSV = 'CSV';
+
+  DSH_ALLOWDROPDESCRIPTIONTEXT = $1;
+
+  SID_IDropTargetHelper = '{4657278B-411B-11D2-839A-00C04FD918D0}';
+  SID_IDragSourceHelper = '{DE5BF786-477A-11D2-839D-00C04FD918D0}';
+  SID_IDragSourceHelper2 = '{83E07D0D-0C5F-4163-BF1A-60B274051E40}';
+  SID_IDropTarget = '{00000122-0000-0000-C000-000000000046}';
 
   // Help identifiers for exceptions. Application developers are responsible to link them with actual help topics.
-  hcTFEditLinkIsNil        = 2000;
-  hcTFWrongMoveError       = 2001;
-  hcTFWrongStreamFormat    = 2002;
-  hcTFWrongStreamVersion   = 2003;
-  hcTFStreamTooSmall       = 2004;
-  hcTFCorruptStream1       = 2005;
-  hcTFCorruptStream2       = 2006;
-  hcTFClipboardFailed      = 2007;
-  hcTFCannotSetUserData    = 2008;
+  hcTFEditLinkIsNil      = 2000;
+  hcTFWrongMoveError     = 2001;
+  hcTFWrongStreamFormat  = 2002;
+  hcTFWrongStreamVersion = 2003;
+  hcTFStreamTooSmall     = 2004;
+  hcTFCorruptStream1     = 2005;
+  hcTFCorruptStream2     = 2006;
+  hcTFClipboardFailed    = 2007;
+  hcTFCannotSetUserData  = 2008;
 
   // Header standard split cursor.
-  crHeaderSplit            = crHSplit deprecated 'Use vrHSplit instead';
+  crHeaderSplit = TCursor(63);
 
   // Height changing cursor.
-  crVertSplit              = crVSplit deprecated 'Use vrVSplit instead';
+  crVertSplit = TCursor(62);
 
   // chunk IDs
   NodeChunk = 1;
@@ -118,51 +139,71 @@ const
   CaptionChunk = 3;     // used by the string tree to store a node's caption
   UserChunk = 4;        // used for data supplied by the application
 
+  //Panning Cursors
+  crVT_MOVEALL = TCursor(64);
+  crVT_MOVEEW = TCursor(65);
+  crVT_MOVENS = TCursor(66);
+  crVT_MOVENW = TCursor(67);
+  crVT_MOVESW = TCursor(68);
+  crVT_MOVENE = TCursor(69);
+  crVT_MOVESE = TCursor(70);
+  crVT_MOVEW = TCursor(71);
+  crVT_MOVEE = TCursor(72);
+  crVT_MOVEN = TCursor(73);
+  crVT_MOVES = TCursor(74);
+
+  {$if defined(LCLCarbon) or defined(LCLCocoa)}
+    ssCtrlOS = ssMeta;     // Mac OS X fix
+  {$else}
+    ssCtrlOS = ssCtrl;
+  {$endif}
+
+  cUtilityImageSize = 16; // Needed by descendants for hittests.
+
+  DEFAULT_CHECK_WIDTH = 16;
+  DEFAULT_COLUMN_WIDTH = 50;
+  DEFAULT_DRAG_HEIGHT = 350;
+  DEFAULT_DRAG_WIDTH = 200;
+  DEFAULT_HEADER_HEIGHT = 19;
+  DEFAULT_INDENT = 18;
+  DEFAULT_MARGIN = 4;
+  DEFAULT_NODE_HEIGHT = 18;
+  DEFAULT_SPACING = 3;
+
+  LIS_NORMAL = 1;
+  {$EXTERNALSYM LIS_NORMAL}
+  LIS_HOT = 2;
+  {$EXTERNALSYM LIS_HOT}
+  LIS_SELECTED = 3;
+  {$EXTERNALSYM LIS_SELECTED}
+  LIS_DISABLED = 4;
+  {$EXTERNALSYM LIS_DISABLED}
+  LIS_SELECTEDNOTFOCUS = 5;
+  {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
+
 type
-{$IFDEF VT_FMX}
-  TDimension = Single;
-  PDimension = ^Single;
-  TVTCursor = TCursor;
-  TVTDragDataObject = TDragObject;
-  TVTBackground = TBitmap;
-  TVTPaintContext = TCanvas;
-  TVTBrush = TBrush;
-{$ELSE}
-  TDimension = Integer; // For Firemonkey support, see #841
-  PDimension = ^Integer;
-  TVTCursor = HCURSOR;
-  TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
-  TVTPaintContext = HDC;
-  TVTBrush = HBRUSH;
-{$ENDIF}
+  TVTCursor = HCURSOR;
   TColumnIndex = type Integer;
   TColumnPosition = type Cardinal;
-  PCardinal = ^Cardinal;
 
   // The exception used by the trees.
   EVirtualTreeError = class(Exception);
 
   // Limits the speed interval which can be used for auto scrolling (milliseconds).
-  TAutoScrollInterval = 1 .. 1000;
+  TAutoScrollInterval = 1..1000;
 
   TVTScrollIncrement = 1 .. 10000;
 
   // OLE drag'n drop support
   TFormatEtcArray = array of TFormatEtc;
-  TFormatArray = array of Word;
+  TFormatArray = array of TClipboardFormat;
 
   TSmartAutoFitType = (
-    smaAllColumns,       // consider nodes in view only for all columns
-    smaNoColumn,         // consider nodes in view only for no column
-    smaUseColumnOption   // use coSmartResize of the corresponding column
+    smaAllColumns,      // consider nodes in view only for all columns
+    smaNoColumn,        // consider nodes in view only for no column
+    smaUseColumnOption  // use coSmartResize of the corresponding column
   );  // describes the used column resize behaviour for AutoFitColumns
-
-  TAddPopupItemType = (
-    apNormal,
-    apDisabled,
-    apHidden
-  );
 
   TCheckType = (
     ctNone,
@@ -175,42 +216,14 @@ type
   // The check states include both, transient and fluent (temporary) states. The only temporary state defined so
   // far is the pressed state.
   TCheckState = (
-    csUncheckedNormal,   // unchecked and not pressed
-    csUncheckedPressed,  // unchecked and pressed
-    csCheckedNormal,     // checked and not pressed
-    csCheckedPressed,    // checked and pressed
-    csMixedNormal,       // 3-state check box and not pressed
-    csMixedPressed,      // 3-state check box and pressed
-    csUncheckedDisabled, // disabled checkbox, not checkable
-    csCheckedDisabled,   // disabled checkbox, not uncheckable
-    csMixedDisabled      // disabled 3-state checkbox
-    );
+    csUncheckedNormal,  // unchecked and not pressed
+    csUncheckedPressed, // unchecked and pressed
+    csCheckedNormal,    // checked and not pressed
+    csCheckedPressed,   // checked and pressed
+    csMixedNormal,      // 3-state check box and not pressed
+    csMixedPressed      // 3-state check box and pressed
+  );
 
-  /// Adds some convenience methods to type TCheckState
-  TCheckStateHelper = record helper for TCheckState
-  strict private
-  const
-    // Lookup to quickly convert a specific check state into its pressed counterpart and vice versa.
-    cPressedState : array [TCheckState] of TCheckState   = (
-      csUncheckedPressed, csUncheckedPressed, csCheckedPressed, csCheckedPressed, csMixedPressed, csMixedPressed, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
-    cUnpressedState : array [TCheckState] of TCheckState = (
-      csUncheckedNormal, csUncheckedNormal, csCheckedNormal, csCheckedNormal, csMixedNormal, csMixedNormal, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
-    cEnabledState : array [TCheckState] of TCheckState   = (
-      csUncheckedNormal, csUncheckedPressed, csCheckedNormal, csCheckedPressed, csMixedNormal, csMixedPressed, csUncheckedNormal, csCheckedNormal, csMixedNormal);
-    cToggledState : array [TCheckState] of TCheckState   = (
-      csCheckedNormal, csCheckedPressed, csUncheckedNormal, csUncheckedPressed, csCheckedNormal, csCheckedPressed, csUncheckedDisabled, csCheckedDisabled, csMixedDisabled);
-  public
-    function GetPressed() : TCheckState; inline;
-    function GetUnpressed() : TCheckState; inline;
-    function GetEnabled() : TCheckState; inline;
-    function GetToggled() : TCheckState; inline;
-    function IsDisabled() : Boolean; inline;
-    function IsChecked() : Boolean; inline;
-    function IsUnChecked() : Boolean; inline;
-    function IsMixed() : Boolean; inline;
-  end;
-
-type
   // Options per column.
   TVTColumnOption = (
     coAllowClick,            // Column can be clicked (must be enabled too).
@@ -231,7 +244,8 @@ type
     coUseCaptionAlignment,   // Column's caption has its own aligment.
     coEditable,              // Column can be edited
     coStyleColor             // Prefer background color of VCL style over TVirtualTreeColumn.Color
-    );
+
+  );
   TVTColumnOptions = set of TVTColumnOption;
 
   TVirtualTreeColumnStyle = (
@@ -244,38 +258,27 @@ type
     blGlyphRight,
     blGlyphTop,
     blGlyphBottom
-    );
+  );
 
   TSortDirection = (
     sdAscending,
     sdDescending
-    );
+  );
 
-  TSortDirectionHelper = record helper for VirtualTrees.Types.TSortDirection
-  strict private
-  const
-    cSortDirectionToInt : Array [TSortDirection] of Integer = (1, - 1);
-  public
-    /// Returns +1 for ascending and -1 for descending sort order.
-    function ToInt() : Integer; inline;
-  end;
-
-// Used during owner draw of the header to indicate which drop mark for the column must be drawn.
+  // Used during owner draw of the header to indicate which drop mark for the column must be drawn.
   TVTDropMarkMode = (
     dmmNone,
     dmmLeft,
     dmmRight
-    );
+  );
 
   // auto scroll directions
-  TScrollDirections = set of TScrollDirection;
-//    sdLeft,
-//    sdUp,
-//    sdRight,
-//    sdDown
-//  );
-
-
+  TScrollDirections = set of (
+    sdLeft,
+    sdUp,
+    sdRight,
+    sdDown
+  );
 
   // There is a heap of switchable behavior in the tree. Since published properties may never exceed 4 bytes,
   // which limits sets to at most 32 members, and because for better overview tree options are splitted
@@ -283,42 +286,40 @@ type
   //
   // Options to customize tree appearance:
   TVTPaintOption = (
-    toHideFocusRect,         // Avoid drawing the dotted rectangle around the currently focused node.
-    toHideSelection,         // Selected nodes are drawn as unselected nodes if the tree is unfocused.
-    toHotTrack,              // Track which node is under the mouse cursor.
-    toPopupMode,             // Paint tree as would it always have the focus (useful for tree combo boxes etc.)
-    toShowBackground,        // Use the background image if there's one.
-    toShowButtons,           // Display collapse/expand buttons left to a node.
-    toShowDropmark,          // Show the dropmark during drag'n drop operations.
-    toShowHorzGridLines,     // Display horizontal lines to simulate a grid.
-    toShowRoot,              // Show lines also at top level (does not show the hidden/internal root node).
-    toShowTreeLines,         // Display tree lines to show hierarchy of nodes.
-    toShowVertGridLines,     // Display vertical lines (depending on columns) to simulate a grid.
-    toThemeAware,            // Draw UI elements (header, tree buttons etc.) according to the current theme if enabled (Windows XP+ only, application must be themed).
-    toUseBlendedImages,      // Enable alpha blending for ghosted nodes or those which are being cut/copied.
-    toGhostedIfUnfocused,    // Ghosted images are still shown as ghosted if unfocused (otherwise the become non-ghosted images).
-    toFullVertGridLines,     // Display vertical lines over the full client area, not only the space occupied by nodes.
-                             // This option only has an effect if toShowVertGridLines is enabled too.
-    toAlwaysHideSelection,   // Do not draw node selection, regardless of focused state.
-    toUseBlendedSelection,   // Enable alpha blending for node selections.
-    toStaticBackground,      // Show simple static background instead of a tiled one.
-    toChildrenAbove,         // Display child nodes above their parent.
-    toFixedIndent,           // Draw the tree with a fixed indent.
-    toUseExplorerTheme,      // Use the explorer theme if run under Windows Vista (or above).
-    toHideTreeLinesIfThemed, // Do not show tree lines if theming is used.
-    toShowFilteredNodes      // Draw nodes even if they are filtered out.
-    );
+    toHideFocusRect,           // Avoid drawing the dotted rectangle around the currently focused node.
+    toHideSelection,           // Selected nodes are drawn as unselected nodes if the tree is unfocused.
+    toHotTrack,                // Track which node is under the mouse cursor.
+    toPopupMode,               // Paint tree as would it always have the focus (useful for tree combo boxes etc.)
+    toShowBackground,          // Use the background image if there's one.
+    toShowButtons,             // Display collapse/expand buttons left to a node.
+    toShowDropmark,            // Show the dropmark during drag'n drop operations.
+    toShowHorzGridLines,       // Display horizontal lines to simulate a grid.
+    toShowRoot,                // Show lines also at top level (does not show the hidden/internal root node).
+    toShowTreeLines,           // Display tree lines to show hierarchy of nodes.
+    toShowVertGridLines,       // Display vertical lines (depending on columns) to simulate a grid.
+    toThemeAware,              // Draw UI elements (header, tree buttons etc.) according to the current theme if
+                               // enabled (Windows XP+ only, application must be themed).
+    toUseBlendedImages,        // Enable alpha blending for ghosted nodes or those which are being cut/copied.
+    toGhostedIfUnfocused,      // Ghosted images are still shown as ghosted if unfocused (otherwise the become non-ghosted
+                               // images).
+    toFullVertGridLines,       // Display vertical lines over the full client area, not only the space occupied by nodes.
+                               // This option only has an effect if toShowVertGridLines is enabled too.
+    toAlwaysHideSelection,     // Do not draw node selection, regardless of focused state.
+    toUseBlendedSelection,     // Enable alpha blending for node selections.
+    toStaticBackground,        // Show simple static background instead of a tiled one.
+    toChildrenAbove,           // Display child nodes above their parent.
+    toFixedIndent,             // Draw the tree with a fixed indent.
+    toUseExplorerTheme,        // Use the explorer theme if run under Windows Vista (or above).
+    toHideTreeLinesIfThemed,   // Do not show tree lines if theming is used.
+    toShowFilteredNodes        // Draw nodes even if they are filtered out.
+  );
   TVTPaintOptions = set of TVTPaintOption;
 
-  { Options to toggle animation support:
-    **Do not use toAnimatedToggle when a background image is used for the tree.
-   The animation does not look good as the image splits and moves with it.
-  }
+  // Options to toggle animation support:
   TVTAnimationOption = (
-    toAnimatedToggle,                // Expanding and collapsing a node is animated (quick window scroll).
-    // **See note above.
-    toAdvancedAnimatedToggle         // Do some advanced animation effects when toggling a node.
-    );
+    toAnimatedToggle,          // Expanding and collapsing a node is animated (quick window scroll).
+    toAdvancedAnimatedToggle   // Do some advanced animation effects when toggling a node.
+  );
   TVTAnimationOptions = set of TVTAnimationOption;
 
   // Options which toggle automatic handling of certain situations:
@@ -363,55 +364,49 @@ type
   );
   TVTSelectionOptions = set of TVTSelectionOption;
 
-  TVTEditOptions = (
-    toDefaultEdit,                   // Standard behaviour for end of editing (after VK_RETURN stay on edited cell).
-    toVerticalEdit,                  // After VK_RETURN switch to next column.
-    toHorizontalEdit                 // After VK_RETURN switch to next row.
-    );
-
   // Options which do not fit into any of the other groups:
   TVTMiscOption = (
-    toAcceptOLEDrop,                 // Register tree as OLE accepting drop target
-    toCheckSupport,                  // Show checkboxes/radio buttons.
-    toEditable,                      // Node captions can be edited.
-    toFullRepaintOnResize,           // Fully invalidate the tree when its window is resized (CS_HREDRAW/CS_VREDRAW).
-    toGridExtensions,                // Use some special enhancements to simulate and support grid behavior.
-    toInitOnSave,                    // Initialize nodes when saving a tree to a stream.
-    toReportMode,                    // Tree behaves like TListView in report mode.
-    toToggleOnDblClick,              // Toggle node expansion state when it is double clicked.
-    toWheelPanning,                  // Support for mouse panning (wheel mice only). This option and toMiddleClickSelect are
-                                     // mutal exclusive, where panning has precedence.
-    toReadOnly,                      // The tree does not allow to be modified in any way. No action is executed and
-                                     // node editing is not possible.
-    toVariableNodeHeight,            // When set then GetNodeHeight will trigger OnMeasureItem to allow variable node heights.
-    toFullRowDrag,                   // Start node dragging by clicking anywhere in it instead only on the caption or image.
-                                     // Must be used together with toDisableDrawSelection.
-    toNodeHeightResize,              // Allows changing a node's height via mouse.
-    toNodeHeightDblClickResize,      // Allows to reset a node's height to FDefaultNodeHeight via a double click.
-    toEditOnClick,                   // Editing mode can be entered with a single click
-    toEditOnDblClick,                // Editing mode can be entered with a double click
-    toReverseFullExpandHotKey        // Used to define Ctrl+'+' instead of Ctrl+Shift+'+' for full expand (and similar for collapsing)
-    );
+    toAcceptOLEDrop,            // Register tree as OLE accepting drop target
+    toCheckSupport,             // Show checkboxes/radio buttons.
+    toEditable,                 // Node captions can be edited.
+    toFullRepaintOnResize,      // Fully invalidate the tree when its window is resized (CS_HREDRAW/CS_VREDRAW).
+    toGridExtensions,           // Use some special enhancements to simulate and support grid behavior.
+    toInitOnSave,               // Initialize nodes when saving a tree to a stream.
+    toReportMode,               // Tree behaves like TListView in report mode.
+    toToggleOnDblClick,         // Toggle node expansion state when it is double clicked.
+    toWheelPanning,             // Support for mouse panning (wheel mice only). This option and toMiddleClickSelect are
+                                // mutal exclusive, where panning has precedence.
+    toReadOnly,                 // The tree does not allow to be modified in any way. No action is executed and
+                                // node editing is not possible.
+    toVariableNodeHeight,       // When set then GetNodeHeight will trigger OnMeasureItem to allow variable node heights.
+    toFullRowDrag,              // Start node dragging by clicking anywhere in it instead only on the caption or image.
+                                // Must be used together with toDisableDrawSelection.
+    toNodeHeightResize,         // Allows changing a node's height via mouse.
+    toNodeHeightDblClickResize, // Allows to reset a node's height to FDefaultNodeHeight via a double click.
+    toEditOnClick,              // Editing mode can be entered with a single click
+    toEditOnDblClick,           // Editing mode can be entered with a double click
+    toReverseFullExpandHotKey   // Used to define Ctrl+'+' instead of Ctrl+Shift+'+' for full expand (and similar for collapsing)
+  );
   TVTMiscOptions = set of TVTMiscOption;
 
   // Options to control data export
   TVTExportMode = (
-    emAll,                           // export all records (regardless checked state)
-    emChecked,                       // export checked records only
-    emUnchecked,                     // export unchecked records only
-    emVisibleDueToExpansion,         // Do not export nodes that are not visible because their parent is not expanded
-    emSelected                       // export selected nodes only
-    );
+    emAll,        // export all records (regardless checked state)
+    emChecked,    // export checked records only
+    emUnchecked,   // export unchecked records only
+    emVisibleDueToExpansion, //Do not export nodes that are not visible because their parent is not expanded
+    emSelected // export selected nodes only
+  );
 
   // Options regarding strings (useful only for the string tree and descendants):
   TVTStringOption = (
-    toSaveCaptions,                  // If set then the caption is automatically saved with the tree node, regardless of what is
-                                     // saved in the user data.
-    toShowStaticText,                // Show static text in a caption which can be differently formatted than the caption
-                                     // but cannot be edited.
-    toAutoAcceptEditChange           // Automatically accept changes during edit if the user finishes editing other then
-                                     // VK_RETURN or ESC. If not set then changes are cancelled.
-    );
+    toSaveCaptions,          // If set then the caption is automatically saved with the tree node, regardless of what is
+                             // saved in the user data.
+    toShowStaticText,        // Show static text in a caption which can be differently formatted than the caption
+                             // but cannot be edited.
+    toAutoAcceptEditChange   // Automatically accept changes during edit if the user finishes editing other then
+                             // VK_RETURN or ESC. If not set then changes are cancelled.
+  );
   TVTStringOptions = set of TVTStringOption;
 
   TChunkHeader = record
@@ -422,42 +417,43 @@ type
 const
   DefaultPaintOptions = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
   DefaultAnimationOptions = [];
-  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
+  DefaultAutoOptions = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort];
   DefaultSelectionOptions = [];
-  DefaultMiscOptions      = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick];
-
-  DefaultStringOptions    = [toSaveCaptions, toAutoAcceptEditChange];
+  DefaultMiscOptions = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning,
+    toEditOnClick];
+  DefaultStringOptions = [toSaveCaptions, toAutoAcceptEditChange];
 
 type
+
+  { TCustomVirtualTreeOptions }
+
   TCustomVirtualTreeOptions = class(TPersistent)
   private
-    FOwner            : TCustomControl;
-    FPaintOptions     : TVTPaintOptions;
-    FAnimationOptions : TVTAnimationOptions;
-    FAutoOptions      : TVTAutoOptions;
-    FSelectionOptions : TVTSelectionOptions;
-    FMiscOptions      : TVTMiscOptions;
-    FExportMode       : TVTExportMode;
+    FOwner: TCustomControl;
+    FPaintOptions: TVTPaintOptions;
+    FAnimationOptions: TVTAnimationOptions;
+    FAutoOptions: TVTAutoOptions;
+    FSelectionOptions: TVTSelectionOptions;
+    FMiscOptions: TVTMiscOptions;
+    FExportMode: TVTExportMode;
     FEditOptions      : TVTEditOptions;
-    procedure SetAnimationOptions(const Value : TVTAnimationOptions);
-    procedure SetAutoOptions(const Value : TVTAutoOptions);
-    procedure SetMiscOptions(const Value : TVTMiscOptions);
-    procedure SetPaintOptions(const Value : TVTPaintOptions);
-    procedure SetSelectionOptions(const Value : TVTSelectionOptions);
-  protected
-    // Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
-    function StyleServices(AControl : TControl = nil) : TCustomStyleServices;
+    procedure SetAnimationOptions(const Value: TVTAnimationOptions);
+    procedure SetAutoOptions(const Value: TVTAutoOptions);
+    procedure SetMiscOptions(const Value: TVTMiscOptions);
+    procedure SetPaintOptions(const Value: TVTPaintOptions);
+    procedure SetSelectionOptions(const Value: TVTSelectionOptions);
   public
-    constructor Create(AOwner : TCustomControl); virtual;
-    //these bypass the side effects in the regular setters.
+    constructor Create(AOwner: TCustomControl); virtual;
+
     procedure InternalSetMiscOptions(const Value : TVTMiscOptions);
 
-    procedure AssignTo(Dest : TPersistent); override;
-    property AnimationOptions : TVTAnimationOptions read FAnimationOptions write SetAnimationOptions default DefaultAnimationOptions;
-    property AutoOptions : TVTAutoOptions read FAutoOptions write SetAutoOptions default DefaultAutoOptions;
-    property ExportMode : TVTExportMode read FExportMode write FExportMode default emAll;
-    property MiscOptions : TVTMiscOptions read FMiscOptions write SetMiscOptions default DefaultMiscOptions;
-    property PaintOptions : TVTPaintOptions read FPaintOptions write SetPaintOptions default DefaultPaintOptions;
+    procedure AssignTo(Dest: TPersistent); override;
+    property AnimationOptions: TVTAnimationOptions read FAnimationOptions write SetAnimationOptions
+      default DefaultAnimationOptions;
+    property AutoOptions: TVTAutoOptions read FAutoOptions write SetAutoOptions default DefaultAutoOptions;
+    property ExportMode: TVTExportMode read FExportMode write FExportMode default emAll;
+    property MiscOptions: TVTMiscOptions read FMiscOptions write SetMiscOptions default DefaultMiscOptions;
+    property PaintOptions: TVTPaintOptions read FPaintOptions write SetPaintOptions default DefaultPaintOptions;
     property SelectionOptions : TVTSelectionOptions read FSelectionOptions write SetSelectionOptions default DefaultSelectionOptions;
     property EditOptions : TVTEditOptions read FEditOptions write FEditOptions default toDefaultEdit;
 
@@ -476,16 +472,20 @@ type
     property SelectionOptions;
   end;
 
+  { TCustomStringTreeOptions }
+
   TCustomStringTreeOptions = class(TCustomVirtualTreeOptions)
   private
-    FStringOptions : TVTStringOptions;
-    procedure SetStringOptions(const Value : TVTStringOptions);
-  protected
+    FStringOptions: TVTStringOptions;
+    procedure SetStringOptions(const Value: TVTStringOptions);
   public
-    constructor Create(AOwner : TCustomControl); override;
-    procedure AssignTo(Dest : TPersistent); override;
-    property StringOptions : TVTStringOptions read FStringOptions write SetStringOptions default DefaultStringOptions;
+    constructor Create(AOwner: TCustomControl); override;
+
+    procedure AssignTo(Dest: TPersistent); override;
+    property StringOptions: TVTStringOptions read FStringOptions write SetStringOptions default DefaultStringOptions;
   end;
+
+  { TStringTreeOptions }
 
   TStringTreeOptions = class(TCustomStringTreeOptions)
   published
@@ -496,37 +496,66 @@ type
     property PaintOptions;
     property SelectionOptions;
     property StringOptions;
-    property EditOptions;
   end;
 
-  TScrollBarStyle = (
+  TVTScrollBarStyle = (
     sbmRegular,
     sbm3D
   );
 
   // A class to manage scroll bar aspects.
+
+  { TScrollBarOptions }
+
   TScrollBarOptions = class(TPersistent)
   private
-    FAlwaysVisible           : Boolean;
-    FOwner                   : TCustomControl;
-    FScrollBars              : TScrollStyle;       // used to hide or show vertical and/or horizontal scrollbar
-    FScrollBarStyle          : TScrollBarStyle;    // kind of scrollbars to use
-    FIncrementX, FIncrementY : TVTScrollIncrement; // number of pixels to scroll in one step (when auto scrolling)
-    procedure SetAlwaysVisible(Value : Boolean);
-    procedure SetScrollBars(Value : TScrollStyle);
-    procedure SetScrollBarStyle(Value : TScrollBarStyle);
+    FAlwaysVisible: Boolean;
+    FOwner: TCustomControl;
+    FScrollBars: TScrollStyle;                   // used to hide or show vertical and/or horizontal scrollbar
+    FScrollBarStyle: TVTScrollBarStyle;            // kind of scrollbars to use
+    FIncrementX,
+    FIncrementY: TVTScrollIncrement;             // number of pixels to scroll in one step (when auto scrolling)
+    procedure SetAlwaysVisible(Value: Boolean);
+    procedure SetScrollBars(Value: TScrollStyle);
+    procedure SetScrollBarStyle(Value: TVTScrollBarStyle);
   protected
-    function GetOwner : TPersistent; override;
+    function GetOwner: TPersistent; override;
   public
-    constructor Create(AOwner : TCustomControl);
+    constructor Create(AOwner: TCustomControl);
 
-    procedure Assign(Source : TPersistent); override;
+    procedure Assign(Source: TPersistent); override;
   published
-    property AlwaysVisible       : Boolean read FAlwaysVisible write SetAlwaysVisible default False;
-    property HorizontalIncrement : TVTScrollIncrement read FIncrementX write FIncrementX default 20;
-    property ScrollBars          : TScrollStyle read FScrollBars write SetScrollBars default TScrollStyle.ssBoth;
-    property ScrollBarStyle      : TScrollBarStyle read FScrollBarStyle write SetScrollBarStyle default sbmRegular;
-    property VerticalIncrement   : TVTScrollIncrement read FIncrementY write FIncrementY default 20;
+    property AlwaysVisible: Boolean read FAlwaysVisible write SetAlwaysVisible default False;
+    property HorizontalIncrement: TVTScrollIncrement read FIncrementX write FIncrementX default 20;
+    property ScrollBars: TScrollStyle read FScrollBars write SetScrollBars default ssBoth;
+    property ScrollBarStyle: TVTScrollBarStyle read FScrollBarStyle write SetScrollBarStyle default sbmRegular;
+    property VerticalIncrement: TVTScrollIncrement read FIncrementY write FIncrementY default 20;
+  end;
+
+  TElementEdge = (
+    eeRaisedOuter
+  );
+
+  TElementEdges = set of TElementEdge;
+
+  TElementEdgeFlag = (
+    efRect
+  );
+
+  TElementEdgeFlags = set of TElementEdgeFlag;
+
+  //lcl: StyleServices is not implemented in LCL. If there's no plan to support it. Remove references here
+  // For compatibility with Delphi XE and earlier, prevents deprecated warnings in Delphi XE2 and higher
+  StyleServices = class
+    class function Enabled: Boolean;
+    class function DrawEdge(DC: HDC; Details: TThemedElementDetails; const R: TRect;
+      Edges: TElementEdges; Flags: TElementEdgeFlags; ContentRect: PRect = nil): Boolean;
+    class function DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil): Boolean;
+    class function GetElementDetails(Detail: TThemedHeader): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedToolTip): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedWindow): TThemedElementDetails; overload;
+    class function GetElementDetails(Detail: TThemedButton): TThemedElementDetails; overload;
+    class procedure PaintBorder(Control: TWinControl; EraseLRCorner: Boolean);
   end;
 
 implementation
@@ -539,7 +568,8 @@ type
 
 //----------------- TCustomVirtualTreeOptions --------------------------------------------------------------------------
 
-constructor TCustomVirtualTreeOptions.Create(AOwner : TCustomControl);
+constructor TCustomVirtualTreeOptions.Create(AOwner: TCustomControl);
+
 begin
   FOwner := AOwner;
 
@@ -550,18 +580,27 @@ begin
   FMiscOptions := DefaultMiscOptions;
 end;
 
+procedure TCustomVirtualTreeOptions.InternalSetMiscOptions(
+  const Value: TVTMiscOptions);
+begin
+  FMiscOptions := Value;
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualTreeOptions.SetAnimationOptions(const Value : TVTAnimationOptions);
+procedure TCustomVirtualTreeOptions.SetAnimationOptions(const Value: TVTAnimationOptions);
+
 begin
   FAnimationOptions := Value;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualTreeOptions.SetAutoOptions(const Value : TVTAutoOptions);
+procedure TCustomVirtualTreeOptions.SetAutoOptions(const Value: TVTAutoOptions);
+
 var
-  ChangedOptions : TVTAutoOptions;
+  ChangedOptions: TVTAutoOptions;
+
 begin
   if FAutoOptions <> Value then
   begin
@@ -576,49 +615,37 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualTreeOptions.InternalSetMiscOptions(const Value : TVTMiscOptions);
-begin
-  FMiscOptions := Value;
-end;
+procedure TCustomVirtualTreeOptions.SetMiscOptions(const Value: TVTMiscOptions);
 
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TCustomVirtualTreeOptions.SetMiscOptions(const Value : TVTMiscOptions);
 var
-  ToBeSet, ToBeCleared : TVTMiscOptions;
+  ToBeSet,
+  ToBeCleared: TVTMiscOptions;
+
 begin
   if FMiscOptions <> Value then
   begin
     ToBeSet := Value - FMiscOptions;
     ToBeCleared := FMiscOptions - Value;
     FMiscOptions := Value;
-
-    with TVTCracker(FOwner) do
+    {$ifndef Windows}
+    Exclude(FMiscOptions,toAcceptOLEDrop);
+    Exclude(ToBeCleared,toAcceptOLEDrop);
+    Exclude(ToBeSet,toAcceptOLEDrop);
+    {$endif}
+    with FOwner do
       if not (csLoading in ComponentState) and HandleAllocated then
       begin
         if toCheckSupport in ToBeSet + ToBeCleared then
           Invalidate;
-        if toEditOnDblClick in ToBeSet then
-          FMiscOptions := FMiscOptions - [toToggleOnDblClick];
-        // In order for toEditOnDblClick to take effect, we need to remove toToggleOnDblClick which is handled with priority. See issue #747
-
         if not (csDesigning in ComponentState) then
         begin
-          if toAcceptOLEDrop in ToBeCleared then
-            RevokeDragDrop(Handle);
-          if toFullRepaintOnResize in ToBeSet + ToBeCleared then
-            RecreateWnd;
+          if toFullRepaintOnResize in (ToBeSet + ToBeCleared) then
+            //todo_lcl_check
+            RecreateWnd(FOwner);
           if toAcceptOLEDrop in ToBeSet then
             RegisterDragDrop(Handle, DragManager as IDropTarget);
-          if toVariableNodeHeight in ToBeSet then
-          begin
-            BeginUpdate();
-            try
-              ReInitNode(nil, True);
-            finally
-              EndUpdate();
-            end; //try..finally
-          end;   //if toVariableNodeHeight
+          if toAcceptOLEDrop in ToBeCleared then
+            RevokeDragDrop(Handle);
         end;
       end;
   end;
@@ -626,11 +653,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualTreeOptions.SetPaintOptions(const Value : TVTPaintOptions);
+procedure TCustomVirtualTreeOptions.SetPaintOptions(const Value: TVTPaintOptions);
+
 var
-  ToBeSet, ToBeCleared : TVTPaintOptions;
-  Run                  : PVirtualNode;
-  HandleWasAllocated   : Boolean;
+  ToBeSet,
+  ToBeCleared: TVTPaintOptions;
+  Run: PVirtualNode;
+  HandleWasAllocated: Boolean;
+
 begin
   if FPaintOptions <> Value then
   begin
@@ -642,7 +672,7 @@ begin
       // Fixes issue #388
       Include(FPaintOptions, toShowRoot);
       Include(ToBeSet, toShowRoot);
-    end; //if
+    end;//if
     with TVTCracker(FOwner) do
     begin
       HandleWasAllocated := HandleAllocated;
@@ -667,7 +697,7 @@ begin
             if toShowFilteredNodes in ToBeSet then
               AdjustTotalHeight(Run, Run.NodeHeight, True)
             else
-              AdjustTotalHeight(Run, - Run.NodeHeight, True);
+              AdjustTotalHeight(Run, -Run.NodeHeight, True);
           end;
           Run := GetNextNoInit(Run);
         end;
@@ -685,24 +715,25 @@ begin
             SetWindowTheme('explorer');
             DoStateChange([tsUseExplorerTheme]);
           end
-          else if toUseExplorerTheme in ToBeCleared then
-          begin
-            SetWindowTheme('');
-            DoStateChange([], [tsUseExplorerTheme]);
-          end;
-        end;
+          else
+            if toUseExplorerTheme in ToBeCleared then
+            begin
+              SetWindowTheme('');
+              DoStateChange([], [tsUseExplorerTheme]);
+            end;
 
         if not (csLoading in ComponentState) then
         begin
           if ((toThemeAware in ToBeSet + ToBeCleared) or (toUseExplorerTheme in ToBeSet + ToBeCleared) or VclStyleEnabled) then
           begin
-            if ((toThemeAware in ToBeSet) and StyleServices.Enabled) then
+            if ((toThemeAware in ToBeSet) and StyleServices.Enabled) or VclStyleEnabled then
               DoStateChange([tsUseThemes])
-            else if (toThemeAware in ToBeCleared) then
+            else
+              if (toThemeAware in ToBeCleared) then
               DoStateChange([], [tsUseThemes]);
 
             PrepareBitmaps(True, False);
-            RedrawWindow(nil, 0, RDW_INVALIDATE or RDW_VALIDATE or RDW_FRAME);
+            RedrawWindow(Handle, nil, 0, RDW_INVALIDATE or RDW_VALIDATE or RDW_FRAME);
           end;
 
           if toChildrenAbove in ToBeSet + ToBeCleared then
@@ -724,9 +755,12 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualTreeOptions.SetSelectionOptions(const Value : TVTSelectionOptions);
+procedure TCustomVirtualTreeOptions.SetSelectionOptions(const Value: TVTSelectionOptions);
+
 var
-  ToBeSet, ToBeCleared : TVTSelectionOptions;
+  ToBeSet,
+  ToBeCleared: TVTSelectionOptions;
+
 begin
   if FSelectionOptions <> Value then
   begin
@@ -736,7 +770,8 @@ begin
 
     with TVTCracker(FOwner) do
     begin
-      if (toMultiSelect in (ToBeCleared + ToBeSet)) or ([toLevelSelectConstraint, toSiblingSelectConstraint] * ToBeSet <> []) then
+      if (toMultiSelect in (ToBeCleared + ToBeSet)) or
+        ([toLevelSelectConstraint, toSiblingSelectConstraint] * ToBeSet <> []) then
         ClearSelection;
 
       if (toExtendedFocus in ToBeCleared) and (FocusedColumn > 0) and HandleAllocated then
@@ -753,18 +788,12 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualTreeOptions.StyleServices(AControl : TControl) : TCustomStyleServices;
-begin
-  Result := VTStyleServices(FOwner);
-end;
+procedure TCustomVirtualTreeOptions.AssignTo(Dest: TPersistent);
 
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TCustomVirtualTreeOptions.AssignTo(Dest : TPersistent);
 begin
   if Dest is TCustomVirtualTreeOptions then
   begin
-    with Dest as TCustomVirtualTreeOptions do
+    with TCustomVirtualTreeOptions(Dest) do
     begin
       PaintOptions := Self.PaintOptions;
       AnimationOptions := Self.AnimationOptions;
@@ -779,17 +808,21 @@ end;
 
 //----------------- TCustomStringTreeOptions ---------------------------------------------------------------------------
 
-constructor TCustomStringTreeOptions.Create(AOwner : TCustomControl);
+constructor TCustomStringTreeOptions.Create(AOwner: TCustomControl);
+
 begin
   inherited;
+
   FStringOptions := DefaultStringOptions;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomStringTreeOptions.SetStringOptions(const Value : TVTStringOptions);
+procedure TCustomStringTreeOptions.SetStringOptions(const Value: TVTStringOptions);
+
 var
-  ChangedOptions : TVTStringOptions;
+  ChangedOptions: TVTStringOptions;
+
 begin
   if FStringOptions <> Value then
   begin
@@ -804,15 +837,13 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomStringTreeOptions.AssignTo(Dest : TPersistent);
+procedure TCustomStringTreeOptions.AssignTo(Dest: TPersistent);
+
 begin
   if Dest is TCustomStringTreeOptions then
   begin
-    with Dest as TCustomStringTreeOptions do
-    begin
+    with TCustomStringTreeOptions(Dest) do
       StringOptions := Self.StringOptions;
-      EditOptions := Self.EditOptions;
-    end;
   end;
 
   // Let ancestors assign their options to the destination class.
@@ -821,45 +852,50 @@ end;
 
 //----------------- TScrollBarOptions ----------------------------------------------------------------------------------
 
-constructor TScrollBarOptions.Create(AOwner : TCustomControl);
+constructor TScrollBarOptions.Create(AOwner: TCustomControl);
+
 begin
   inherited Create;
 
   FOwner := AOwner;
   FAlwaysVisible := False;
   FScrollBarStyle := sbmRegular;
-  FScrollBars := TScrollStyle.ssBoth;
+  FScrollBars := ssBoth;
   FIncrementX := 20;
   FIncrementY := 20;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TScrollBarOptions.SetAlwaysVisible(Value : Boolean);
+procedure TScrollBarOptions.SetAlwaysVisible(Value: Boolean);
+
 begin
   if FAlwaysVisible <> Value then
   begin
     FAlwaysVisible := Value;
+    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
-      TVTCracker(FOwner).RecreateWnd;
+      RecreateWnd(FOwner);
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TScrollBarOptions.SetScrollBars(Value : TScrollStyle);
+procedure TScrollBarOptions.SetScrollBars(Value: TScrollStyle);
+
 begin
   if FScrollBars <> Value then
   begin
     FScrollBars := Value;
+    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
-      TVTCracker(FOwner).RecreateWnd;
+      RecreateWnd(FOwner);
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TScrollBarOptions.SetScrollBarStyle(Value : TScrollBarStyle);
+procedure TScrollBarOptions.SetScrollBarStyle(Value: TVTScrollBarStyle);
 
 begin
   if FScrollBarStyle <> Value then
@@ -870,7 +906,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TScrollBarOptions.GetOwner : TPersistent;
+function TScrollBarOptions.GetOwner: TPersistent;
 
 begin
   Result := FOwner;
@@ -878,7 +914,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TScrollBarOptions.Assign(Source : TPersistent);
+procedure TScrollBarOptions.Assign(Source: TPersistent);
 
 begin
   if Source is TScrollBarOptions then
@@ -895,51 +931,47 @@ end;
 
 class function StyleServices.Enabled: Boolean;
 begin
-  Result := Self >= TCheckState.csUncheckedDisabled;
+  Result := ThemeServices.ThemesEnabled;
 end;
 
 class function StyleServices.DrawEdge(DC: HDC; Details: TThemedElementDetails; const R: TRect;
   Edges: TElementEdges; Flags: TElementEdgeFlags; ContentRect: PRect = nil): Boolean;
 begin
-  Result := Self in [csCheckedNormal, csCheckedPressed, csCheckedDisabled];
+  Assert((Edges = [eeRaisedOuter]) and (Flags = [efRect]));
+  ThemeServices.DrawEdge(DC, Details, R, BDR_RAISEDOUTER, BF_RECT);
+  Result := Enabled;
 end;
 
 class function StyleServices.DrawElement(DC: HDC; Details: TThemedElementDetails; const R: TRect; ClipRect: PRect = nil): Boolean;
 begin
-  Result := Self in [csUncheckedNormal, csUncheckedPressed, csUncheckedDisabled];
+  ThemeServices.DrawElement(DC, Details, R, ClipRect);
+  Result := Enabled;
 end;
 
 class function StyleServices.GetElementDetails(Detail: TThemedHeader): TThemedElementDetails;
 begin
-  Result := Self in [csMixedNormal, csMixedPressed, csMixedDisabled];
+  Result := ThemeServices.GetElementDetails(Detail);
 end;
 
 class function StyleServices.GetElementDetails(Detail: TThemedToolTip): TThemedElementDetails;
 begin
-  Result := cEnabledState[Self];
+  Result := ThemeServices.GetElementDetails(Detail);
 end;
 
 class function StyleServices.GetElementDetails(Detail: TThemedWindow): TThemedElementDetails;
 begin
-  Result := cPressedState[Self];
+  Result := ThemeServices.GetElementDetails(Detail);
 end;
 
 class function StyleServices.GetElementDetails(Detail: TThemedButton): TThemedElementDetails;
 begin
-  Result := cUnpressedState[Self];
+  Result := ThemeServices.GetElementDetails(Detail);
 end;
 
 class procedure StyleServices.PaintBorder(Control: TWinControl; EraseLRCorner: Boolean);
 begin
-  Result := cToggledState[Self];
+  ThemeServices.PaintBorder(Control, EraseLRCorner);
 end;
-
-{ TSortDirectionHelper }
-
-function TSortDirectionHelper.ToInt() : Integer;
-begin
-  Result := cSortDirectionToInt[Self];
-end;
-
 
 end.
+

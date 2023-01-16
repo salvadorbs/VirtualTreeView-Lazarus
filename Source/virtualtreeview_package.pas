@@ -8,9 +8,11 @@ unit virtualtreeview_package;
 interface
 
 uses
-  VirtualTrees, VirtualTrees.HeaderPopup, registervirtualtreeview, VirtualTrees.Graphics, 
-  VirtualTrees.IDEEditors, VirtualTrees.ClipBoard, VirtualTrees.WorkerThread, VirtualTrees.Types, VirtualTrees.Header, VirtualTrees.DragImage, 
-  VirtualTrees.DataObject, VirtualTrees.DragnDrop, VirtualTrees.Classes, VirtualTrees.Export, VirtualTrees.EditLink, VirtualTrees.DrawTree, 
+  VirtualTrees, VirtualTrees.HeaderPopup, registervirtualtreeview, 
+  VirtualTrees.IDEEditors, VirtualTrees.ClipBoard, VirtualTrees.WorkerThread, 
+  VirtualTrees.Types, VirtualTrees.Header, VirtualTrees.DragImage, 
+  VirtualTrees.DataObject, VirtualTrees.DragnDrop, VirtualTrees.Classes, 
+  VirtualTrees.Export, VirtualTrees.EditLink, VirtualTrees.DrawTree, 
   VirtualTrees.BaseTree, LazarusPackageIntf;
 
 implementation

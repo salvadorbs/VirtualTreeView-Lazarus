@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.HeaderPopup;
+unit VirtualTrees.HeaderPopup;
 
 //----------------------------------------------------------------------------------------------------------------------
 //
@@ -61,7 +61,10 @@
 //
 // Modified 17 Feb 2002 by Jim Kueneman <jimdk@mindspring.com>.
 //   - Added the event to filter the items as they are added to the menu.
+// 2014
+//   - Adapted and improved for LCL by Luiz Américo Pereira Câmara
 //----------------------------------------------------------------------------------------------------------------------
+{$mode delphi}
 
 interface
 
@@ -76,27 +79,34 @@ type
   );
   TVTHeaderPopupOptions = set of TVTHeaderPopupOption;
 
-  TColumnChangeEvent = procedure(const Sender: TObject; const Column: TColumnIndex; Visible: Boolean) of object;
+  TAddPopupItemType = (
+    apNormal,
+    apDisabled,
+    apHidden
+  );
+
+  TAddHeaderPopupItemEvent = procedure(const Sender: TBaseVirtualTree; const Column: TColumnIndex;
+    var Cmd: TAddPopupItemType) of object;
+  TColumnChangeEvent = procedure(const Sender: TBaseVirtualTree; const Column: TColumnIndex; Visible: Boolean) of object;
+
+  TVTMenuItem = TMenuItem;
 
   TVTHeaderPopupMenu = class(TPopupMenu)
   strict private
     FOptions: TVTHeaderPopupOptions;
 
-    FOnHeaderAddPopupItem: TVTHeaderAddPopupItemEvent;
+    FOnAddHeaderPopupItem: TAddHeaderPopupItemEvent;
     FOnColumnChange: TColumnChangeEvent;
-    procedure ResizeColumnToFit(Sender: TObject);
-    procedure ResizeToFit(Sender: TObject);
   strict protected
     procedure DoAddHeaderPopupItem(const Column: TColumnIndex; out Cmd: TAddPopupItemType); virtual;
     procedure DoColumnChange(Column: TColumnIndex; Visible: Boolean); virtual;
-    procedure OnMenuItemClick(Sender: TObject); virtual;
+    procedure OnMenuItemClick(Sender: TObject);
   public
-    constructor Create(AOwner: TComponent); override;
-    procedure Popup(x, y: TDimension); override;
+    procedure Popup(x, y: Integer); override;
   published
-    property Options: TVTHeaderPopupOptions read FOptions write FOptions default [poResizeToFitItem];
+    property Options: TVTHeaderPopupOptions read FOptions write FOptions default [];
 
-    property OnAddHeaderPopupItem: TVTHeaderAddPopupItemEvent read FOnHeaderAddPopupItem write FOnHeaderAddPopupItem;
+    property OnAddHeaderPopupItem: TAddHeaderPopupItemEvent read FOnAddHeaderPopupItem write FOnAddHeaderPopupItem;
     property OnColumnChange: TColumnChangeEvent read FOnColumnChange write FOnColumnChange;
   end;
 
@@ -107,30 +117,22 @@ implementation
 uses
   Classes, VirtualTrees.Header;
 
-resourcestring
-  sResizeColumnToFit = 'Size &Column to Fit';
-  sResizeToFit = 'Size &All Columns to Fit';
-
+const
+  cResizeToFitMenuItemName = 'VT_ResizeToFitMenuItem';
 type
   TVTMenuItem = class(TMenuItem)
   public
     constructor Create(AOwner: TComponent; const ACaption: string; AClickHandler: TNotifyEvent = nil); reintroduce;
   end;
-
+  
 //----------------- TVTHeaderPopupMenu ---------------------------------------------------------------------------------
-
-constructor TVTHeaderPopupMenu.Create(AOwner: TComponent);
-begin
-  inherited;
-  FOptions := [poResizeToFitItem];
-end;
 
 procedure TVTHeaderPopupMenu.DoAddHeaderPopupItem(const Column: TColumnIndex; out Cmd: TAddPopupItemType);
 
 begin
   Cmd := apNormal;
-  if Assigned(FOnHeaderAddPopupItem) then
-    FOnHeaderAddPopupItem((PopupComponent as TBaseVirtualTree), Column, Cmd);
+  if Assigned(FOnAddHeaderPopupItem) then
+    FOnAddHeaderPopupItem(TVirtualTreeCast(PopupComponent), Column, Cmd);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -139,7 +141,7 @@ procedure TVTHeaderPopupMenu.DoColumnChange(Column: TColumnIndex; Visible: Boole
 
 begin
   if Assigned(FOnColumnChange) then
-    FOnColumnChange((PopupComponent as TBaseVirtualTree), Column, Visible);
+    FOnColumnChange(TVirtualTreeCast(PopupComponent), Column, Visible);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -148,20 +150,30 @@ procedure TVTHeaderPopupMenu.OnMenuItemClick(Sender: TObject);
 
 begin
   if Assigned(PopupComponent) and (PopupComponent is TBaseVirtualTree) then begin
-    with TBaseVirtualTree(PopupComponent).Header.Columns.Items[TVTMenuItem(Sender).Tag] do
-    begin
-      if TVTMenuItem(Sender).Checked then
-        Options := Options - [coVisible]
-      else
-        Options := Options + [coVisible];
-      DoColumnChange(TVTMenuItem(Sender).Tag, coVisible in Options);
-    end;
+    if TVTMenuItem(Sender).Name = cResizeToFitMenuItemName then begin
+      TVirtualTreeCast(PopupComponent).Header.AutoFitColumns();
+    end
+    else begin
+      with TVTMenuItem(Sender),
+        TVirtualTreeCast(PopupComponent).Header.Columns.Items[Tag] do
+      begin
+        if Checked then
+          Options := Options - [coVisible]
+        else
+          Options := Options + [coVisible];
+
+         DoColumnChange(TVTMenuItem(Sender).Tag, not Checked);
+      end;
+    end;//else
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+resourcestring
+  sResizeToFit = '&Resize All Columns To Fit';
 
-procedure TVTHeaderPopupMenu.Popup(x, y: TDimension);
+procedure TVTHeaderPopupMenu.Popup(x, y: Integer);
+
 var
   ColPos: TColumnPosition;
   ColIdx: TColumnIndex;
@@ -172,26 +184,21 @@ var
   VisibleCounter: Cardinal;
   VisibleItem: TVTMenuItem;
 
-  i: Integer;
-
 begin
   if Assigned(PopupComponent) and (PopupComponent is TBaseVirtualTree) then
   begin
     // Delete existing menu items.
-    for i := Items.Count -1 downto 0 do begin
-      if Items[i] is TVTMenuItem then
-        Items[i].Free;
-    end;//for i
+    while Items.Count > 0 do
+      Items[0].Free;
 
-    if poResizeToFitItem in Self.Options then
-    begin
-      Items.Add(TVTMenuItem.Create(Self, sResizeColumnToFit, ResizeColumnToFit));
-      Items.Add(TVTMenuItem.Create(Self, sResizeToFit, ResizeToFit));
-      Items.Add(TVTMenuItem.Create(Self, cLineCaption));
+    if poResizeToFitItem in Self.Options then begin
+      NewMenuItem := NewItem(sResizeToFit, 0, False, True, OnMenuItemClick, 0, cResizeToFitMenuItemName);
+      Items.Add(NewMenuItem);
+      Items.Add(NewLine());
     end;//poResizeToFitItem
 
     // Add column menu items.
-    with (PopupComponent as TBaseVirtualTree).Header do
+    with TVirtualTreeCast(PopupComponent).Header do
     begin
       if hoShowImages in Options then
         Self.Images := Images
@@ -210,16 +217,17 @@ begin
         with Columns[ColIdx] do
         begin
           if coVisible in Options then
-            System.Inc(VisibleCounter);
+            Inc(VisibleCounter);
           DoAddHeaderPopupItem(ColIdx, Cmd);
           if Cmd <> apHidden then
           begin
-            NewMenuItem := TVTMenuItem.Create(Self, Text, OnMenuItemClick);
+            NewMenuItem := TVTMenuItem.Create(Self);
             NewMenuItem.Tag := ColIdx;
             NewMenuItem.Caption := Text;
             NewMenuItem.Hint := Hint;
             NewMenuItem.ImageIndex := ImageIndex;
             NewMenuItem.Checked := coVisible in Options;
+            NewMenuItem.OnClick := OnMenuItemClick;
             if Cmd = apDisabled then
               NewMenuItem.Enabled := False
             else
@@ -235,36 +243,11 @@ begin
         VisibleItem.Enabled := False;
     end;
   end;
-
+  
   inherited;
-end;
-
-procedure TVTHeaderPopupMenu.ResizeColumnToFit(Sender: TObject);
-var
-  P: TPoint;
-  Column: TColumnIndex;
-begin
-  P := Point(PopupPoint.X, PopupPoint.Y + TBaseVirtualTree(PopupComponent).Header.Height);
-  P := TBaseVirtualTree(PopupComponent).ScreenToClient(P);
-  Column := TBaseVirtualTree(PopupComponent).Header.Columns.ColumnFromPosition(P);
-  if Column <> InvalidColumn then
-    TBaseVirtualTree(PopupComponent).Header.AutoFitColumns(True, smaUseColumnOption, Column, Column);
-end;
-
-procedure TVTHeaderPopupMenu.ResizeToFit(Sender: TObject);
-begin
-  TBaseVirtualTree(PopupComponent).Header.AutoFitColumns();
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{ TVTMenuItem }
-
-constructor TVTMenuItem.Create(AOwner: TComponent; const ACaption: string; AClickHandler: TNotifyEvent);
-begin
-  Inherited Create(AOwner);
-  Caption := ACaption;
-  OnClick := AClickHandler;
-end;
-
 end.
+
