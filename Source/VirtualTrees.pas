@@ -73,7 +73,6 @@ uses
   LCLIntf,
   {$ifdef USE_DELPHICOMPAT}
   DelphiCompat,
-  LclExt,
   {$endif}
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
@@ -87,11 +86,9 @@ uses
   , VirtualTrees.Colors
   , VirtualTrees.Types
   , VirtualTrees.Header
-  , VirtualTrees.DragImage
-  , VirtualTrees.DataObject
-  , VirtualTrees.Classes
   , VirtualTrees.BaseTree
-  , virtualTrees.AncestorLcl;
+  , VirtualTrees.AncestorLcl
+  , VirtualTrees.Utils;
 
 type
   // Need to declare the correct WMNCPaint record as the VCL (D5-) doesn't.
@@ -526,14 +523,6 @@ type
     //property Touch;
   end;
 
-// utility routines
-function ShortenString(DC: HDC; const S: String; Width: Integer; EllipsisWidth: Integer = 0): String;
-procedure GetStringDrawRect(DC: HDC; const S: String; var Bounds: TRect; DrawFormat: Cardinal);
-function WrapString(DC: HDC; const S: String; const Bounds: TRect; RTL: Boolean;
-  DrawFormat: Cardinal): String;
-
-procedure ShowError(const Msg: String; HelpContext: Integer);  // [IPK] Surface this to interface
-
 //----------------------------------------------------------------------------------------------------------------------
 
 implementation
@@ -571,9 +560,6 @@ const
       TVP_HOTGLYPH = 4;
   {$endif COMPILER_11_UP}
 
-  WideCR = WideChar(#13);
-  WideLF = WideChar(#10);
-
 //----------------- compatibility functions ----------------------------------------------------------------------------
 
 // ExcludeClipRect is buggy in Cocoa
@@ -596,283 +582,6 @@ begin
   Result := windows.BitBlt(DestDC, X, Y, Width, Height, SrcDC, XSrc, YSrc, Rop);
 end;
 {$endif}
-
-//----------------- utility functions ----------------------------------------------------------------------------------
-
-procedure ShowError(const Msg: String; HelpContext: Integer);
-
-begin
-  raise EVirtualTreeError.CreateHelp(Msg, HelpContext);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-//todo: Unify the procedure or change to widgetset specific
-// Currently the UTF-8 version is broken.
-// the unicode version is used when all winapi is available
-
-{$ifndef INCOMPLETE_WINAPI}
-function ShortenString(DC: HDC; const S: String; Width: Integer; EllipsisWidth: Integer = 0): String;
-
-// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
-// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
-// For higher speed (and multiple entries to be shorted) specify this value explicitely.
-// Note: It is assumed that the string really needs shortage. Check this in advance.
-
-var
-  Size: TSize;
-  Len: Integer;
-  L, H, N, W: Integer;
-  WideStr: UnicodeString;
-begin
-  WideStr := UTF8Decode(S);
-  Len := Length(WideStr);
-  if (Len = 0) or (Width <= 0) then
-    Result := ''
-  else
-  begin
-    // Determine width of triple point using the current DC settings (if not already done).
-    if EllipsisWidth = 0 then
-    begin
-      GetTextExtentPoint32W(DC, '...', 3, Size);
-      EllipsisWidth := Size.cx;
-    end;
-
-    if Width <= EllipsisWidth then
-      Result := ''
-    else
-    begin
-      // Do a binary search for the optimal string length which fits into the given width.
-      L := 0;
-      H := Len - 1;
-      while L < H do
-      begin
-        N := (L + H + 1) shr 1;
-        GetTextExtentPoint32W(DC, PWideChar(WideStr), N, Size);
-        W := Size.cx + EllipsisWidth;
-        if W <= Width then
-          L := N
-        else
-          H := N - 1;
-      end;
-      Result := UTF8Encode(Copy(WideStr, 1, L) + '...');
-    end;
-  end;
-end;
-{$else}
-function ShortenString(DC: HDC; const S: String; Width: Integer; EllipsisWidth: Integer = 0): String;
-
-// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
-// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
-// For higher speed (and multiple entries to be shorted) specify this value explicitely.
-// Note: It is assumed that the string really needs shortage. Check this in advance.
-
-var
-  Size: TSize;
-  Len: Integer;
-  L, H, N, W: Integer;
-begin
-  Len := Length(S);
-  if (Len = 0) or (Width <= 0) then
-    Result := ''
-  else
-  begin
-    // Determine width of triple point using the current DC settings (if not already done).
-    if EllipsisWidth = 0 then
-    begin
-      GetTextExtentPoint32(DC, '...', 3, Size);
-      EllipsisWidth := Size.cx;
-    end;
-
-    if Width <= EllipsisWidth then
-      Result := ''
-    else
-    begin
-      // Do a binary search for the optimal string length which fits into the given width.
-      L := 0;
-      H := Len - 1;
-      while L < H do
-      begin
-        N := (L + H + 1) shr 1;
-        GetTextExtentPoint32(DC, PAnsiChar(S), N, Size);
-        W := Size.cx + EllipsisWidth;
-        if W <= Width then
-          L := N
-        else
-          H := N - 1;
-      end;
-      Result := Copy(S, 1, L) + '...';
-    end;
-  end;
-end;
-{$endif}
-//----------------------------------------------------------------------------------------------------------------------
-
-function WrapString(DC: HDC; const S: String; const Bounds: TRect; RTL: Boolean;
-  DrawFormat: Cardinal): String;
-
-// Wrap the given string S so that it fits into a space of given width.
-// RTL determines if right-to-left reading is active.
-
-var
-  Width,
-  Len,
-  WordCounter,
-  WordsInLine,
-  I, W: Integer;
-  Buffer,
-  Line: String;
-  Words: array of String;
-  R: TRect;
-
-begin
-  Result := '';
-  // Leading and trailing are ignored.
-  Buffer := Trim(S);
-  Len := Length(Buffer);
-  if Len < 1 then
-    Exit;
-
-  Width := Bounds.Right - Bounds.Left;
-  R := Rect(0, 0, 0, 0);
-
-  // Count the words in the string.
-  WordCounter := 1;
-  for I := 1 to Len do
-    if Buffer[I] = ' ' then
-      Inc(WordCounter);
-  SetLength(Words, WordCounter);
-
-  if RTL then
-  begin
-    // At first we split the string into words with the last word being the
-    // first element in Words.
-    W := 0;
-    for I := 1 to Len do
-      if Buffer[I] = ' ' then
-        Inc(W)
-      else
-        Words[W] := Words[W] + Buffer[I];
-
-    // Compose Result.
-    while WordCounter > 0 do
-    begin
-      WordsInLine := 0;
-      Line := '';
-
-      while WordCounter > 0 do
-      begin
-        GetStringDrawRect(DC, Line + IfThen(WordsInLine > 0, ' ', '') + Words[WordCounter - 1], R, DrawFormat);
-        if R.Right > Width then
-        begin
-          // If at least one word fits into this line then continue with the next line.
-          if WordsInLine > 0 then
-            Break;
-
-          Buffer := Words[WordCounter - 1];
-          if Len > 1 then
-          begin
-            for Len := Length(Buffer) - 1 downto 2 do
-            begin
-              GetStringDrawRect(DC, RightStr(Buffer, Len), R, DrawFormat);
-              if R.Right <= Width then
-                Break;
-            end;
-          end
-          else
-            Len := Length(Buffer);
-
-          Line := Line + RightStr(Buffer, Max(Len, 1));
-          Words[WordCounter - 1] := LeftStr(Buffer, Length(Buffer) - Max(Len, 1));
-          if Words[WordCounter - 1] = '' then
-            Dec(WordCounter);
-          Break;
-        end
-        else
-        begin
-          Dec(WordCounter);
-          Line := Words[WordCounter] + IfThen(WordsInLine > 0, ' ', '') + Line;
-          Inc(WordsInLine);
-        end;
-      end;
-
-      Result := Result + Line + LineEnding;
-    end;
-  end
-  else
-  begin
-    // At first we split the string into words with the last word being the
-    // first element in Words.
-    W := WordCounter - 1;
-    for I := 1 to Len do
-      if Buffer[I] = ' ' then
-        Dec(W)
-      else
-        Words[W] := Words[W] + Buffer[I];
-
-    // Compose Result.
-    while WordCounter > 0 do
-    begin
-      WordsInLine := 0;
-      Line := '';
-
-      while WordCounter > 0 do
-      begin
-        GetStringDrawRect(DC, Line + IfThen(WordsInLine > 0, ' ', '') + Words[WordCounter - 1], R, DrawFormat);
-        if R.Right > Width then
-        begin
-          // If at least one word fits into this line then continue with the next line.
-          if WordsInLine > 0 then
-            Break;
-
-          Buffer := Words[WordCounter - 1];
-          if Len > 1 then
-          begin
-            for Len := Length(Buffer) - 1 downto 2 do
-            begin
-              GetStringDrawRect(DC, LeftStr(Buffer, Len), R, DrawFormat);
-              if R.Right <= Width then
-                Break;
-            end;
-          end
-          else
-            Len := Length(Buffer);
-
-          Line := Line + LeftStr(Buffer, Max(Len, 1));
-          Words[WordCounter - 1] := RightStr(Buffer, Length(Buffer) - Max(Len, 1));
-          if Words[WordCounter - 1] = '' then
-            Dec(WordCounter);
-          Break;
-        end
-        else
-        begin
-          Dec(WordCounter);
-          Line := Line + IfThen(WordsInLine > 0, ' ', '') + Words[WordCounter];
-          Inc(WordsInLine);
-        end;
-      end;
-
-      Result := Result + Line + LineEnding;
-    end;
-  end;
-
-  Len := Length(Result) - Length(LineEnding);
-  if CompareByte(Result[Len + 1], String(LineEnding)[1], Length(LineEnding)) = 0 then
-    SetLength(Result, Len);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure GetStringDrawRect(DC: HDC; const S: String; var Bounds: TRect; DrawFormat: Cardinal);
-
-// Calculates bounds of a drawing rectangle for the given string
-
-begin
-  Bounds.Right := Bounds.Left + 1;
-  Bounds.Bottom := Bounds.Top + 1;
-
-  DrawText(DC, PChar(S), Length(S), Bounds, DrawFormat or DT_CALCRECT);
-end;
 
 //----------------------------------------------------------------------------------------------------------------------
 {$ifdef EnableAccessible}
