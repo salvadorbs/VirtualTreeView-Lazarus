@@ -71,6 +71,7 @@ const
 var
   IsWinVistaOrAbove: Boolean;
   UtilityImageSize: Integer = cUtilityImageSize;
+  UtilityImages: TCustomBitmap;        // some small additional images (e.g for header dragging)
 
   {$MinEnumSize 1, make enumerations as small as possible}
 
@@ -2366,7 +2367,6 @@ const
 var
   gWatcher: TCriticalSection = nil;
   SystemCheckImages: TImageList;       // global system check images
-  UtilityImages: TCustomBitmap;        // some small additional images (e.g for header dragging)
   gInitialized: Integer = 0;           // >0 if global structures have been initialized; otherwise 0
   NeedToUnitialize: Boolean = False;   // True if the OLE subsystem could be initialized successfully.
 
