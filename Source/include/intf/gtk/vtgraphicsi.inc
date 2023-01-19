@@ -3,7 +3,7 @@ uses
 
 //procedure gdk_drawable_get_size(drawable: PGdkDrawable; width, height: Pgint); cdecl; external gdkdll;
 
-procedure AlphaBlend(Source, Destination: HDC; const R: TRect; const Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
+procedure AlphaBlend(Source, Destination: HDC; R: TRect; Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
 
   function CreateSurface(GtkDC: TGtkDeviceContext): Pcairo_surface_t;
   var

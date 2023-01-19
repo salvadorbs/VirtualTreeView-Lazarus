@@ -115,12 +115,7 @@ type
     procedure Button1Click(Sender: TObject);
     procedure MyTreeCompareNodes(Sender: TBaseVirtualTree; Node1,
       Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
-    {$if VTMajorVersion < 5}
-    procedure MyTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex;
-      Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    {$else}
     procedure MyTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
-    {$endif}
     procedure btnDeleteClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure MyTreePaintText(Sender: TBaseVirtualTree;
@@ -246,23 +241,14 @@ begin
   end
 end;
 
-{$if VTMajorVersion < 5}
-procedure TMainForm.MyTreeHeaderClick(Sender: TVTHeader; Column: TColumnIndex;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-{$else}
 procedure TMainForm.MyTreeHeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
-{$endif}
 var
   Direction : TSortDirection;
-  {$if VTMajorVersion >= 5}
   Column: TColumnIndex;
    Shift: TShiftState;
-  {$endif}
 begin
-  {$if VTMajorVersion >= 5}
   Column := HitInfo.Column;
   Shift := HitInfo.Shift;
-  {$endif}
   // Descending order with pressed Shift, otherwise Ascending
   // Or you can save Direction or use
   // MyTree.Header.SortDirection and MyTree.Header.SortColumn

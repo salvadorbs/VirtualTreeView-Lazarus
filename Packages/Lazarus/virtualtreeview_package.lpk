@@ -3,7 +3,7 @@
   <Package Version="5">
     <Name Value="virtualtreeview_package"/>
     <Type Value="RunAndDesignTime"/>
-    <Author Value="Mike Lischke (LCL Port: Luiz Américo)"/>
+    <Author Value="Mike Lischke (LCL Port: Luiz Américo &amp; Matteo Salvi) "/>
     <CompilerOptions>
       <Version Value="11"/>
       <SearchPaths>
@@ -21,7 +21,7 @@ end;"/>
         <Count Value="1"/>
         <Item1>
           <Identifier Value="VirtualTreeView_Debug"/>
-          <Description Value="Enables debugging of VTV. Requires MultiLog package"/>
+          <Description Value="Enables debugging of VTV"/>
           <Values Count="2">
             <Item1 Value="True"/>
             <Item2 Value="False"/>
@@ -40,7 +40,7 @@ end;"/>
 "/>
     <License Value=" Mozilla Public License 1.1 (MPL 1.1) or GNU Lesser General Public License
 "/>
-    <Version Major="5" Minor="5" Release="3" Build="1"/>
+    <Version Major="8"/>
     <Files Count="23">
       <Item1>
         <Filename Value="../../Source/VirtualTrees.pas"/>

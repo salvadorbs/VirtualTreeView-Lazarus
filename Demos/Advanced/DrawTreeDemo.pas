@@ -69,7 +69,7 @@ implementation
 {$R *.lfm}
 
 uses
-  LazFileUtils, States;
+  LazFileUtils, States, VirtualTrees.Utils;
 
 //----------------------------------------------------------------------------------------------------------------------
 
