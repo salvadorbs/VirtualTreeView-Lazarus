@@ -8812,16 +8812,17 @@ begin
     ImageList_DragShowNolock(True);
   {$endif}
 
-  if hoVisible in FHeader.Options then
-  begin
-    DC := GetDCEx(Handle, 0, DCX_CACHE or DCX_CLIPSIBLINGS or DCX_WINDOW or DCX_VALIDATE);
-    if DC <> 0 then
-      try
-        FHeader.Columns.PaintHeader(DC, FHeaderRect, -FEffectiveOffsetX);
-    finally
-      ReleaseDC(Handle, DC);
-    end;
-  end;//if header visible
+  //lclheader - Removed because paint over vertical scrollbar
+  //if hoVisible in FHeader.Options then
+  //begin
+  //  DC := GetDCEx(Handle, 0, DCX_CACHE or DCX_CLIPSIBLINGS or DCX_WINDOW or DCX_VALIDATE);
+  //  if DC <> 0 then
+  //    try
+  //      FHeader.Columns.PaintHeader(DC, FHeaderRect, -FEffectiveOffsetX);
+  //  finally
+  //    ReleaseDC(Handle, DC);
+  //  end;
+  //end;//if header visible
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcMessages],'WMPaint');{$endif}
 end;
 
