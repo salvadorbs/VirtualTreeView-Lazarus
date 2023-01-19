@@ -9919,10 +9919,12 @@ begin
   {$ifdef DEBUG_VTV}Logger.Send([lcInfo],'Handle (CreateWnd)',Handle);{$endif}
   DoStateChange([], [tsWindowCreating]);
 
-  if (StyleServices.Enabled and (toThemeAware in TreeOptions.PaintOptions)) or VclStyleEnabled then
+  if not Assigned(FCheckImages) then
+    FCheckImages := SystemCheckImages;
+
+  if ((StyleServices.Enabled ) and (toThemeAware in TreeOptions.PaintOptions)  ) then
   begin
     DoStateChange([tsUseThemes]);
-    if not VclStyleEnabled then
       if (toUseExplorerTheme in FOptions.PaintOptions) and IsWinVistaOrAbove then
       begin
         DoStateChange([tsUseExplorerTheme]);
