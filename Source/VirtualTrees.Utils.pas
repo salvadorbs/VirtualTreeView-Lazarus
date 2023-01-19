@@ -8,7 +8,7 @@ interface
 
 uses
   DelphiCompat, Types, LCLIntf, LCLType, Graphics, LclExt, SysUtils,
-  VirtualTrees.Types;
+  VirtualTrees.Types, StrUtils, Math;
 
 type
   // Describes the mode how to blend pixels.
@@ -78,9 +78,6 @@ function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 function GetBitmapBitsFromBitmap(Bitmap: HBITMAP): Pointer;
 
 implementation
-
-uses
-  StrUtils, Math;
 
 {$i vtgraphicsi.inc}
 

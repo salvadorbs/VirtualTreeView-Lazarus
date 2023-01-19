@@ -131,7 +131,7 @@ jobs:
     - name: Install packages
       run: |
         ${{ matrix.lazbuild }} --add-package-link "${{ env.LCLEXT_SOURCE }}/lclextensions/lclextensions_package.lpk" --skip-dependencies
-        ${{ matrix.lazbuild }} --add-package "${{ env.VTV_SOURCE }}/Source/virtualtreeview_package.lpk" --skip-dependencies
+        ${{ matrix.lazbuild }} --add-package "${{ env.VTV_SOURCE }}/Packages/Lazarus/virtualtreeview_package.lpk" --skip-dependencies
         
     - name: Build Lazarus
       run: |

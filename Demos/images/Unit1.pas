@@ -51,12 +51,7 @@ type
       var Ghosted: Boolean; var ImageIndex: Integer);
     procedure VST1Checking(Sender: TBaseVirtualTree; Node: PVirtualNode;
       var NewState: TCheckState; var Allowed: Boolean);
-    {$if VTMajorVersion >= 5}
     procedure VST1HeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
-    {$else}
-    procedure VST1HeaderClick(Sender: TVTHeader; Column: TColumnIndex;
-      Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-    {$endif}
     procedure VST1CompareNodes(Sender: TBaseVirtualTree; Node1,
       Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
   private
@@ -264,20 +259,13 @@ begin
   Allowed:=true
 end;
 
-{$if VTMajorVersion >= 5}
 procedure TForm1.VST1HeaderClick(Sender: TVTHeader; HitInfo: TVTHeaderHitInfo);
 var
   Button: TMouseButton;
   Column: TColumnIndex;
-{$else}
-procedure TForm1.VST1HeaderClick(Sender: TVTHeader; Column: TColumnIndex;
-  Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
-{$endif}
 begin
-  {$if VTMajorVersion >= 5}
   Button := HitInfo.Button;
   Column := HitInfo.Column;
-  {$endif}
 
   // Determinate sorting direction
   if Button=mbLeft then

@@ -9,7 +9,7 @@ uses
 
 function gdk_cairo_create(drawable: PGdkDrawable): Pcairo_t cdecl external gdklib;
 
-procedure AlphaBlend(Source, Destination: HDC; const R: TRect; const Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
+procedure AlphaBlend(Source, Destination: HDC; R: TRect; Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
 
   function GetContext(GtkDC: TGtk2DeviceContext): Pcairo_t;
   begin

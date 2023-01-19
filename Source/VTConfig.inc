@@ -23,18 +23,31 @@
 
 //Lazarus port options
 {$define EnableOLE}
+
 {.$define EnableNativeTVM}
+
 {.$define EnablePrint}
+
 {.$define EnableNCFunctions}
+
 {$define EnableAdvancedGraphics}
+
 {$define EnableAlphaBlend}
+
+//Don't enable this because oleacc is not available for FreePascal
 {.$define EnableAccessible}
+
 {$define ThemeSupport}
+
 {$if defined(LCLWin32) or defined(LCLWinCE)}
   {$define LCLWin}
 {$endif}
+
+//Logging on console
 {.$define DEBUG_VTV}
+
 {$define USE_DELPHICOMPAT}
+
 //since
 {$if not defined(USE_DELPHICOMPAT) and not defined(LCLWin)}
   {$define INCOMPLETE_WINAPI}
@@ -57,8 +70,6 @@
 {$if defined(LCLGtk) or defined(LCLGtk2) or defined(LCLGtk3)}
      {$undef windows}
 {$endif}
-
-
 
 {$if defined(LCLGtk) or defined(LCLGtk2)}
 	{$define Gtk}
