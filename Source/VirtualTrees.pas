@@ -1079,6 +1079,8 @@ begin
           end;
       end;
     end;
+    if Canvas.Font.Color = clDefault then
+      Canvas.Font.Color := GetDefaultColor(dctFont);
   end;
 end;
 
@@ -1230,6 +1232,7 @@ begin
         Inc(R.Left, NodeWidth); // room for node text
     end;
 
+    //todo_lcl_check
     if not Canvas.TextStyle.Opaque then
       SetBkMode(Canvas.Handle, TRANSPARENT)
     else

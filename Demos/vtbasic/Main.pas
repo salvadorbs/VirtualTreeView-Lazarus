@@ -115,7 +115,8 @@ implementation
    procedure TfrmMain.VTGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; 
          Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: Integer);
    begin
-      ImageIndex  := Node.Index;                       {this is where we say what image to display}
+     if (Kind = ikNormal) or (Kind = ikSelected) then
+        ImageIndex  := Node.Index;                       {this is where we say what image to display}
    end;         
 
    procedure TfrmMain.VTDblClick(Sender: TObject);
@@ -163,8 +164,10 @@ implementation
       {example of dynamically changing height of node}
       if chkChangeHeight.checked then
       begin
-         Sender.NodeHeight[OldNode] := 20;
-         Sender.NodeHeight[NewNode] := 40;
+         if Assigned(OldNode) then
+            Sender.NodeHeight[OldNode] := 20;
+         if Assigned(NewNode) then
+            Sender.NodeHeight[NewNode] := 40;
       end;   
    end;
 
@@ -173,8 +176,11 @@ implementation
       {example of resetting dynamically changing node heights}
       if not chkChangeHeight.checked then with VT do
       begin
-         NodeHeight[FocusedNode] := 20;
-         InvalidateNode(FocusedNode);
+         if Assigned(FocusedNode) then
+         begin
+            NodeHeight[FocusedNode] := 20;
+            InvalidateNode(FocusedNode);
+         end;
       end;   
    end;
 
