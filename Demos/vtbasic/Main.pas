@@ -115,7 +115,8 @@ implementation
    procedure TfrmMain.VTGetImageIndex(Sender: TBaseVirtualTree; Node: PVirtualNode; 
          Kind: TVTImageKind; Column: TColumnIndex; var Ghosted: Boolean; var ImageIndex: Integer);
    begin
-      ImageIndex  := Node.Index;                       {this is where we say what image to display}
+     if (Kind = ikNormal) or (Kind = ikSelected) then
+        ImageIndex  := Node.Index;                       {this is where we say what image to display}
    end;         
 
    procedure TfrmMain.VTDblClick(Sender: TObject);

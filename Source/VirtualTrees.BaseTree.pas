@@ -1567,8 +1567,7 @@ type
         TVTHintKind);
     function DoGetImageIndex(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
       var Ghosted: Boolean; var Index: TImageIndex): TCustomImageList; virtual;
-    procedure DoGetImageText(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex;
-      var ImageText: String); virtual;
+    procedure DoGetImageText(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex; var ImageText: string); virtual;
     procedure DoGetLineStyle(var Bits: Pointer); virtual;
     function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; virtual;
     function DoGetNodeTooltip(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; virtual;
@@ -1953,6 +1952,8 @@ type
     function GetRealStateImagesHeight: Integer;
     function GetRealCheckImagesWidth: Integer;
     function GetRealCheckImagesHeight: Integer;
+    function GetRealImageListWidth(ImageList: TCustomImageList): Integer;
+    function GetRealImageListHeight(ImageList: TCustomImageList): Integer;
     {$IF LCL_FullVersion >= 1080000}
     procedure DoAutoAdjustLayout(const Mode: TLayoutAdjustmentPolicy;
       const XProportion, YProportion: Double); override;
@@ -13182,12 +13183,11 @@ begin
   Ghosted := False;
   lImageList := DoGetImageIndex(Node, Kind, Column, Ghosted, Index);
   if Index >= 0 then begin
-  //ToDo upgrade: get real width see function TBaseVirtualTree.GetRealImagesWidth: Integer;
     if IncludePadding then
-      Result.cx := lImageList.Width + ScaledPixels(2)
+      Result.cx := GetRealImageListWidth(lImageList) + ScaledPixels(2)
     else
-      Result.cx := lImageList.Width;
-    Result.cy := lImageList.Height;
+      Result.cx := GetRealImageListWidth(lImageList);
+    Result.cy := GetRealImageListHeight(lImageList);
   end
   else begin
     Result.cx := 0;
@@ -13341,83 +13341,65 @@ end;
 
 function TBaseVirtualTree.GetRealImagesWidth: Integer;
 begin
-  if FImages = nil then
-    Result := 0
-  else
-    {$IF LCL_FullVersion >= 2000000}
-    Result := FImages.ResolutionForPPI[FImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Width;
-    {$ELSE}
-    Result := FImages.Width;
-    {$IFEND}
+  Result := GetRealImageListWidth(FImages);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.GetRealImagesHeight: Integer;
 begin
-  if FImages = nil then
-    Result := 0
-  else
-    {$IF LCL_FullVersion >= 2000000}
-    Result := FImages.ResolutionForPPI[FImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
-    {$ELSE}
-    Result := FImages.Height;
-    {$IFEND}
+  Result := GetRealImageListHeight(FImages);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.GetRealStateImagesWidth: Integer;
 begin
-  if FStateImages = nil then
-    Result := 0
-  else
-    {$IF LCL_FullVersion >= 2000000}
-    Result := FStateImages.ResolutionForPPI[FStateImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Width;
-    {$ELSE}
-    Result := FStateImages.Width;
-    {$IFEND}
+  Result := GetRealImageListWidth(FStateImages);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.GetRealStateImagesHeight: Integer;
 begin
-  if FStateImages = nil then
-    Result := 0
-  else
-    {$IF LCL_FullVersion >= 2000000}
-    Result := FStateImages.ResolutionForPPI[FStateImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
-    {$ELSE}
-    Result := FStateImages.Height;
-    {$IFEND}
+  Result := GetRealImageListHeight(FStateImages);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.GetRealCheckImagesWidth: Integer;
 begin
-  if FCheckImages = nil then
-    Result := 0
-  else
-    {$IF LCL_FullVersion >= 2000000}
-    Result := FCheckImages.ResolutionForPPI[FCheckImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Width;
-    {$ELSE}
-    Result := FCheckImages.Width;
-    {$IFEND}
+  Result := GetRealImageListWidth(FCheckImages);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.GetRealCheckImagesHeight: Integer;
 begin
-  if FCheckImages = nil then
+  Result := GetRealImageListHeight(FCheckImages);
+end;
+
+function TBaseVirtualTree.GetRealImageListWidth(ImageList: TCustomImageList): Integer;
+begin
+  if ImageList = nil then
     Result := 0
   else
     {$IF LCL_FullVersion >= 2000000}
-    Result := FCheckImages.ResolutionForPPI[FCheckImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
+    Result := ImageList.ResolutionForPPI[ImageList.Width, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
     {$ELSE}
-    Result := FCheckImages.Height;
+    Result := ImageList.Height;
+    {$IFEND}
+end;
+
+function TBaseVirtualTree.GetRealImageListHeight(ImageList: TCustomImageList): Integer;
+begin
+  if ImageList = nil then
+    Result := 0
+  else
+    {$IF LCL_FullVersion >= 2000000}
+    Result := ImageList.ResolutionForPPI[ImageList.Height, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
+    {$ELSE}
+    Result := ImageList.Height;
     {$IFEND}
 end;
 
@@ -15625,7 +15607,6 @@ begin
       // Delphi version has the ability to use the built in overlay indices of windows system image lists
       // Since this is system dependent the LCL version will support only custom overlays
 
-      // Note: XPos and YPos are those of the normal images.
       // Note: XPos and YPos are those of the normal images.
       if PaintInfo.ImageInfo[iiOverlay].Index >= 0 then
        {$IF LCL_FullVersion >= 2000000}
