@@ -22110,7 +22110,8 @@ begin
                   if Height <> PaintInfo.Node.NodeHeight then
                   begin
                     // Avoid that the VCL copies the bitmap while changing its height.
-                    Height := 0;
+                    //lcl - glitch during selection
+                    //Height := 0;
                     Height := PaintInfo.Node.NodeHeight;
                     {$ifdef UseSetCanvasOrigin}
                     SetCanvasOrigin(Canvas, Window.Left, 0);
