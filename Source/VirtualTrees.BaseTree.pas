@@ -2365,6 +2365,7 @@ const
 
 var
   gWatcher: TCriticalSection = nil;
+  //ToDo upgrade: Remove SystemCheckImages and using only FCheckImages?
   SystemCheckImages: TImageList;       // global system check images
   UtilityImages: TCustomBitmap;        // some small additional images (e.g for header dragging)
   gInitialized: Integer = 0;           // >0 if global structures have been initialized; otherwise 0
@@ -3071,8 +3072,6 @@ begin
   FColors.Free;
   FBackground.Free;
 
-  if CheckImageKind = ckSystemDefault then
-    FCheckImages.Free;
   FScrollBarOptions.Free;
 
   // The window handle must be destroyed before the header is freed because it is needed in WM_NCDESTROY.
@@ -9942,7 +9941,7 @@ begin
     TVTHeaderCracker(FHeader).RescaleHeader;
   //lcl: Call with Force argument to true since AdjustAutoSize is not called in Loaded
   if hoAutoResize in FHeader.Options then
-    TVirtualTreeColumnsCracker(FHeader.Columns).AdjustAutoSize(InvalidColumn);
+    TVirtualTreeColumnsCracker(FHeader.Columns).AdjustAutoSize(InvalidColumn, True);
 
   PrepareBitmaps(True, True);
 
