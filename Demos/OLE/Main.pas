@@ -19,7 +19,6 @@ type
 
   TMainForm = class(TForm)
     ActionList1: TActionList;
-    ShowHeader1CheckBox: TCheckBox;
     CutAction: TAction;
     CopyAction: TAction;
     PasteAction: TAction;
@@ -28,7 +27,6 @@ type
     Label6: TLabel;
     Button1: TButton;
     Button3: TButton;
-    ShowHeader2CheckBox: TCheckBox;
     Tree2: TVirtualStringTree;
     Label1: TLabel;
     Tree1: TVirtualStringTree;
@@ -53,8 +51,6 @@ type
     procedure CutActionExecute(Sender: TObject);
     procedure CopyActionExecute(Sender: TObject);
     procedure PasteActionExecute(Sender: TObject);
-    procedure ShowHeader1CheckBoxChange(Sender: TObject);
-    procedure ShowHeader2CheckBoxChange(Sender: TObject);
     procedure TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure Tree1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: string);
@@ -193,22 +189,6 @@ begin
     //  RichEdit1.PasteFromClipboard;
 end;
 
-procedure TMainForm.ShowHeader1CheckBoxChange(Sender: TObject);
-begin
-  if ShowHeader1CheckBox.Checked then
-    Tree1.Header.Options := Tree1.Header.Options + [hoVisible]
-  else
-    Tree1.Header.Options := Tree1.Header.Options - [hoVisible];
-end;
-
-procedure TMainForm.ShowHeader2CheckBoxChange(Sender: TObject);
-begin
-  if ShowHeader2CheckBox.Checked then
-    Tree2.Header.Options := Tree2.Header.Options + [hoVisible]
-  else
-    Tree2.Header.Options := Tree2.Header.Options - [hoVisible];
-end;
-
 procedure TMainForm.TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
 var
   Data: PNodeData;
@@ -273,8 +253,8 @@ var
   FormatEtc: TFormatEtc;
   Medium: TStgMedium;
   OLEData,
-  Head, Tail: PWideChar;
-  WideStr: WideString;
+  Head, Tail: PChar;
+  WideStr: String;
   TargetNode,
   Node: PVirtualNode;
   Data: PNodeData;
@@ -315,7 +295,7 @@ begin
             while Head^ <> #0 do
             begin
               Tail := Head;
-              while not (Tail^ in [WideChar(#0), WideChar(#13), WideChar(#10), WideChar(#9)]) do
+              while not (Tail^ in [Char(#0), Char(#13), Char(#10), Char(#9)]) do
                 Inc(Tail);
               if Head <> Tail then
               begin
@@ -324,7 +304,7 @@ begin
                 Target.ValidateNode(Node, False);
                 Data := Target.GetNodeData(Node);
                 SetString(WideStr, Head, Tail - Head);
-                Data.Caption := UTF8Decode(WideStr);
+                Data.Caption := WideStr;
               end;
               // Skip any tab.
               if Tail^ = #9 then
