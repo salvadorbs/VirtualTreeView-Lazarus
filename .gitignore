@@ -1,10 +1,8 @@
-*.exe
 # Lazarus compiler-generated binaries (safe to delete)
 *.exe
 *.dll
 *.so
 *.dylib
-*.lrs
 *.compiled
 *.dbg
 *.ppu
