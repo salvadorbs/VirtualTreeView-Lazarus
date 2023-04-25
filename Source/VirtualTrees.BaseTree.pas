@@ -124,7 +124,6 @@ type
   end;
 
   TCache = array of TCacheEntry;
-  TNodeArray = array of PVirtualNode;
 
   // Used in the CF_VTREFERENCE clipboard format.
   PVTReference = ^TVTReference;
