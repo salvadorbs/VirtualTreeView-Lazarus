@@ -40,7 +40,7 @@ implementation
 {$R *.lfm}
 
 uses
-  Main, States;
+  Main, States, VirtualTrees.Types;
 
 
 var

@@ -6,7 +6,8 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Header, {$ifdef windows}ActiveX{$else}FakeActiveX{$endif};
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Header, VirtualTrees.Types,
+  {$ifdef windows}ActiveX{$else}FakeActiveX{$endif};
 
 type
 

@@ -24,7 +24,7 @@ interface
    uses
       delphicompat, LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, LCLType,
       VirtualTrees, StdCtrls, ExtCtrls, sqlite3ds, Menus, VTreeData, Buttons, LResources,
-      VirtualTrees.BaseTree;
+      VirtualTrees.BaseTree, VirtualTrees.Types;
 
    type
 

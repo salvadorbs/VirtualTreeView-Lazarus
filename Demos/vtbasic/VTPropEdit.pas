@@ -114,7 +114,7 @@ implementation
    {$R *.lfm}
 
    uses
-      VTEditors;
+      VTEditors, VirtualTrees.Types;
       
    {--------------------------------------------------------------------------
                               TVTPropEditData

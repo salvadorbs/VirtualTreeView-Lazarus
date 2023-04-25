@@ -488,15 +488,6 @@ object StateForm: TStateForm
       Enabled = False
       TabOrder = 3
     end
-    object CheckBox35: TCheckBox
-      Left = 9
-      Height = 20
-      Top = 90
-      Width = 117
-      Caption = 'Updates locked'
-      Enabled = False
-      TabOrder = 4
-    end
     object CheckBox38: TCheckBox
       Left = 9
       Height = 20

@@ -102,7 +102,78 @@ type
   // --------- TCustomVirtualStringTree
 
 type
+  // Some aliases for backward compatiblity
+  PVirtualNode             = VirtualTrees.Types.PVirtualNode;
+  TVirtualNode             = VirtualTrees.Types.TVirtualNode;
+  TVTHeaderColumnLayout    = VirtualTrees.Types.TVTHeaderColumnLayout;
+  TSmartAutoFitType        = VirtualTrees.Types.TSmartAutoFitType;
+  TVirtualTreeStates       = VirtualTrees.Types.TVirtualTreeStates;
+  TCheckState              = VirtualTrees.Types.TCheckState;
+  TCheckType               = VirtualTrees.Types.TCheckType;
+  TSortDirection           = VirtualTrees.Types.TSortDirection;
+  TColumnIndex             = VirtualTrees.Types.TColumnIndex;
+  TVTColumnOption          = VirtualTrees.Types.TVTColumnOption;
+  TVTHeaderHitInfo         = VirtualTrees.Types.TVTHeaderHitInfo;
+  TVTHeaderHitPosition     = VirtualTrees.Types.TVTHeaderHitPosition;
+  TVTHeaderHitPositions    = VirtualTrees.Types.TVTHeaderHitPositions;
+  THeaderState             = VirtualTrees.Types.THeaderState;
+  THeaderStates            = VirtualTrees.Types.THeaderStates;
+  TDropMode                = VirtualTrees.Types.TDropMode;
+  TFormatArray             = VirtualTrees.Types.TFormatArray;
+  TVTHeaderOption          = VirtualTrees.Types.TVTHeaderOption;
+  TVTHeaderOptions         = VirtualTrees.Types.TVTHeaderOptions;
+  TVTHeaderStyle           = VirtualTrees.Types.TVTHeaderStyle;
+  TVTExportType            = VirtualTrees.Types.TVTExportType;
+  TVTImageKind             = VirtualTrees.Types.TVTImageKind;
+  TVTExportMode            = VirtualTrees.Types.TVTExportMode;
+  TVTOperationKind         = VirtualTrees.Types.TVTOperationKind;
+  TVTUpdateState           = VirtualTrees.Types.TVTUpdateState;
+  TVTCellPaintMode         = VirtualTrees.Types.TVTCellPaintMode;
+  TVirtualNodeState        = VirtualTrees.Types.TVirtualNodeState;
+  TVirtualNodeInitState    = VirtualTrees.Types.TVirtualNodeInitState;
+  TVirtualNodeInitStates   = VirtualTrees.Types.TVirtualNodeInitStates;
+  TVTTooltipLineBreakStyle = VirtualTrees.Types.TVTTooltipLineBreakStyle;
+  TVTNodeAttachMode        = VirtualTrees.Types.TVTNodeAttachMode;
+  TNodeArray               = VirtualTrees.Types.TNodeArray;
+  THitInfo                 = VirtualTrees.Types.THitInfo;
+  THitPosition             = VirtualTrees.Types.THitPosition;
+  TVTPaintOption           = VirtualTrees.Types.TVTPaintOption;
+  TVTSelectionOption       = VirtualTrees.Types.TVTSelectionOption;
+  TBaseVirtualTree         = VirtualTrees.BaseTree.TBaseVirtualTree;
+  IVTEditLink              = VirtualTrees.BaseTree.IVTEditLink;
+  TVTHeaderNotifyEvent     = VirtualTrees.BaseTree.TVTHeaderNotifyEvent;
+  TVirtualTreeColumn       = VirtualTrees.Header.TVirtualTreeColumn;
+  TVirtualTreeColumns      = VirtualTrees.Header.TVirtualTreeColumns;
+  TVTHeader                = VirtualTrees.Header.TVTHeader;
+  TVTHeaderClass           = VirtualTrees.Header.TVTHeaderClass;
+  THeaderPaintInfo         = VirtualTrees.Header.THeaderPaintInfo;
+  TVTConstraintPercent     = VirtualTrees.Header.TVTConstraintPercent;
+  TVTFixedAreaConstraints  = VirtualTrees.Header.TVTFixedAreaConstraints;
+  TColumnsArray            = VirtualTrees.Header.TColumnsArray;
+const
+  //Aliases
+  NoColumn                 = VirtualTrees.Types.NoColumn;
+  InvalidColumn            = VirtualTrees.Types.InvalidColumn;
+  sdAscending              = VirtualTrees.Types.TSortDirection.sdAscending;
+  sdDescending             = VirtualTrees.Types.TSortDirection.sdDescending;
 
+  ctNone                   = VirtualTrees.Types.TCheckType.ctNone;
+  ctTriStateCheckBox       = VirtualTrees.Types.TCheckType.ctTriStateCheckBox;
+  ctCheckBox               = VirtualTrees.Types.TCheckType.ctCheckBox;
+  ctRadioButton            = VirtualTrees.Types.TCheckType.ctRadioButton;
+  ctButton                 = VirtualTrees.Types.TCheckType.ctButton;
+
+  csUncheckedNormal        = VirtualTrees.Types.TCheckState.csUncheckedNormal;
+  csUncheckedPressed       = VirtualTrees.Types.TCheckState.csUncheckedPressed;
+  csCheckedNormal          = VirtualTrees.Types.TCheckState.csCheckedNormal;
+  csCheckedPressed         = VirtualTrees.Types.TCheckState.csCheckedPressed;
+  csMixedNormal            = VirtualTrees.Types.TCheckState.csMixedNormal;
+  csMixedPressed           = VirtualTrees.Types.TCheckState.csMixedPressed;
+  csUncheckedDisabled      = VirtualTrees.Types.TCheckState.csUncheckedDisabled;
+  csCheckedDisabled        = VirtualTrees.Types.TCheckState.csCheckedDisabled;
+  csMixedDisable           = VirtualTrees.Types.TCheckState.csMixedDisabled;
+
+type
   TCustomVirtualStringTree = class;
 
   TVTAncestor = TVTAncestorLcl;
@@ -132,6 +203,17 @@ type
   // New text can only be set for variable caption.
   TVSTNewTextEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
     NewText: string) of object;
+  /// <summary>String tree event for custom handling of string abbreviations.</summary>
+  /// <param name="Sender">The instance that fired the event.</param>
+  /// <param name="TargetCanvas">Teh canvas on that the sending control will paint.</param>
+  /// <param name="Node">The Node that is going to be painted.</param>
+  /// <param name="Column">The column index that is going to be painted.</param>
+  /// <param name="Result">Var parameter that contains the caption or string that should be used.</param>
+  /// <param name="Done">Boolean var paramter: Assign True if a string is passed in the Result parameter. Leave the default value False if no shorting is need or the control shuld do it. </param>
+  /// <remarks>
+  ///  If the text of a node does not fit into its cell (in grid mode) or is too wide for the width of the tree view it is being abbreviated with an ellipsis (...). By default the ellipsis is added to the end of the node text.
+  ///  Occasionally you may want to shorten the node text at a different position, for example if the node text is a path string and not the last folder or filename should be cut off but rather some mid level folders if possible.
+  /// </remarks>
   TVSTShortenStringEvent = procedure(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
     Column: TColumnIndex; const S: string; TextSpace: TDimension; var Result: string;
     var Done: Boolean) of object;
@@ -188,8 +270,8 @@ type
     procedure GetDataFromGrid(const AStrings : TStringList; const IncludeHeading : Boolean = True);
   protected
     FPreviouslySelected: TStringList;
-    procedure InitializeTextProperties(var PaintInfo: TVTPaintInfo); // [IPK] - private to protected
-    procedure PaintNormalText(var PaintInfo: TVTPaintInfo; TextOutFlags: Integer; Text: String); virtual; // [IPK] - private to protected
+    procedure InitializeTextProperties(var PaintInfo: TVTPaintInfo);
+    procedure PaintNormalText(var PaintInfo: TVTPaintInfo; TextOutFlags: Integer; Text: string); virtual;
     procedure PaintStaticText(const PaintInfo: TVTPaintInfo; pStaticTextAlignment: TAlignment; const Text: string); virtual; // [IPK] - private to protected
     procedure AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; out NextNonEmpty: TColumnIndex); override;
     function CanExportNode(Node: PVirtualNode): Boolean;
@@ -197,8 +279,9 @@ type
     function CalculateTextWidth(Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; const Text: string): TDimension; virtual;
     function ColumnIsEmpty(Node: PVirtualNode; Column: TColumnIndex): Boolean; override;
     function DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink; override;
-    function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; override;
-    function DoGetNodeTooltip(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; override;
+    procedure DoAddToSelection(Node: PVirtualNode); override;
+    function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): string; override;
+    function DoGetNodeTooltip(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): string; override;
     function DoGetNodeExtraWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     procedure DoGetText(var pEventArgs: TVSTGetCellTextEventArgs); virtual;
@@ -257,7 +340,6 @@ type
     function Path(Node: PVirtualNode; Column: TColumnIndex; Delimiter: Char): string;
     procedure ReinitNode(Node: PVirtualNode; Recursive: Boolean; ForceReinit:
         Boolean = False); override;
-    procedure AddToSelection(Node: PVirtualNode; NotifySynced: Boolean); override;
     procedure RemoveFromSelection(Node: PVirtualNode); override;
     function SaveToCSVFile(const FileNameWithPath : TFileName; const IncludeHeading : Boolean) : Boolean;
     /// Alternate text for images used in Accessibility.
@@ -1073,7 +1155,6 @@ begin
   end;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
 
 procedure TCustomVirtualStringTree.AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; out NextNonEmpty: TColumnIndex);
 
@@ -1182,8 +1263,30 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualStringTree.DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink;
+procedure TCustomVirtualStringTree.DoAddToSelection(Node: PVirtualNode);
+var
+  lSelectedNodeCaption: string;
+begin
+  inherited;
+  if (toRestoreSelection in TreeOptions.SelectionOptions) and Assigned(Self.OnGetText) and not (tsPreviouslySelectedLocked in TreeStates) then
+  begin
+    if not Assigned(FPreviouslySelected) then
+    begin
+      FPreviouslySelected := TStringList.Create();
+      FPreviouslySelected.Duplicates := dupIgnore;
+      FPreviouslySelected.Sorted := True; //Improves performance, required to use Find()
+      FPreviouslySelected.CaseSensitive := False;
+    end;
+    if Self.SelectedCount = 1 then
+      FPreviouslySelected.Clear();
+    Self.OnGetText(Self, Node, Header.RestoreSelectionColumnIndex, ttNormal, lSelectedNodeCaption);
+    FPreviouslySelected.Add(lSelectedNodeCaption);
+  end;//if
+end;
 
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCustomVirtualStringTree.DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink;
 begin
   Result := inherited DoCreateEditor(Node, Column);
   // Enable generic label editing support if the application does not have own editors.
@@ -1685,32 +1788,9 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualStringTree.AddToSelection(Node: PVirtualNode; NotifySynced: Boolean);
-var
-  lSelectedNodeCaption: String;
-begin
-  inherited;
-  if (toRestoreSelection in TreeOptions.SelectionOptions) and Assigned(Self.OnGetText) and Self.Selected[Node] and not (tsPreviouslySelectedLocked in TreeStates) then
-  begin
-    if not Assigned(FPreviouslySelected) then
-    begin
-      FPreviouslySelected := TStringList.Create();
-      FPreviouslySelected.Duplicates := dupIgnore;
-      FPreviouslySelected.Sorted := True; //Improves performance, required to use Find()
-      FPreviouslySelected.CaseSensitive := False;
-    end;
-    if Self.SelectedCount = 1 then
-      FPreviouslySelected.Clear();
-    Self.OnGetText(Self, Node, Header.RestoreSelectionColumnIndex, ttNormal, lSelectedNodeCaption);
-    FPreviouslySelected.Add(lSelectedNodeCaption);
-  end;//if
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 procedure TCustomVirtualStringTree.RemoveFromSelection(Node: PVirtualNode);
 var
-  lSelectedNodeCaption: String;
+  lSelectedNodeCaption: string;
   lIndex: Integer;
 begin
   inherited;

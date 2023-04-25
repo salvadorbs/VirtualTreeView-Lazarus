@@ -62,7 +62,6 @@ type
     CheckBox26: TCheckBox;
     CheckBox30: TCheckBox;
     CheckBox34: TCheckBox;
-    CheckBox35: TCheckBox;
     CheckBox38: TCheckBox;
     CheckBox45: TCheckBox;
     CheckBox46: TCheckBox;
@@ -127,7 +126,6 @@ begin
       SetActiveState(CheckBox32, tsStructureChangePending in NewStates);
       SetActiveState(CheckBox33, tsSynchMode in NewStates);
       SetActiveState(CheckBox34, tsThumbTracking in NewStates);
-      SetActiveState(CheckBox35, tsUpdating in NewStates);
       SetActiveState(CheckBox36, tsUseCache in NewStates);
       SetActiveState(CheckBox37, tsUserDragObject in NewStates);
       SetActiveState(CheckBox38, tsUseThemes in NewStates);
@@ -180,7 +178,6 @@ begin
   CheckBox32.Enabled := EnableCheckBox.Checked;
   CheckBox33.Enabled := EnableCheckBox.Checked;
   CheckBox34.Enabled := EnableCheckBox.Checked;
-  CheckBox35.Enabled := EnableCheckBox.Checked;
   CheckBox36.Enabled := EnableCheckBox.Checked;
   CheckBox37.Enabled := EnableCheckBox.Checked;
   CheckBox38.Enabled := EnableCheckBox.Checked;
