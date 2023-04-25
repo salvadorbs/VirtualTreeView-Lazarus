@@ -11,7 +11,8 @@ interface
 
 uses
   LCLIntf, VirtualTrees.Utils, Types, SysUtils, Classes, Graphics, Controls, Forms,
-  Dialogs, VirtualTrees, StdCtrls, ExtCtrls, LCLType, LCLProc, VirtualTrees.Header, VirtualTrees.BaseTree;
+  Dialogs, VirtualTrees, StdCtrls, ExtCtrls, LCLType, LCLProc, VirtualTrees.Header,
+  VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
   THeaderOwnerDrawForm = class(TForm)

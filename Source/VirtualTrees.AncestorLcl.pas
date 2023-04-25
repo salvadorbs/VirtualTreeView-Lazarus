@@ -185,7 +185,7 @@ begin
   inherited;
 
   {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
+  if Assigned(AccessibleItem) and (Self.UpdateCount = 0) then // See issue #1174
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
   {$endif}
 end;
@@ -197,7 +197,7 @@ begin
   inherited;
 
   {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
+  if Assigned(AccessibleItem) and (Self.UpdateCount = 0) then // See issue #1174
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
   {$endif}
 end;
@@ -250,7 +250,7 @@ begin
   inherited;
 
   {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
+  if Assigned(AccessibleItem) then // See issue #1174 then
     NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
   {$endif}
 end;

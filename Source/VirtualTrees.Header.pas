@@ -368,6 +368,7 @@ type
     procedure SetSortDirection(const Value: TSortDirection);
     procedure SetStyle(Value: TVTHeaderStyle);
     function GetRestoreSelectionColumnIndex : Integer;
+    function AreColumnsStored: Boolean;
   protected
     FStates: THeaderStates;            // Used to keep track of internal states the header can enter.
     FDragStart: TPoint;                // initial mouse drag position
@@ -432,6 +433,7 @@ type
     function ResizeColumns(ChangeBy : TDimension; RangeStartCol : TColumnIndex; RangeEndCol : TColumnIndex; Options : TVTColumnOptions = [coVisible]) : TDimension;
     procedure RestoreColumns;
     procedure SaveToStream(const Stream: TStream); virtual;
+    procedure ToggleSortDirection();
 
     property DragImage: TVTDragImage read FDragImage;
     property RestoreSelectionColumnIndex : Integer read GetRestoreSelectionColumnIndex write FRestoreSelectionColumnIndex default NoColumn;
@@ -1438,6 +1440,7 @@ var
   P: TPoint;
   NextColumn, I : TColumnIndex;
   NewWidth      : TDimension;
+  iOffsetX: Integer;
 
 begin
   Result := False;
@@ -1473,17 +1476,25 @@ begin
               NextColumn := FColumns.GetNextVisibleColumn(FColumns.TrackIndex);
             end;
 
-            // The autosized column cannot be resized using the mouse normally. Instead we resize the next
-            // visible column, so it look as we directly resize the autosized column.
-        if (hoAutoResize in FOptions) and (FColumns.TrackIndex = FAutoSizeIndex) and (NextColumn > NoColumn) and (coResizable in FColumns[NextColumn].Options) and
-          (FColumns[FColumns.TrackIndex].MinWidth < NewWidth) and (FColumns[FColumns.TrackIndex].MaxWidth > NewWidth) then
-          FColumns[NextColumn].Width := FColumns[NextColumn].Width - NewWidth + FColumns[FColumns.TrackIndex].Width
-            else
-              FColumns[FColumns.TrackIndex].Width := NewWidth; // 1 EListError seen here (List index out of bounds (-1)) since 10/2013
-          end;
-          HandleHeaderMouseMove := True;
-          Result := 0;
-        end
+        iOffsetX := Tree.EffectiveOffsetX;
+
+        // The autosized column cannot be resized using the mouse normally. Instead we resize the next
+        // visible column, so it look as we directly resize the autosized column.
+        if (hoAutoResize in FOptions) and (FColumns.TrackIndex = FAutoSizeIndex) and
+           (NextColumn > NoColumn) and (coResizable in FColumns[NextColumn].Options) and
+           (FColumns[FColumns.TrackIndex].MinWidth < NewWidth) and
+           (FColumns[FColumns.TrackIndex].MaxWidth > NewWidth) then
+          FColumns[NextColumn].Width := FColumns[NextColumn].Width - NewWidth
+                                        + FColumns[FColumns.TrackIndex].Width
+        else
+          FColumns[FColumns.TrackIndex].Width := NewWidth; // 1 EListError seen here (List index out of bounds (-1)) since 10/2013
+
+         if (iOffsetX > 0) and (iOffsetX <> Tree.EffectiveOffsetX) then
+           FTrackPoint.X := FTrackPoint.X + iOffsetX - Tree.EffectiveOffsetX;
+      end;
+      HandleHeaderMouseMove := True;
+      Result := 0;
+    end
     else if hsHeightTracking in FStates then
           begin
             //lclheader
@@ -2251,7 +2262,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTHeader.Assign(Source: TPersistent);
+function TVTHeader.AreColumnsStored: Boolean;
+begin
+  // The columns are stored by the owner tree to support Visual Form Inheritance
+  // GnutGetText skips non-stored properties, so retur Stored True at runtime
+  Result := not (csDesigning in Self.Treeview.ComponentState);
+end;
+
+procedure TVTHeader.Assign(Source : TPersistent);
 
 begin
   if Source is TVTHeader then
@@ -2748,7 +2766,18 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTHeader.SaveToStream(const Stream: TStream);
+procedure TVTHeader.ToggleSortDirection;
+// Toggles the current sorting direction
+begin
+  if SortDirection = sdDescending then
+    SortDirection := sdAscending
+  else
+    SortDirection := sdDescending;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVTHeader.SaveToStream(const Stream : TStream);
 
 // Saves the complete state of the header into the provided stream.
 
@@ -3925,12 +3954,7 @@ end;
 procedure TVirtualTreeColumn.ReadText(Reader : TReader);
 
 begin
-  case Reader.NextValue of
-    vaLString, vaString :
-      SetText(Reader.ReadString);
-  else
-    SetText(Reader.ReadString);
-  end;
+  SetText(Reader.ReadString);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -3938,20 +3962,12 @@ end;
 procedure TVirtualTreeColumn.ReadHint(Reader : TReader);
 
 begin
-  case Reader.NextValue of
-    vaLString, vaString :
-      FHint := Reader.ReadString;
-  else
-    FHint := Reader.ReadString;
-  end;
+  FHint := Reader.ReadString;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVirtualTreeColumn.Assign(Source: TPersistent);
+procedure TVirtualTreeColumn.Assign(Source : TPersistent);
 
 var
   OldOptions: TVTColumnOptions;
@@ -4511,6 +4527,17 @@ var
   I: Integer;
 
 begin
+  // Fix positions that too large, see #1179
+  for I := 0 to Count - 1 do
+  begin
+    if Integer(Items[I].Position) >= Count then
+    begin
+      UpdatePositions(True);
+      break;
+    end;
+  end; // for
+
+  // Update position array
   for I := 0 to Count - 1 do
     FPositionToIndex[Items[I].Position] := I;
 
@@ -5631,19 +5658,16 @@ var
   // this procedure is called.
 
   var
-    Y: Integer;
-    SavedDC: Integer;
-    ColCaptionText: UnicodeString;
-    ColImageInfo: TVTImageInfo;
-    SortIndex: Integer;
-    SortGlyphSize: TSize;
-    Glyph: TThemedHeader;
-    Details: TThemedElementDetails;
-    WrapCaption: Boolean;
-    DrawFormat: Cardinal;
-    Pos: TRect;
-    DrawHot: Boolean;
-    ImageWidth: Integer;
+    SavedDC        : Integer;
+    ColCaptionText : string;
+    ColImageInfo   : TVTImageInfo;
+    Glyph          : TThemedHeader;
+    Details        : TThemedElementDetails;
+    WrapCaption    : Boolean;
+    DrawFormat     : Cardinal;
+    Pos            : TRect;
+    DrawHot        : Boolean;
+    ImageWidth     : Integer;
     {$ifdef Windows}
     Theme: HTHEME;
     {$endif}
@@ -5711,7 +5735,7 @@ var
           TreeViewControl.DoAdvancedHeaderDraw(PaintInfo, [hpeBackground])
         else
         begin
-          if TreeViewControl.VclStyleEnabled then
+          if (tsUseThemes in TreeViewControl.TreeStates) or (TreeViewControl.VclStyleEnabled) then
           begin
             if IsDownIndex then
               Details := StyleServices.GetElementDetails(thHeaderItemPressed)
@@ -5723,23 +5747,7 @@ var
             StyleServices.DrawElement(TargetCanvas.Handle, Details, PaintRectangle, @PaintRectangle);
           end
           else
-          begin
-            {$ifdef Windows}
-            if tsUseThemes in TreeViewControl.TreeStates then
-            begin
-              Theme := OpenThemeData(TreeViewControl.Handle, 'HEADER');
-              if IsDownIndex then
-                IdState := HIS_PRESSED
-              else
-                if IsHoverIndex then
-                IdState := HIS_HOT
-              else
-                IdState := HIS_NORMAL;
-              DrawThemeBackground(Theme, TargetCanvas.Handle, HP_HEADERITEM, IdState, PaintRectangle, nil);
-              CloseThemeData(Theme);
-            end
-            else
-            {$endif}
+          begin // Windows classic mode
             if IsDownIndex then
               DrawEdge(TargetCanvas.Handle, PaintRectangle, PressedButtonStyle, PressedButtonFlags)
             else

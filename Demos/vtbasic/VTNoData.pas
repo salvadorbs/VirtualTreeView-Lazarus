@@ -216,7 +216,8 @@ implementation
          'SimpleDrawSelection'                                                                     ,
          'toAlwaysSelectNode'                                                                      ,
          'toRestoreSelection',
-         'toSyncCheckboxesWithSelection'
+         'toSyncCheckboxesWithSelection',
+         'toSelectNextNodeOnRemoval'
       );
       
       aStrOpts : array[0..Ord(High(TVTStringOption ))] of string[25] = 

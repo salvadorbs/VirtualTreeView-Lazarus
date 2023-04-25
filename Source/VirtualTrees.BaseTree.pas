@@ -29,7 +29,7 @@ uses
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
   {$endif}
-  LCLType, LMessages, LCLVersion,
+  LCLType, LMessages, LCLVersion, Types,
   SysUtils, Classes, Graphics, Controls, Forms, ImgList, StdCtrls, Menus, Printers,
   SyncObjs,  // Thread support
   Clipbrd // Clipboard support
@@ -139,12 +139,10 @@ type
     procedure ForceDragLeave; stdcall;
     function GetDataObject: IDataObject; stdcall;
     function GetDragSource: TBaseVirtualTree; stdcall;
-    function GetDropTargetHelperSupported: Boolean; stdcall;
     function GetIsDropTarget: Boolean; stdcall;
 
     property DataObject: IDataObject read GetDataObject;
     property DragSource: TBaseVirtualTree read GetDragSource;
-    property DropTargetHelperSupported: Boolean read GetDropTargetHelperSupported;
     property IsDropTarget: Boolean read GetIsDropTarget;
   end;
 
@@ -529,7 +527,6 @@ type
     FDragOperations: TDragOperations;            // determines which operations are allowed during drag'n drop
     FDragThreshold: Integer;                     // used to determine when to actually start a drag'n drop operation
     FDragManager: IVTDragManager;                // drag'n drop, cut'n paste
-    FDragImage: TVTDragImage;                    // drag image management																		 
     FDropTargetNode: PVirtualNode;               // node currently selected as drop target
     FLastDropMode: TDropMode;                    // set while dragging and used to track changes
     FDragSelection: TNodeArray;                  // temporary copy of FSelection used during drag'n drop
@@ -1011,7 +1008,7 @@ type
         TColumnIndex);
     procedure DoEdit; virtual;
     procedure DoEndDrag(Target: TObject; X, Y: TDimension); override;
-    function DoEndEdit: Boolean; virtual;
+    function DoEndEdit(pCancel: Boolean = False): Boolean; virtual;
     procedure DoEndOperation(OperationKind: TVTOperationKind); virtual;
     procedure DoEnter(); override;
     procedure DoExpanded(Node: PVirtualNode); virtual;
@@ -1472,7 +1469,7 @@ type
     function EndEditNode: Boolean;
     procedure EndSynch;
     procedure EndUpdate; virtual;
-    procedure EnsureNodeSelected(); virtual;
+    procedure EnsureNodeSelected(pAfterDeletion: Boolean); virtual;
     function ExecuteAction(Action: TBasicAction): Boolean; override;
     procedure FinishCutOrCopy;
     {$IF LCL_FullVersion >= 2010000}
@@ -1654,7 +1651,6 @@ type
     property ChildCount[Node: PVirtualNode]: Cardinal read GetChildCount write SetChildCount;
     property ChildrenInitialized[Node: PVirtualNode]: Boolean read GetChildrenInitialized;
     property CutCopyCount: Integer read GetCutCopyCount;
-    property DragImage: TVTDragImage read FDragImage;
     property VTVDragManager: IVTDragManager read GetDragManager;
     property DropTargetNode: PVirtualNode read FDropTargetNode write FDropTargetNode;
     property EditLink: IVTEditLink read FEditLink;
@@ -2473,14 +2469,6 @@ begin
   FColors := TVTColors.Create(Self);
   FEditDelay := 1000;
 
-  FDragImage := TVTDragImage.Create(Self);
-  with FDragImage do
-  begin
-    Fade := True;
-    PreBlendBias := 0;
-    Transparency := 200;
-  end;
-
   FAnimationDuration := 200;
   FSearchTimeout := 1000;
   FSearchStart := ssFocusedNode;
@@ -2532,7 +2520,6 @@ begin
   FClipboardFormats.Free;
   // Clear will also free the drag manager if it is still alive.
   Clear;
-  FDragImage.Free;
   FColors.Free;
   FBackground.Free;
 
@@ -4171,7 +4158,7 @@ begin
     // Indication that this node is the root node.
     PrevSibling := FRoot;
     NextSibling := FRoot;
-    Parent := Pointer(Self);
+    SetParent(Pointer(Self));
     States := [vsInitialized, vsExpanded, vsHasChildren, vsVisible];
     TotalHeight := FDefaultNodeHeight;
     TotalCount := 1;
@@ -5019,11 +5006,11 @@ begin
           while Remaining > 0 do
           begin
             Child := MakeNewNode;
-            Child.Index := Index;
+            Child.SetIndex(Index);
             Child.PrevSibling := Node.LastChild;
             if Assigned(Node.LastChild) then
               Node.LastChild.NextSibling := Child;
-            Child.Parent := Node;
+            Child.SetParent(Node);
             Node.LastChild := Child;
             if Node.FirstChild = nil then
               Node.FirstChild := Child;
@@ -9463,11 +9450,7 @@ var
 begin
   ImageHit := HitInfo.HitPositions * [hiOnNormalIcon, hiOnStateIcon] <> [];
   LabelHit := hiOnItemLabel in HitInfo.HitPositions;
-  //VSOFT ========================================
-  //VSOFT 5.0 chang broke our drag/drop line info.
-  //VSOFT CHANGE - changed back to 4.8.5 behaviour
-  ItemHit := (hiOnItem in HitInfo.HitPositions);{ and ((toFullRowDrag in FOptions.MiscOptions) or
-             (toFullRowSelect in FOptions.SelectionOptions));}
+  ItemHit := (hiOnItem in HitInfo.HitPositions);
 
   // In report mode only direct hits of the node captions/images in the main column are accepted as hits.
   if (toReportMode in FOptions.MiscOptions) and not (ItemHit or ((LabelHit or ImageHit) and
@@ -10162,18 +10145,35 @@ function TBaseVirtualTree.DoCancelEdit(): Boolean;
 // Called when the current edit action or a pending edit must be cancelled.
 
 begin
+  Result := DoEndEdit(True);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TBaseVirtualTree.DoEndEdit(pCancel: Boolean = False): Boolean;
+
+// Called to finish a current edit action or stop the edit timer if an edit operation is pending.
+// Pass True if the edit should be cancelled, pass False if the new text should be used and saved.
+// Returns True if editing was successfully ended/canceled or the control was not in edit mode.
+// Returns False if the control could not leave the edit mode e.g. due to an invalid value that was entered.
+
+begin
   StopTimer(EditTimer);
   DoStateChange([], [tsEditPending]);
-  Result := (tsEditing in FStates) and FEditLink.CancelEdit;
+  if not (tsEditing in FStates) then
+    Exit(True);
+  if pCancel then
+    Result := FEditLink.CancelEdit
+  else
+    Result := FEditLink.EndEdit;
   if Result then
   begin
     DoStateChange([], [tsEditing]);
-    if Assigned(FOnEditCancelled) then
-      FOnEditCancelled(Self, FEditColumn);
-    if not (csDestroying in ComponentState) then
-      FEditLink := nil;
-    TrySetFocus();
+    FEditLink := nil;
+    if Assigned(FOnEdited) then
+      FOnEdited(Self, FFocusedNode, FEditColumn);
   end;
+  TrySetFocus();
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -10264,8 +10264,10 @@ var
 begin
   if Assigned(FOnCollapsed) then
     FOnCollapsed(Self, Node);
+
   {$ifdef EnableAccessible}
-  NotifyAccessibilityCollapsed();
+  if (Self.UpdateCount = 0) then // See issue #1174
+    NotifyAccessibilityCollapsed();
   {$endif}
 
   if (toAlwaysSelectNode in TreeOptions.SelectionOptions) then
@@ -10282,7 +10284,7 @@ begin
     end;//if
     //if there is (still) no selected node, then use FNextNodeToSelect to select one
     if SelectedCount = 0 then
-      EnsureNodeSelected();
+      EnsureNodeSelected(False);
   end;//if
 end;
 
@@ -10515,8 +10517,6 @@ begin
       P := ScreenToClient(P);
       DoEndDrag(Self, P.X, P.Y);
 
-      FDragImage.EndDrag;
-
       // Finish the operation.
       if (FLastDragEffect = DROPEFFECT_MOVE) and (toAutoDeleteMovedNodes in TreeOptions.AutoOptions) then
       begin
@@ -10535,26 +10535,13 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TBaseVirtualTree.DoDragExpand;
-
-var
-  SourceTree: TBaseVirtualTree;
-
 begin
   StopTimer(ExpandTimer);
   if Assigned(FDropTargetNode) and (vsHasChildren in FDropTargetNode.States) and
     not (vsExpanded in FDropTargetNode.States) then
   begin
-    if Assigned(FDragManager) then
-      SourceTree := VTVDragManager.DragSource
-    else
-      SourceTree := nil;
-
-    if not VTVDragManager.DropTargetHelperSupported and Assigned(SourceTree) then
-      SourceTree.FDragImage.HideDragImage;
     ToggleNode(FDropTargetNode);
-    UpdateWindow;
-    if not VTVDragManager.DropTargetHelperSupported and Assigned(SourceTree) then
-      SourceTree.FDragImage.ShowDragImage;
+    UpdateWindow();
   end;
 end;
 
@@ -10636,28 +10623,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseVirtualTree.DoEndEdit: Boolean;
-
-// Called to finish a current edit action or stop the edit timer if an edit operation is pending.
-// Returns True if editing was successfully ended or the control was not in edit mode
-// Returns False if the control could not leave the edit mode e.g. due to an invalid value that was entered.
-
-begin
-  StopTimer(EditTimer);
-  Result := (tsEditing in FStates) and FEditLink.EndEdit;
-  if Result then
-  begin
-    DoStateChange([], [tsEditing]);
-    FEditLink := nil;
-    if Assigned(FOnEdited) then
-      FOnEdited(Self, FFocusedNode, FEditColumn);
-  end;
-  DoStateChange([], [tsEditPending]);
-  TrySetFocus();
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 procedure TBaseVirtualTree.DoEndOperation(OperationKind: TVTOperationKind);
 
 begin
@@ -10670,7 +10635,7 @@ end;
 procedure TBaseVirtualTree.DoEnter();
 begin
   inherited;
-  EnsureNodeSelected();
+  EnsureNodeSelected(False);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -10792,7 +10757,7 @@ begin
 
   FreeMem(Node);
   if Self.UpdateCount = 0 then
-    EnsureNodeSelected();
+    EnsureNodeSelected(True);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -12006,12 +11971,6 @@ begin
       else
         FLastDropMode := dmNowhere;
     end;
-
-    // If the drag source is a virtual tree then we know how to control the drag image
-    // and can show it even if the source is not the target tree.
-    // This is only necessary if we cannot use the drag image helper interfaces.
-    if not VTVDragManager.DropTargetHelperSupported and Assigned(VTVDragManager.DragSource) then
-      VTVDragManager.DragSource.FDragImage.ShowDragImage;
     Result := NOERROR;
   except
     Result := E_UNEXPECTED;
@@ -12058,9 +12017,6 @@ var
 begin
   StopTimer(ExpandTimer);
 
-  if not VTVDragManager.DropTargetHelperSupported and Assigned(VTVDragManager.DragSource) then
-    VTVDragManager.DragSource.FDragImage.HideDragImage;
-
   if Assigned(FDropTargetNode) then
   begin
     InvalidateNode(FDropTargetNode);
@@ -12082,32 +12038,18 @@ function TBaseVirtualTree.DragOver(Source: TObject; KeyState: Integer; DragState
 var
   Shift: TShiftState;
   Accept,
-  DragImageWillMove,
   WindowScrolled: Boolean;
   OldR, R: TRect;
   NewDropMode: TDropMode;
   HitInfo: THitInfo;
   DragPos: TPoint;
-  Tree: TBaseVirtualTree;
   LastNode: PVirtualNode;
   DeltaX,
   DeltaY: TDimension;
   ScrollOptions: TScrollUpdateOptions;
 
 begin
-  //{$ifdef DEBUG_VTV}Logger.EnterMethod([lcDrag],'DragOver');{$endif}
-  //todo: the check to FDragManager disable drag images in non windows.
-  //This should be reviewed as soon as drag image is implemented in non windows
-  if Assigned(FDragManager) and not VTVDragManager.DropTargetHelperSupported and (Source is TBaseVirtualTree) then
-  begin
-    Tree := Source as TBaseVirtualTree;
-    ScrollOptions := [suoUpdateNCArea];
-  end
-  else
-  begin
-    Tree := nil;
-    ScrollOptions := DefaultScrollUpdateFlags;
-  end;
+  ScrollOptions := DefaultScrollUpdateFlags;
 
   try
     DragPos := Pt;
@@ -12165,11 +12107,6 @@ begin
       R := Rect(0, 0, 0, 0);
     NewDropMode := DetermineDropMode(Pt, HitInfo, R);
 
-    if Assigned(Tree) then
-      DragImageWillMove := Tree.DragImage.WillMove(DragPos)
-    else
-      DragImageWillMove := False;
-
     if (HitInfo.HitNode <> FDropTargetNode) or (FLastDropMode <> NewDropMode) then
     begin
       // Something in the tree will change. This requires to update the screen and/or the drag image.
@@ -12190,15 +12127,7 @@ begin
           // Optimize the case that the selection moved between two nodes.
           OldR := GetDisplayRect(LastNode, NoColumn, False);
           UnionRect(R, R, OldR);
-          if Assigned(Tree) then
-          begin
-            if WindowScrolled then
-              UpdateWindowAndDragImage(Tree, ClientRect, True, not DragImageWillMove)
-            else
-              UpdateWindowAndDragImage(Tree, R, False, not DragImageWillMove);
-          end
-          else
-            InvalidateRect(@R, False);
+          InvalidateRect(@R, False);
         end
         else
         begin
@@ -12206,28 +12135,10 @@ begin
           begin
             // Repaint last target node.
             OldR := GetDisplayRect(LastNode, NoColumn, False);
-            if Assigned(Tree) then
-            begin
-              if WindowScrolled then
-                UpdateWindowAndDragImage(Tree, ClientRect, WindowScrolled, not DragImageWillMove)
-              else
-                UpdateWindowAndDragImage(Tree, OldR, False, not DragImageWillMove);
-            end
-            else
-              InvalidateRect(@OldR, False);
+            InvalidateRect(@OldR, False);
           end
           else
-          begin
-            if Assigned(Tree) then
-            begin
-              if WindowScrolled then
-                UpdateWindowAndDragImage(Tree, ClientRect, WindowScrolled, not DragImageWillMove)
-              else
-                UpdateWindowAndDragImage(Tree, R, False, not DragImageWillMove);
-            end
-            else
-              InvalidateRect(@R, False);
-          end;
+            InvalidateRect(@R, False);
         end;
 
         // Start auto expand timer if necessary.
@@ -12237,29 +12148,11 @@ begin
       end
       else
       begin
-        // Only the drop mark position changed so invalidate the current drop target node.
-        if Assigned(Tree) then
-        begin
-          if WindowScrolled then
-            UpdateWindowAndDragImage(Tree, ClientRect, WindowScrolled, not DragImageWillMove)
-          else
-            UpdateWindowAndDragImage(Tree, R, False, not DragImageWillMove);
-        end
-        else
-          InvalidateRect(@R, False);
+        InvalidateRect(@R, False);
       end;
-    end
-    else
-    begin
-      // No change in the current drop target or drop mode. This might still mean horizontal or vertical scrolling.
-      if Assigned(Tree) and ((DeltaX <> 0) or (DeltaY <> 0)) then
-        UpdateWindowAndDragImage(Tree, ClientRect, WindowScrolled, not DragImageWillMove);
     end;
 
     Update;
-
-    if Assigned(Tree) and DragImageWillMove then
-      Tree.FDragImage.DragTo(DragPos, False);
 
     Effect := SuggestDropEffect(Source, Shift, Pt, Effect);
     Accept := DoDragOver(Source, Shift, DragState, Pt, FLastDropMode, Effect);
@@ -12342,9 +12235,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.EnsureNodeSelected();
+procedure TBaseVirtualTree.EnsureNodeSelected(pAfterDeletion: Boolean);
 begin
-  if (toAlwaysSelectNode in TreeOptions.SelectionOptions) and not IsEmpty then
+  if IsEmpty then
+    exit; // Nothing to do
+  if (toAlwaysSelectNode in TreeOptions.SelectionOptions) or (pAfterDeletion and (toSelectNextNodeOnRemoval in TreeOptions.SelectionOptions)) then
   begin
     if (SelectedCount = 0) and not SelectionLocked then
     begin
@@ -14158,8 +14053,8 @@ begin
           Node.PrevSibling := Destination.PrevSibling;
           Destination.PrevSibling := Node;
           Node.NextSibling := Destination;
-          Node.Parent := Destination.Parent;
-          Node.Index := Destination.Index;
+          Node.SetParent(Destination.Parent);
+          Node.SetIndex(Destination.Index);
           if Node.PrevSibling = nil then
             Node.Parent.FirstChild := Node
           else
@@ -14169,7 +14064,7 @@ begin
           Run := Destination;
           while Assigned(Run) do
           begin
-            System.Inc(Run.Index);
+            Run.SetIndex(Run.Index + 1);
             Run := Run.NextSibling;
           end;
         end;
@@ -14178,18 +14073,18 @@ begin
           Node.NextSibling := Destination.NextSibling;
           Destination.NextSibling := Node;
           Node.PrevSibling := Destination;
-          Node.Parent := Destination.Parent;
+          Node.SetParent(Destination.Parent);
           if Node.NextSibling = nil then
             Node.Parent.LastChild := Node
           else
             Node.NextSibling.PrevSibling := Node;
-          Node.Index := Destination.Index;
+          Node.SetIndex(Destination.Index);
 
           // reindex all following nodes
           Run := Node;
           while Assigned(Run) do
           begin
-            System.Inc(Run.Index);
+            Run.SetIndex(Run.Index + 1);
             Run := Run.NextSibling;
           end;
         end;
@@ -14210,13 +14105,13 @@ begin
             Node.NextSibling := nil;
           end;
           Node.PrevSibling := nil;
-          Node.Parent := Destination;
-          Node.Index := 0;
+          Node.SetParent(Destination);
+          Node.SetIndex(0);
           // reindex all following nodes
           Run := Node.NextSibling;
           while Assigned(Run) do
           begin
-            System.Inc(Run.Index);
+            Run.SetIndex(Run.Index + 1);
             Run := Run.NextSibling;
           end;
         end;
@@ -14237,11 +14132,11 @@ begin
             Node.PrevSibling := nil;
           end;
           Node.NextSibling := nil;
-          Node.Parent := Destination;
+          Node.SetParent(Destination);
           if Assigned(Node.PrevSibling) then
-            Node.Index := Node.PrevSibling.Index + 1
+            Node.SetIndex(Node.PrevSibling.Index + 1)
           else
-            Node.Index := 0;
+            Node.SetIndex(0);
         end;
     else
       // amNoWhere: do nothing
@@ -14355,7 +14250,7 @@ begin
         Index := Node.Index;
         while Assigned(Run) do
         begin
-          Run.Index := Index;
+          Run.SetIndex(Index);
           System.Inc(Index);
           Run := Run.NextSibling;
         end;
@@ -15647,13 +15542,13 @@ begin
 
             Run.PrevSibling := Node.LastChild;
             if Assigned(Run.PrevSibling) then
-              Run.Index := Run.PrevSibling.Index + 1;
+              Run.SetIndex(Run.PrevSibling.Index + 1);
             if Assigned(Node.LastChild) then
               Node.LastChild.NextSibling := Run
             else
               Node.FirstChild := Run;
             Node.LastChild := Run;
-            Run.Parent := Node;
+            Run.SetParent(Node);
 
             ReadNode(Stream, Version, Run);
             System.Dec(ChunkBody.ChildCount);
@@ -15777,7 +15672,7 @@ procedure TBaseVirtualTree.UpdateNextNodeToSelect(Node: PVirtualNode);
 // selected one gets deleted.
 
 begin
-  if not (toAlwaysSelectNode in TreeOptions.SelectionOptions) then
+  if ([toAlwaysSelectNode, toSelectNextNodeOnRemoval] * TreeOptions.SelectionOptions) = [] then
     Exit;
   if GetNextSibling(Node) <> nil then
     FNextNodeToSelect := GetNextSibling(Node)
@@ -16507,52 +16402,51 @@ begin
 
    //Take proper drag image depending on whether the drag is being done in the tree
    //or in the header.
-   useDragImage := Tree.FDragImage;
-    if (not useDragImage.Visible)
-       and (Tree.FHeader.DragImage <> nil) and (Tree.FHeader.DragImage.Visible)
-    then
+    if (Tree.FHeader.DragImage <> nil) and (Tree.FHeader.DragImage.Visible) then
+    begin
       useDragImage := Tree.FHeader.DragImage;
 
-    // The drag image will figure out itself what part of the rectangle can be recaptured.
-    // Recapturing is not done by taking a snapshot of the screen, but by letting the tree draw itself
-    // into the back bitmap of the drag image. So the order here is unimportant.
-    useDragImage.RecaptureBackground(Self, TreeRect, VisibleTreeRegion, UpdateNCArea, ReshowDragImage);
+      // The drag image will figure out itself what part of the rectangle can be recaptured.
+      // Recapturing is not done by taking a snapshot of the screen, but by letting the tree draw itself
+      // into the back bitmap of the drag image. So the order here is unimportant.
+      useDragImage.RecaptureBackground(Self, TreeRect, VisibleTreeRegion, UpdateNCArea, ReshowDragImage);
 
-    // Calculate the screen area not covered by the drag image and which needs an update.
-    DragRect := useDragImage.GetDragImageRect;
-    MapWindowPoints(0, Handle, DragRect, 2);
-    DragRegion := CreateRectRgnIndirect(DragRect);
+      // Calculate the screen area not covered by the drag image and which needs an update.
+      DragRect := useDragImage.GetDragImageRect;
+      MapWindowPoints(0, Handle, DragRect, 2);
+      DragRegion := CreateRectRgnIndirect(DragRect);
 
-    // Start with non-client area if requested.
-    if UpdateNCArea then
-    begin
-      // Compute the part of the non-client area which must be updated.
+      // Start with non-client area if requested.
+      if UpdateNCArea then
+      begin
+        // Compute the part of the non-client area which must be updated.
 
-      // Determine the outer rectangle of the entire tree window.
-      GetWindowRect(Handle, NCRect);
-      // Express the tree window rectangle in client coordinates (because RedrawWindow wants them so).
-      MapWindowPoints(0, Handle, NCRect, 2);
-      NCRegion := CreateRectRgnIndirect(NCRect);
-      // Determine client rect in screen coordinates and create another region for it.
-      UpdateRegion := CreateRectRgnIndirect(ClientRect);
-      // Create a region which only contains the NC part by subtracting out the client area.
-      CombineRgn(NCRegion, NCRegion, UpdateRegion, RGN_DIFF);
-      // Subtract also out what is hidden by the drag image.
-      CombineRgn(NCRegion, NCRegion, DragRegion, RGN_DIFF);
-      RedrawWindow(nil, NCRegion, RDW_FRAME or RDW_NOERASE or RDW_NOCHILDREN or RDW_INVALIDATE or RDW_VALIDATE or
-        RDW_UPDATENOW);
-      DeleteObject(NCRegion);
+        // Determine the outer rectangle of the entire tree window.
+        GetWindowRect(Handle, NCRect);
+        // Express the tree window rectangle in client coordinates (because RedrawWindow wants them so).
+        MapWindowPoints(0, Handle, NCRect, 2);
+        NCRegion := CreateRectRgnIndirect(NCRect);
+        // Determine client rect in screen coordinates and create another region for it.
+        UpdateRegion := CreateRectRgnIndirect(ClientRect);
+        // Create a region which only contains the NC part by subtracting out the client area.
+        CombineRgn(NCRegion, NCRegion, UpdateRegion, RGN_DIFF);
+        // Subtract also out what is hidden by the drag image.
+        CombineRgn(NCRegion, NCRegion, DragRegion, RGN_DIFF);
+        RedrawWindow(nil, NCRegion, RDW_FRAME or RDW_NOERASE or RDW_NOCHILDREN or RDW_INVALIDATE or RDW_VALIDATE or
+          RDW_UPDATENOW);
+        DeleteObject(NCRegion);
+        DeleteObject(UpdateRegion);
+      end;
+
+      UpdateRegion := CreateRectRgnIndirect(TreeRect);
+      RedrawFlags := RDW_INVALIDATE or RDW_VALIDATE or RDW_UPDATENOW or RDW_NOERASE or RDW_NOCHILDREN;
+      // Remove the part of the update region which is covered by the drag image.
+      CombineRgn(UpdateRegion, UpdateRegion, DragRegion, RGN_DIFF);
+      RedrawWindow(nil, UpdateRegion, RedrawFlags);
       DeleteObject(UpdateRegion);
+      DeleteObject(DragRegion);
+      DeleteObject(VisibleTreeRegion);
     end;
-
-    UpdateRegion := CreateRectRgnIndirect(TreeRect);
-    RedrawFlags := RDW_INVALIDATE or RDW_VALIDATE or RDW_UPDATENOW or RDW_NOERASE or RDW_NOCHILDREN;
-    // Remove the part of the update region which is covered by the drag image.
-    CombineRgn(UpdateRegion, UpdateRegion, DragRegion, RGN_DIFF);
-    RedrawWindow(nil, UpdateRegion, RedrawFlags);
-    DeleteObject(UpdateRegion);
-    DeleteObject(DragRegion);
-    DeleteObject(VisibleTreeRegion);
   end;
   {$endif}
 end;
@@ -17036,12 +16930,6 @@ begin
       DoUpdating(usUpdate);
   end;
   System.Inc(FUpdateCount);
-  try
-  DoStateChange([tsUpdating]);
-  except
-    EndUpdate();
-    raise;
-  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -17439,7 +17327,7 @@ begin
         InvalidateToBottom(Node);
       if tsChangePending in FStates then begin
         DoChange(FLastChangedNode);
-        EnsureNodeSelected();
+        EnsureNodeSelected(True);
       end;
     end;
     StructureChange(Node, crChildDeleted);
@@ -17696,20 +17584,19 @@ var
   NewSize: Integer;
 
 begin
-  if FUpdateCount > 0 then
-    System.Dec(FUpdateCount);
+  if FUpdateCount = 0 then
+    exit;
+  System.Dec(FUpdateCount);
 
   if not (csDestroying in ComponentState) then
   begin
-    if (FUpdateCount = 0) and (tsUpdating in FStates) then
+    if (FUpdateCount = 0) then
     begin
       if tsUpdateHiddenChildrenNeeded in FStates then
       begin
         DetermineHiddenChildrenFlagAllNodes;
         Exclude(FStates, tsUpdateHiddenChildrenNeeded);
       end;
-
-      DoStateChange([], [tsUpdating]);
 
       NewSize := PackArray(FSelection, FSelectionCount);
       if NewSize > -1 then
@@ -17737,11 +17624,10 @@ begin
           Invalidate;
         UpdateDesigner;
       end;
-    end;
+      NotifyAccessibilityCollapsed(); // See issue #1174
 
-    if FUpdateCount = 0 then begin
       DoUpdating(usEnd);
-      EnsureNodeSelected();
+      EnsureNodeSelected(False);
     end
     else
       DoUpdating(usUpdate);
@@ -22102,17 +21988,27 @@ var
   LocalSpot,
   ImagePos,
   PaintTarget: TPoint;
+  lDragImage: TVTDragImage;                    // drag image management
   Image: TBitmap;
 
 begin
   if CanShowDragImage then
   begin
-    // Determine the drag rectangle which is a square around the hot spot. Operate in virtual tree space.
-    LocalSpot := HotSpot;
-    Dec(LocalSpot.X, -FEffectiveOffsetX);
-    Dec(LocalSpot.Y, FOffsetY);
-    TreeRect := Rect(LocalSpot.X - FDragWidth div 2, LocalSpot.Y - FDragHeight div 2, LocalSpot.X + FDragWidth div 2,
-      LocalSpot.Y + FDragHeight div 2);
+    lDragImage := TVTDragImage.Create(Self);
+    try
+      with lDragImage do
+      begin
+        Fade := True;
+        PreBlendBias := 0;
+        Transparency := 200;
+      end;
+
+      // Determine the drag rectangle which is a square around the hot spot. Operate in virtual tree space.
+      LocalSpot := HotSpot;
+      Dec(LocalSpot.X, -FEffectiveOffsetX);
+      Dec(LocalSpot.Y, FOffsetY);
+      TreeRect := Rect(LocalSpot.X - FDragWidth div 2, LocalSpot.Y - FDragHeight div 2, LocalSpot.X + FDragWidth div 2,
+        LocalSpot.Y + FDragHeight div 2);
 
     // Check that we have a valid rectangle.
     PaintRect := TreeRect;
@@ -22127,7 +22023,7 @@ begin
       end
       else
         PaintTarget.X := 0;
-    if TreeRect.Top < 0 then
+      if TreeRect.Top < 0 then
       begin
         PaintTarget.Y := -TreeRect.Top;
         PaintRect.Top := 0;
@@ -22136,31 +22032,34 @@ begin
         PaintTarget.Y := 0;
     end;
 
-    Image := TBitmap.Create;
-    with Image do
-    try
-      PixelFormat := pf32Bit;
-      SetSize(TreeRect.Right - TreeRect.Left, TreeRect.Bottom - TreeRect.Top);
-      // Erase the entire image with the color key value, for the case not everything
-      // in the image is covered by the tree image.
-      Canvas.Brush.Color := FColors.BackGroundColor;
-      Canvas.FillRect(Rect(0, 0, Width, Height));
+      Image := TBitmap.Create;
+      with Image do
+      try
+        PixelFormat := pf32Bit;
+        SetSize(TreeRect.Right - TreeRect.Left, TreeRect.Bottom - TreeRect.Top);
+        // Erase the entire image with the color key value, for the case not everything
+        // in the image is covered by the tree image.
+        Canvas.Brush.Color := FColors.BackGroundColor;
+        Canvas.FillRect(Rect(0, 0, Width, Height));
 
-      PaintOptions := [poDrawSelection, poSelectedOnly];
-      if FDragImageKind = diMainColumnOnly then
-        Include(PaintOptions, poMainOnly);
-      PaintTree(Image.Canvas, PaintRect, PaintTarget, PaintOptions);
+        PaintOptions := [poDrawSelection, poSelectedOnly];
+        if FDragImageKind = diMainColumnOnly then
+          Include(PaintOptions, poMainOnly);
+        PaintTree(Image.Canvas, PaintRect, PaintTarget, PaintOptions);
 
-      // Once we have got the drag image we can convert all necessary coordinates into screen space.
-      OffsetRect(TreeRect, -FEffectiveOffsetX, FOffsetY);
-      ImagePos := ClientToScreen(TreeRect.TopLeft);
-      HotSpot := ClientToScreen(HotSpot);
+        // Once we have got the drag image we can convert all necessary coordinates into screen space.
+        OffsetRect(TreeRect, -FEffectiveOffsetX, FOffsetY);
+        ImagePos := ClientToScreen(TreeRect.TopLeft);
+        HotSpot := ClientToScreen(HotSpot);
 
-      FDragImage.ColorKey := FColors.BackGroundColor;
-      FDragImage.PrepareDrag(Image, ImagePos, HotSpot, DataObject);
+        lDragImage.ColorKey := FColors.BackGroundColor;
+        lDragImage.PrepareDrag(Image, ImagePos, HotSpot, DataObject);
+      finally
+        Image.Free;
+      end;
     finally
-      Image.Free;
-    end;
+      lDragImage.Free;
+    end; // try..finally
   end;
 end;
 
@@ -23101,7 +23000,7 @@ begin
         Run.PrevSibling := nil;
         Index := 0;
         repeat
-          Run.Index := Index;
+          Run.SetIndex(Index);
           System.Inc(Index);
           if Run.NextSibling = nil then
             Break;

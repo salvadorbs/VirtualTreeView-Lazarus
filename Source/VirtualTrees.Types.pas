@@ -401,10 +401,11 @@ type
     toRestoreSelection,              // Set to true if upon refill the previously selected nodes should be selected again.
                                      // The nodes will be identified by its caption (text in MainColumn)
                                      // You may use TVTHeader.RestoreSelectiuonColumnIndex to define an other column that should be used for indentification.
-    toSyncCheckboxesWithSelection    // If checkboxes are shown, they follow the change in selections. When checkboxes are
+    toSyncCheckboxesWithSelection,   // If checkboxes are shown, they follow the change in selections. When checkboxes are
                                      // changed, the selections follow them and vice-versa.
                                      // **Only supported for ctCheckBox type checkboxes.
-  );
+    toSelectNextNodeOnRemoval        // If the selected node gets deleted, automatically select the next node.
+    );
   TVTSelectionOptions = set of TVTSelectionOption;
 
   TVTEditOptions = (
@@ -541,7 +542,6 @@ type
     tsThumbTracking,          // Stop updating the horizontal scroll bar while dragging the vertical thumb and vice versa.
     tsToggling,               // A toggle operation (for some node) is in progress.
     tsUpdateHiddenChildrenNeeded, // Pending update for the hidden children flag after massive visibility changes.
-    tsUpdating,               // The tree does currently not update its window because a BeginUpdate has not yet ended.
     tsUseCache,               // The tree's node caches are validated and non-empty.
     tsUserDragObject,         // Signals that the application created an own drag object in OnStartDrag.
     tsUseThemes,              // The tree runs under WinXP+, is theme aware and themes are enabled.
@@ -808,7 +808,7 @@ const
   DefaultPaintOptions = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
   DefaultAnimationOptions = [];
   DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
-  DefaultSelectionOptions = [];
+  DefaultSelectionOptions = [toSelectNextNodeOnRemoval];
   DefaultMiscOptions      = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick];
 
   DefaultStringOptions = [toSaveCaptions, toAutoAcceptEditChange];
@@ -934,7 +934,9 @@ type
   PVirtualNode = ^TVirtualNode;
 
   TVirtualNode = record
-    Index,                   // index of node with regard to its parent
+  private
+    fIndex: Cardinal;         // index of node with regard to its parent
+  public
     ChildCount: Cardinal;    // number of child nodes
     NodeHeight: TDimension;  // height in pixels
     States: TVirtualNodeStates; // states describing various properties of the node (expanded, initialized etc.)
@@ -949,11 +951,17 @@ type
     // Note: Some copy routines require that all pointers (as well as the data area) in a node are
     //       located at the end of the node! Hence if you want to add new member fields (except pointers to internal
     //       data) then put them before field Parent.
-    Parent,                  // reference to the node's parent (for the root this contains the treeview)
+  private
+    fParent:  PVirtualNode; // link to the node's last child...
+  public                  // reference to the node's parent (for the root this contains the treeview)
     PrevSibling,             // link to the node's previous sibling or nil if it is the first node
     NextSibling,             // link to the node's next sibling or nil if it is the last node
     FirstChild,              // link to the node's first child...
     LastChild: PVirtualNode; // link to the node's last child...
+    procedure SetParent(const pParent: PVirtualNode); inline; //internal method, do not call directly but use Parent[Node] := x on tree control.
+    procedure SetIndex(const pIndex: Cardinal); inline;       //internal method, do not call directly.
+    property Index: Cardinal read fIndex;
+    property Parent: PVirtualNode read fParent;
   private
     Data: record end;        // this is a placeholder, each node gets extra data determined by NodeDataSize
   public
@@ -1242,6 +1250,16 @@ begin
   if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
     Include(Self.States, vsReleaseCallOnUserDataRequired);
   Include(Self.States, vsOnFreeNodeCallRequired);
+end;
+
+procedure TVirtualNode.SetIndex(const pIndex: Cardinal);
+begin
+  fIndex := pIndex;
+end;
+
+procedure TVirtualNode.SetParent(const pParent: PVirtualNode);
+begin
+  fParent := pParent;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
