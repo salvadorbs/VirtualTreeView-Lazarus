@@ -102,7 +102,48 @@ type
   // --------- TCustomVirtualStringTree
 
 type
+  // Some aliases for backward compatiblity
+  PVirtualNode             = VirtualTrees.Types.PVirtualNode;
+  TVirtualNode             = VirtualTrees.Types.TVirtualNode;
+  TBaseVirtualTree         = VirtualTrees.BaseTree.TBaseVirtualTree;
+  IVTEditLink              = VirtualTrees.BaseTree.IVTEditLink;
+  TVTHeader                = VirtualTrees.Header.TVTHeader;
+  TVTHeaderClass           = VirtualTrees.Header.TVTHeaderClass;
+  TVTHeaderOption          = VirtualTrees.Header.TVTHeaderOption;
+  TVTHeaderOptions         = VirtualTrees.Header.TVTHeaderOptions;
+  THeaderPaintInfo         = VirtualTrees.Header.THeaderPaintInfo;
+  TVTHeaderColumnLayout    = VirtualTrees.Types.TVTHeaderColumnLayout;
+  TVTConstraintPercent     = VirtualTrees.Header.TVTConstraintPercent;
+  TSmartAutoFitType        = VirtualTrees.Types.TSmartAutoFitType;
+  TVirtualTreeStates       = VirtualTrees.Types.TVirtualTreeStates;
+  TVTFixedAreaConstraints  = VirtualTrees.Header.TVTFixedAreaConstraints;
+  TVTHeaderStyle           = VirtualTrees.Header.TVTHeaderStyle;
+  THeaderState             = VirtualTrees.Header.THeaderState;
+  THeaderStates            = VirtualTrees.Header.THeaderStates;
+const
+  //Aliases
+  NoColumn                 = VirtualTrees.Types.NoColumn;
+  InvalidColumn            = VirtualTrees.Types.InvalidColumn;
+  sdAscending              = VirtualTrees.Types.TSortDirection.sdAscending;
+  sdDescending             = VirtualTrees.Types.TSortDirection.sdDescending;
 
+  ctNone                   = VirtualTrees.Types.TCheckType.ctNone;
+  ctTriStateCheckBox       = VirtualTrees.Types.TCheckType.ctTriStateCheckBox;
+  ctCheckBox               = VirtualTrees.Types.TCheckType.ctCheckBox;
+  ctRadioButton            = VirtualTrees.Types.TCheckType.ctRadioButton;
+  ctButton                 = VirtualTrees.Types.TCheckType.ctButton;
+
+  csUncheckedNormal        = VirtualTrees.Types.TCheckState.csUncheckedNormal;
+  csUncheckedPressed       = VirtualTrees.Types.TCheckState.csUncheckedPressed;
+  csCheckedNormal          = VirtualTrees.Types.TCheckState.csCheckedNormal;
+  csCheckedPressed         = VirtualTrees.Types.TCheckState.csCheckedPressed;
+  csMixedNormal            = VirtualTrees.Types.TCheckState.csMixedNormal;
+  csMixedPressed           = VirtualTrees.Types.TCheckState.csMixedPressed;
+  csUncheckedDisabled      = VirtualTrees.Types.TCheckState.csUncheckedDisabled;
+  csCheckedDisabled        = VirtualTrees.Types.TCheckState.csCheckedDisabled;
+  csMixedDisable           = VirtualTrees.Types.TCheckState.csMixedDisabled;
+
+type
   TCustomVirtualStringTree = class;
 
   TVTAncestor = TVTAncestorLcl;
@@ -188,8 +229,8 @@ type
     procedure GetDataFromGrid(const AStrings : TStringList; const IncludeHeading : Boolean = True);
   protected
     FPreviouslySelected: TStringList;
-    procedure InitializeTextProperties(var PaintInfo: TVTPaintInfo); // [IPK] - private to protected
-    procedure PaintNormalText(var PaintInfo: TVTPaintInfo; TextOutFlags: Integer; Text: String); virtual; // [IPK] - private to protected
+    procedure InitializeTextProperties(var PaintInfo: TVTPaintInfo);
+    procedure PaintNormalText(var PaintInfo: TVTPaintInfo; TextOutFlags: Integer; Text: string); virtual;
     procedure PaintStaticText(const PaintInfo: TVTPaintInfo; pStaticTextAlignment: TAlignment; const Text: string); virtual; // [IPK] - private to protected
     procedure AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; out NextNonEmpty: TColumnIndex); override;
     function CanExportNode(Node: PVirtualNode): Boolean;
@@ -197,8 +238,9 @@ type
     function CalculateTextWidth(Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; const Text: string): TDimension; virtual;
     function ColumnIsEmpty(Node: PVirtualNode; Column: TColumnIndex): Boolean; override;
     function DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink; override;
-    function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; override;
-    function DoGetNodeTooltip(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): String; override;
+    procedure DoAddToSelection(Node: PVirtualNode); override;
+    function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): string; override;
+    function DoGetNodeTooltip(Node: PVirtualNode; Column: TColumnIndex; var LineBreakStyle: TVTTooltipLineBreakStyle): string; override;
     function DoGetNodeExtraWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     procedure DoGetText(var pEventArgs: TVSTGetCellTextEventArgs); virtual;
@@ -257,7 +299,6 @@ type
     function Path(Node: PVirtualNode; Column: TColumnIndex; Delimiter: Char): string;
     procedure ReinitNode(Node: PVirtualNode; Recursive: Boolean; ForceReinit:
         Boolean = False); override;
-    procedure AddToSelection(Node: PVirtualNode; NotifySynced: Boolean); override;
     procedure RemoveFromSelection(Node: PVirtualNode); override;
     function SaveToCSVFile(const FileNameWithPath : TFileName; const IncludeHeading : Boolean) : Boolean;
     /// Alternate text for images used in Accessibility.
@@ -1073,7 +1114,6 @@ begin
   end;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
 
 procedure TCustomVirtualStringTree.AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; out NextNonEmpty: TColumnIndex);
 
@@ -1182,8 +1222,30 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualStringTree.DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink;
+procedure TCustomVirtualStringTree.DoAddToSelection(Node: PVirtualNode);
+var
+  lSelectedNodeCaption: string;
+begin
+  inherited;
+  if (toRestoreSelection in TreeOptions.SelectionOptions) and Assigned(Self.OnGetText) and not (tsPreviouslySelectedLocked in TreeStates) then
+  begin
+    if not Assigned(FPreviouslySelected) then
+    begin
+      FPreviouslySelected := TStringList.Create();
+      FPreviouslySelected.Duplicates := dupIgnore;
+      FPreviouslySelected.Sorted := True; //Improves performance, required to use Find()
+      FPreviouslySelected.CaseSensitive := False;
+    end;
+    if Self.SelectedCount = 1 then
+      FPreviouslySelected.Clear();
+    Self.OnGetText(Self, Node, Header.RestoreSelectionColumnIndex, ttNormal, lSelectedNodeCaption);
+    FPreviouslySelected.Add(lSelectedNodeCaption);
+  end;//if
+end;
 
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCustomVirtualStringTree.DoCreateEditor(Node: PVirtualNode; Column: TColumnIndex): IVTEditLink;
 begin
   Result := inherited DoCreateEditor(Node, Column);
   // Enable generic label editing support if the application does not have own editors.
@@ -1685,32 +1747,9 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TCustomVirtualStringTree.AddToSelection(Node: PVirtualNode; NotifySynced: Boolean);
-var
-  lSelectedNodeCaption: String;
-begin
-  inherited;
-  if (toRestoreSelection in TreeOptions.SelectionOptions) and Assigned(Self.OnGetText) and Self.Selected[Node] and not (tsPreviouslySelectedLocked in TreeStates) then
-  begin
-    if not Assigned(FPreviouslySelected) then
-    begin
-      FPreviouslySelected := TStringList.Create();
-      FPreviouslySelected.Duplicates := dupIgnore;
-      FPreviouslySelected.Sorted := True; //Improves performance, required to use Find()
-      FPreviouslySelected.CaseSensitive := False;
-    end;
-    if Self.SelectedCount = 1 then
-      FPreviouslySelected.Clear();
-    Self.OnGetText(Self, Node, Header.RestoreSelectionColumnIndex, ttNormal, lSelectedNodeCaption);
-    FPreviouslySelected.Add(lSelectedNodeCaption);
-  end;//if
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 procedure TCustomVirtualStringTree.RemoveFromSelection(Node: PVirtualNode);
 var
-  lSelectedNodeCaption: String;
+  lSelectedNodeCaption: string;
   lIndex: Integer;
 begin
   inherited;
