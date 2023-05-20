@@ -2,7 +2,10 @@
 
 name: Install VTV on GH Environment
 
-on: push
+on: 
+  pull_request:
+  push:
+  workflow_dispatch:
         
 env:
   FPC_URL: 'gitlab'
@@ -90,12 +93,12 @@ jobs:
     - name: Install Dependencies (Ubuntu - only QT5)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt5'
       run: |
-        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas1_2.12-2_amd64.deb
-        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas-dev_2.12-2_amd64.deb
+        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas1_2.12-3_amd64.deb
+        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas-dev_2.12-3_amd64.deb
         sudo apt-get update
         sudo apt-get -m -y install qt5-qmake qtbase5-dev qt5-default libqt5x11extras5-dev libxcb-keysyms1-dev
-        sudo apt-get -m -y install ./libqt5pas1_2.12-2_amd64.deb
-        sudo apt-get -m -y install ./libqt5pas-dev_2.12-2_amd64.deb
+        sudo apt-get -m -y install ./libqt5pas1_2.12-3_amd64.deb
+        sudo apt-get -m -y install ./libqt5pas-dev_2.12-3_amd64.deb
         
     - name: Install Dependencies (Ubuntu - only QT6)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt6'
