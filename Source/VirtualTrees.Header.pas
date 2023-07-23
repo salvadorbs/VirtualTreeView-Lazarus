@@ -3063,13 +3063,20 @@ begin
       if not FCheckBox then
       begin
         if Assigned(Images) then
-          HeaderGlyphSize := Point(Images.Width, Images.Height);
+        begin
+          {$IF LCL_FullVersion >= 2000000}
+          with Images.ResolutionForPPI[FImagesWidth, Font.PixelsPerInch, Self.Owner.Header.TreeView.GetCanvasScaleFactor] do
+            HeaderGlyphSize := Point(Width, Height);
+          {$ELSE}
+          HeaderGlyphSize := Point(FImages.Width, FImages.Height)
+          {$IFEND}
+        end
       end
       else
         with Self.TreeViewControl do
         begin
           if Assigned(CheckImages) then
-            HeaderGlyphSize := Point(CheckImages.Width, CheckImages.Height);
+            HeaderGlyphSize := Point(GetRealCheckImagesWidth, GetRealCheckImagesHeight);
         end
     else
       HeaderGlyphSize := Point(0, 0);
