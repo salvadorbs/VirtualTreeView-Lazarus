@@ -1823,6 +1823,9 @@ const
     'VT_CHECK_DARK' //ckSystemDefault
      );
 
+  //LCL: Workaround for drawing blank hot node button in PaintNodeButton()
+  TVP_HOTGLYPH = TVP_GLYPH;
+
 var
   gWatcher: TCriticalSection = nil;
   //ToDo upgrade: Remove SystemCheckImages and using only FCheckImages?
@@ -2661,9 +2664,9 @@ begin
       if (ImageInfo[iiNormal].Index >= 0) or (ImageInfo[iiState].Index >= 0) then
       begin
         if (ImageInfo[iiNormal].Index >= 0) then
-          VAlign := ImageInfo[iiNormal].Images.Height
+          VAlign := GetRealImagesHeight
         else
-          VAlign := ImageInfo[iiState].Images.Height;
+          VAlign := GetRealStateImagesHeight;
         VAlign := MulDiv((NodeHeight[Node] - VAlign), Node.Align, 100) + Divide(VAlign, 2);
       end
       else
@@ -3052,7 +3055,7 @@ begin
   // Don't check the events here as descendant trees might have overriden the DoGetImageIndex method.
   WithStateImages := Assigned(FStateImages) or Assigned(OnGetImageIndexEx);
   if WithCheck then
-    CheckOffset := FCheckImages.Width + FImagesMargin
+    CheckOffset := GetRealCheckImagesWidth + FImagesMargin
   else
     CheckOffset := 0;
   AutoSpan := FHeader.UseColumns and (toAutoSpanColumns in FOptions.AutoOptions);
@@ -3766,7 +3769,7 @@ begin
     Inc(pOffsets[TVTElement.ofsCheckBox], fImagesMargin);
 
     // right of checkbox, left of state image
-    pOffsets[TVTElement.ofsStateImage] := pOffsets[TVTElement.ofsCheckBox] + FCheckImages.Width + fImagesMargin;
+    pOffsets[TVTElement.ofsStateImage] := pOffsets[TVTElement.ofsCheckBox] + GetRealCheckImagesWidth + fImagesMargin;
   end else
     pOffsets[TVTElement.ofsStateImage] := pOffsets[TVTElement.ofsCheckBox];
   if pElement <= TVTElement.ofsStateImage then
@@ -12533,7 +12536,7 @@ var
 
       CustomImages := DoGetImageIndex(Node, Kind, Column, ImageInfo[InfoIndex].Ghosted, ImageInfo[InfoIndex].Index);
       if Assigned(CustomImages) then
-        ImageInfo[InfoIndex].Images := CustomImages
+        ImageInfo[InfoIndex].Images := CustomImages;
     end;
   end;
 
@@ -12762,7 +12765,7 @@ begin
     Result := 0
   else
     {$IF LCL_FullVersion >= 2000000}
-    Result := ImageList.ResolutionForPPI[ImageList.Width, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
+    Result := ImageList.ResolutionForPPI[ImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Width;
     {$ELSE}
     Result := ImageList.Height;
     {$IFEND}
@@ -12774,7 +12777,7 @@ begin
     Result := 0
   else
     {$IF LCL_FullVersion >= 2000000}
-    Result := ImageList.ResolutionForPPI[ImageList.Height, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
+    Result := ImageList.ResolutionForPPI[ImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor].Height;
     {$ELSE}
     Result := ImageList.Height;
     {$IFEND}
@@ -21579,7 +21582,7 @@ begin
 
                           CalculateVerticalAlignments(PaintInfo, ButtonY);
                           // Take the space for the tree lines into account.
-                          PaintInfo.AdjustImageCoordinates();
+                          PaintInfo.AdjustImageCoordinates(GetRealImageListHeight(Images));
                           if UseColumns then
                           begin
                             ClipRect := CellRect;

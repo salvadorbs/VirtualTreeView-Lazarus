@@ -16,7 +16,7 @@ uses
   {$else}
   FakeActiveX,
   {$endif}
-  SysUtils, Graphics, ImgList;
+  SysUtils, Graphics, ImgList, LCLVersion;
 
 const
   {$I lclconstants.inc}
@@ -1121,6 +1121,8 @@ type
   );
   TVTInternalPaintOptions = set of TVTInternalPaintOption;    
 
+  { TVTPaintInfo }
+
   TVTPaintInfo = record
     Canvas: TCanvas;              // the canvas to paint on
     PaintOptions: TVTInternalPaintOptions;  // a copy of the paint options passed to PaintTree
@@ -1137,7 +1139,7 @@ type
     ImageInfo: array[TVTImageInfoIndex] of TVTImageInfo; // info about each possible node image
     Offsets: TVTOffsets;          // The offsets of the various elements of a tree node
     VAlign: TDimension;
-    procedure AdjustImageCoordinates();
+    procedure AdjustImageCoordinates(RealImagesHeight: Integer);
   end;
 
   TElementEdge = (
@@ -1278,7 +1280,7 @@ end;
 
 { TVTPaintInfo }
 
-procedure TVTPaintInfo.AdjustImageCoordinates();
+procedure TVTPaintInfo.AdjustImageCoordinates(RealImagesHeight: Integer);
 // During painting of the main column some coordinates must be adjusted due to the tree lines.
 begin
   ContentRect := CellRect;
@@ -1297,12 +1299,13 @@ begin
     ImageInfo[iiCheck].XPos := CellRect.Right - Offsets[TVTElement.ofsCheckBox] - (Offsets[TVTElement.ofsStateImage] - Offsets[TVTElement.ofsCheckBox]);
     ContentRect.Right := CellRect.Right - Offsets[TVTElement.ofsLabel];
   end;
+
   if ImageInfo[iiNormal].Index > -1 then
-    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - ImageInfo[iiNormal].Images.Height div 2;
+    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
   if ImageInfo[iiState].Index > -1 then
-    ImageInfo[iiState].YPos := CellRect.Top + VAlign - ImageInfo[iiState].Images.Height div 2;
+    ImageInfo[iiState].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
   if ImageInfo[iiCheck].Index > -1 then
-    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - ImageInfo[iiCheck].Images.Height div 2;
+    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
 end;
 
   //----------------- TCustomVirtualTreeOptions --------------------------------------------------------------------------
