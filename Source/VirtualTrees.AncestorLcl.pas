@@ -7,7 +7,8 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, Controls, Graphics, DelphiCompat,
+  Classes, Controls, Graphics, DelphiCompat, Forms, Types, StrUtils,
+  OleUtils, Themes,
   {$ifdef Windows}
   Windows,
   ActiveX,
@@ -20,7 +21,7 @@ uses
   oleacc, // for MSAA IAccessible support
   {$endif}
   VirtualTrees.BaseTree,
-  VirtualTrees.Types;
+  VirtualTrees.Types, LCLType, LCLIntf;
 
 type
   TVTRenderOLEDataEvent = procedure(Sender: TBaseVirtualTree; const FormatEtcIn: TFormatEtc; out Medium: TStgMedium;
@@ -30,201 +31,47 @@ type
   private
     FOnRenderOLEData: TVTRenderOLEDataEvent;     // application/descendant defined clipboard formats
 
-    {$ifdef EnableAccessible}
-    procedure WMGetObject(var Message: TLMessage);{ message WM_GETOBJECT;}
-    {$endif}
   protected
+    function GetHintWindowClass: THintWindowClass; override;
+    function GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree; override;
     function DoRenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean): HRESULT; override;
-    function RenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean): HResult; override;
-    procedure DoChecked(Node: PVirtualNode); override;
-    procedure DoExpanded(Node: PVirtualNode); override;
-    procedure DoFocusChange(Node: PVirtualNode; Column: TColumnIndex); override;
-    procedure MainColumnChanged; override;
-    procedure NotifyAccessibilityCollapsed(); override;
-
     property OnRenderOLEData: TVTRenderOLEDataEvent read FOnRenderOLEData write FOnRenderOLEData;
   public //methods
-    destructor Destroy; override;
     function PasteFromClipboard(): Boolean; override;
-    procedure CopyToClipboard(); override;
-    procedure CutToClipboard(); override;
+ end;
+
+   // The trees need an own hint window class because of Unicode output and adjusted font.
+  TVirtualTreeHintWindow = class(THintWindow)
+  strict private
+    FHintData: TVTHintData;
+    FTextHeight: TDimension;
+    procedure CMTextChanged(var Message: TMessage); message CM_TEXTCHANGED;
+    procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
+  strict protected
+    procedure CreateParams(var Params: TCreateParams); override;
+    procedure Paint; override;
+    {$IFDEF DelphiStyleServices}
+    // Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
+    function StyleServices(AControl: TControl = nil): TCustomStyleServices;
+    {$ENDIF}
+  public
+    function CalcHintRect(MaxWidth: TDimension; const AHint: string; AData: Pointer): TRect; override;
+    function IsHintMsg(Msg: TMsg): Boolean; override;
   end;
 
 implementation
-
 uses
-  VirtualTrees, VirtualTrees.ClipBoard, VirtualTrees.DragnDrop, VirtualTrees.DataObject,
-  OleUtils;
+  VirtualTrees, VirtualTrees.ClipBoard, VirtualTrees.DragnDrop, VirtualTrees.DataObject;
 
 resourcestring
   SClipboardFailed = 'Clipboard operation failed.';
 
-//----------------------------------------------------------------------------------------------------------------------
-
-function TVTAncestorLcl.RenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium;
-  ForClipboard: Boolean): HResult;
-
-// Returns a memory expression of all currently selected nodes in the Medium structure.
-// Note: The memory requirement of this method might be very high. This depends however on the requested storage format.
-//       For HGlobal (a global memory block) we need to render first all nodes to local memory and copy this then to
-//       the global memory in Medium. This is necessary because we have first to determine how much
-//       memory is needed before we can allocate it. Hence for a short moment we need twice the space as used by the
-//       nodes alone (plus the amount the nodes need in the tree anyway)!
-//       With IStream this does not happen. We directly stream out the nodes and pass the constructed stream along.
-
-  //--------------- local function --------------------------------------------
-
-  {$IFDEF windows}
-  procedure WriteNodes(Stream: TStream);
-
-  var
-    Selection: TNodeArray;
-    I: Integer;
-
-  begin
-    if ForClipboard then
-      Selection := GetSortedCutCopySet(True)
-    else
-      Selection := GetSortedSelection(True);
-    for I := 0 to High(Selection) do
-      WriteNode(Stream, Selection[I]);
-  end;
-
-  //--------------- end local function ----------------------------------------
-
-var
-  Data: PCardinal;
-  ResPointer: Pointer;
-  ResSize: Integer;
-  OLEStream: IStream;
-  VCLStream: TStream;
-{$ENDIF}
-
-begin
-  {$IFDEF windows}
-  FillChar(Medium, SizeOf(Medium), 0);
-  // We can render the native clipboard format in two different storage media.
-  if (FormatEtcIn.cfFormat = CF_VIRTUALTREE) and (FormatEtcIn.tymed and (TYMED_HGLOBAL or TYMED_ISTREAM) <> 0) then
-  begin
-    VCLStream := nil;
-    try
-      Medium.PunkForRelease := nil;
-      // Return data in one of the supported storage formats, prefer IStream.
-      if FormatEtcIn.tymed and TYMED_ISTREAM <> 0 then
-      begin
-        // Create an IStream on a memory handle (here it is 0 which indicates to implicitely allocated a handle).
-        // Do not use TStreamAdapter as it is not compatible with OLE (when flushing the clipboard OLE wants the HGlobal
-        // back which is not supported by TStreamAdapater).
-        CreateStreamOnHGlobal(0, True, OLEStream);
-        VCLStream := TOLEStream.Create(OLEStream);
-        WriteNodes(VCLStream);
-        // Rewind stream.
-        VCLStream.Position := 0;
-        Medium.tymed := TYMED_ISTREAM;
-        IUnknown(Medium.Pstm) := OLEStream;
-        Result := S_OK;
-      end
-      else
-      begin
-        VCLStream := TMemoryStream.Create;
-        WriteNodes(VCLStream);
-        ResPointer := TMemoryStream(VCLStream).Memory;
-        ResSize := VCLStream.Position;
-
-        // Allocate memory to hold the string.
-        if ResSize > 0 then
-        begin
-          Medium.hGlobal := GlobalAlloc(GHND or GMEM_SHARE, ResSize + SizeOf(Cardinal));
-          Data := GlobalLock(Medium.hGlobal);
-          // Store the size of the data too, for easy retrival.
-          Data^ := ResSize;
-          Inc(Data);
-          Move(ResPointer^, Data^, ResSize);
-          GlobalUnlock(Medium.hGlobal);
-          Medium.tymed := TYMED_HGLOBAL;
-
-          Result := S_OK;
-        end
-        else
-          Result := E_FAIL;
-      end;
-    finally
-      // We can free the VCL stream here since it was either a pure memory stream or only a wrapper around
-      // the OLEStream which exists independently.
-      VCLStream.Free;
-    end;
-  end
-  else // Ask application descendants to render self defined formats.
-    Result := DoRenderOLEData(FormatEtcIn, Medium, ForClipboard);
-{$ENDIF}
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-destructor TVTAncestorLcl.Destroy;
-begin
-  {$ifdef EnableAccessible}
-  // Disconnect all remote MSAA connections
-  if Assigned(AccessibleItem) then begin
-    CoDisconnectObject(AccessibleItem, 0);
-    AccessibleItem := nil;
-  end;
-  if Assigned(Accessible) then begin
-    CoDisconnectObject(Accessible, 0);
-    Accessible := nil;
-  end;
-  {$endif}
-
-  inherited;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVTAncestorLcl.DoChecked(Node: PVirtualNode);
-begin
-  inherited;
-
-  {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
-    NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-  {$endif}
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVTAncestorLcl.DoExpanded(Node: PVirtualNode);
-begin
-  inherited;
-
-  {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
-    NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-  {$endif}
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TVTAncestorLcl.DoFocusChange(Node: PVirtualNode; Column: TColumnIndex);
-begin
-  inherited;
-
-  {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
-  begin
-    NotifyWinEvent(EVENT_OBJECT_LOCATIONCHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-    NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-    NotifyWinEvent(EVENT_OBJECT_VALUECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-    NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-    NotifyWinEvent(EVENT_OBJECT_SELECTION, Handle, OBJID_CLIENT, CHILDID_SELF);
-    NotifyWinEvent(EVENT_OBJECT_FOCUS, Handle, OBJID_CLIENT, CHILDID_SELF);
-  end;
-  {$endif}
-end;
+type
+  TBVTCracker = class(TBaseVirtualTree);
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTAncestorLcl.DoRenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean): HRESULT;
-
 begin
   Result := E_FAIL;
   if Assigned(FOnRenderOLEData) then
@@ -233,49 +80,47 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTAncestorLcl.MainColumnChanged;
-begin
-  inherited;
+function TVTAncestorLcl.GetHintWindowClass: THintWindowClass;
 
-  {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
-    NotifyWinEvent(EVENT_OBJECT_NAMECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-  {$endif}
+// Returns the default hint window class used for the tree. Descendants can override it to use their own classes.
+
+begin
+  Result := TVirtualTreeHintWindow;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTAncestorLcl.NotifyAccessibilityCollapsed;
-begin
-  inherited;
+function TVTAncestorLcl.GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
 
-  {$ifdef EnableAccessible}
-  if Assigned(AccessibleItem) then
-    NotifyWinEvent(EVENT_OBJECT_STATECHANGE, Handle, OBJID_CLIENT, CHILDID_SELF);
-  {$endif}
-end;
+// Returns the owner/sender of the given data object by means of a special clipboard format
+// or nil if the sender is in another process or no virtual tree at all.
 
-//----------------------------------------------------------------------------------------------------------------------
-
-{$ifdef EnableAccessible}
-procedure TVTAncestorLcl.WMGetObject(var Message: TLMessage);
-
-begin
-  if TVTAccessibilityFactory.GetAccessibilityFactory <> nil then
-  begin
-    // Create the IAccessibles for the tree view and tree view items, if necessary.
-    if Accessible = nil then
-      Accessible := TVTAccessibilityFactory.GetAccessibilityFactory.CreateIAccessible(Self);
-    if AccessibleItem = nil then
-      AccessibleItem := TVTAccessibilityFactory.GetAccessibilityFactory.CreateIAccessible(Self);
-    if Cardinal(Message.LParam) = OBJID_CLIENT then
-      if Assigned(Accessible) then
-        Message.Result := LresultFromObject(IID_IAccessible, Message.WParam, Accessible)
-      else
-        Message.Result := 0;
-  end;
-end;
+{$ifdef Windows}
+var
+  Medium: TStgMedium;
+  Data: PVTReference;
 {$endif}
+
+begin
+  Result := nil;
+  {$ifdef Windows}
+  if Assigned(DataObject) then
+  begin
+    StandardOLEFormat.cfFormat := CF_VTREFERENCE;
+    if DataObject.GetData(StandardOLEFormat, Medium) = S_OK then
+    begin
+      Data := GlobalLock(Medium.hGlobal);
+      if Assigned(Data) then
+      begin
+        if Data.Process = GetCurrentProcessID then
+          Result := Data.Tree;
+        GlobalUnlock(Medium.hGlobal);
+      end;
+      ReleaseStgMedium(@Medium);
+    end;
+  end;
+  {$endif}
+end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -312,42 +157,337 @@ begin
   end;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
+//----------------- TVirtualTreeHintWindow -----------------------------------------------------------------------------
 
-procedure TVTAncestorLcl.CopyToClipboard;
-
-var
-  lDataObject: IDataObject;
+procedure TVirtualTreeHintWindow.CMTextChanged(var Message: TMessage);
 
 begin
-  if SelectedCount > 0 then
+  // swallow this message to prevent the ancestor from resizing the window (we don't use the caption anyway)
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVirtualTreeHintWindow.WMEraseBkgnd(var Message: TWMEraseBkgnd);
+
+// The control is fully painted by own code so don't erase its background as this causes flickering.
+
+begin
+  Message.Result := 1;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVirtualTreeHintWindow.CreateParams(var Params: TCreateParams);
+
+begin
+  inherited CreateParams(Params);
+
+  with Params do
   begin
-    lDataObject := TVTDataObject.Create(Self, True);
-    if OleSetClipboard(lDataObject) = S_OK then
-    begin
-      MarkCutCopyNodes;
-      DoStateChange([tsCopyPending]);
-      Invalidate;
-    end;
+    Style := WS_POPUP;
+    ExStyle := ExStyle and not WS_EX_CLIENTEDGE;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTAncestorLcl.CutToClipboard;
+procedure TVirtualTreeHintWindow.Paint();
 var
-  lDataObject: IDataObject;
+  R: TRect;
+  Y: Integer;
+  S: string;
+  DrawFormat: Cardinal;
+  HintKind: TVTHintKind;
+  LClipRect: TRect;
+
+  LColor: TColor;
+  LDetails: TThemedElementDetails;
+  LGradientStart: TColor;
+  LGradientEnd: TColor;
+
 begin
-  if (SelectedCount > 0) and not (toReadOnly in TreeOptions.MiscOptions) then
+  with FHintData do
   begin
-    lDataObject := TVTDataObject.Create(Self, True);
-    if OleSetClipboard(lDataObject) = S_OK then
+    // Do actual painting only in the very first run.
+    // If the given node is nil then we have to display a header hint.
+    if (Node = nil) or (TBVTCracker(Tree).HintMode <> hmToolTip) then
     begin
-      MarkCutCopyNodes;
-      DoStateChange([tsCutPending], [tsCopyPending]);
-      Invalidate;
+      Canvas.Font := Screen.HintFont;
+      Canvas.Font.Height := MulDiv(Canvas.Font.Height, Tree.ScaledPixels(96), Screen.PixelsPerInch); // See issue #992
+      Y := 2;
+    end
+    else
+    begin
+      Tree.GetTextInfo(Node, Column, Canvas.Font, R, S);
+      if LineBreakStyle = hlbForceMultiLine then
+        Y := 1
+      else
+        Y := (R.Top - R.Bottom  + Self.Height) div 2;
     end;
+
+    R := Types.Rect(0, 0, Width, Height);
+
+    HintKind := vhkText;
+    if Assigned(Node) then
+      TBVTCracker(Tree).DoGetHintKind(Node, Column, HintKind);
+
+    if HintKind = vhkOwnerDraw then
+    begin
+      TBVTCracker(Tree).DoDrawHint(Canvas, Node, R, Column);
+    end
+    else
+      with Canvas do
+      begin
+        if TBVTCracker(Tree).VclStyleEnabled  then
+        begin
+          InflateRect(R, -1, -1); // Fixes missing border when VCL styles are used
+          //LDetails := StyleServices.GetElementDetails(thHintNormal);
+          //if StyleServices.GetElementColor(LDetails, ecGradientColor1, LColor) and (LColor <> clNone) then
+          //  LGradientStart := LColor
+          //else
+            LGradientStart := clInfoBk;
+          //if StyleServices(Tree).GetElementColor(LDetails, ecGradientColor2, LColor) and (LColor <> clNone) then
+          //  LGradientEnd := LColor
+          //else
+            LGradientEnd := clInfoBk;
+          //if StyleServices(Tree).GetElementColor(LDetails, ecTextColor, LColor) and (LColor <> clNone) then
+          //  Font.Color := LColor
+          //else
+            Font.Color := Screen.HintFont.Color;
+          Canvas.GradientFill(R, LGradientStart, LGradientEnd, gdVertical);
+        end
+        else
+        begin
+          // Still force tooltip back and text color.
+          Font.Color := clInfoText;
+          Pen.Color := clBlack;
+          Brush.Color := clInfoBk;
+          if StyleServices.Enabled and ((toThemeAware in TBVTCracker(Tree).TreeOptions.PaintOptions) or
+             (toUseExplorerTheme in TBVTCracker(Tree).TreeOptions.PaintOptions)) then
+          begin
+            if toUseExplorerTheme in TBVTCracker(Tree).TreeOptions.PaintOptions then // ToolTip style
+              StyleServices.DrawElement(Canvas.Handle, StyleServices.GetElementDetails(tttStandardNormal), R {$IF CompilerVersion >= 34}, nil, FCurrentPPI{$IFEND})
+            else
+              begin // Hint style
+                LClipRect := R;
+                InflateRect(R, 4, 4);
+                StyleServices.DrawElement(Handle, StyleServices.GetElementDetails(tttStandardNormal), R, @LClipRect{$IF CompilerVersion >= 34}, FCurrentPPI{$IFEND});
+                R := LClipRect;
+                StyleServices.DrawEdge(Handle, StyleServices.GetElementDetails(twWindowRoot), R, [eeRaisedOuter], [efRect]);
+              end;
+          end
+          else
+            if TBVTCracker(Tree).VclStyleEnabled then
+              StyleServices.DrawElement(Canvas.Handle, StyleServices.GetElementDetails(tttStandardNormal), R {$IF CompilerVersion >= 34}, nil, FCurrentPPI{$IFEND})
+            else
+              Rectangle(R);
+        end;
+        // Determine text position and don't forget the border.
+        InflateRect(R, -1, -1);
+        DrawFormat := DT_TOP or DT_NOPREFIX;
+        SetBkMode(Handle, TRANSPARENT);
+        R.Top := Y;
+        R.Left := R.Left + 3; // Make the text more centered
+        if Assigned(Node) and (LineBreakStyle = hlbForceMultiLine) then
+          DrawFormat := DrawFormat or DT_WORDBREAK;
+        DrawText(Handle, PChar(HintText), Length(HintText), R, DrawFormat);
+      end;
   end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+{$IFDEF DelphiStyleServices}
+function TVirtualTreeHintWindow.StyleServices(AControl: TControl): TCustomStyleServices;
+begin
+  Result := VTStyleServices(AControl);
+end;
+{$ENDIF}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TVirtualTreeHintWindow.CalcHintRect(MaxWidth: Integer; const AHint: string; AData: Pointer): TRect;
+
+var
+  TM: TTextMetric;
+  R: TRect;
+
+begin
+  try
+    if AData = nil then
+      // Defensive approach, it *can* happen that AData is nil. Maybe when several user defined hint classes are used.
+      Result := Types.Rect(0, 0, 0, 0)
+    else
+    begin
+      // The hint window does not need any bidi mode setting but the caller of this method (TApplication.ActivateHint)
+      // does some unneccessary actions if the hint window is not left-to-right.
+      // The text alignment is based on the bidi mode passed in the hint data, hence we can
+      // simply set the window's mode to left-to-right (it might have been modified by the caller, if the
+      // tree window is right-to-left aligned).
+      BidiMode := bdLeftToRight;
+
+      FHintData := PVTHintData(AData)^;
+
+      with FHintData do
+      begin
+        // The draw tree gets its hint size by the application (but only if not a header hint is about to show).
+        // If the user will be drawing the hint, it gets its hint size by the application
+        // (but only if not a header hint is about to show).
+        // This size has already been determined in CMHintShow.
+        if Assigned(Node) and (not IsRectEmpty(HintRect)) then
+          Result := HintRect
+        else
+        begin
+          if Column <= NoColumn then
+          begin
+            BidiMode := Tree.BidiMode;
+            Alignment := TBVTCracker(Tree).Alignment;
+          end
+          else
+          begin
+            BidiMode := Tree.Header.Columns[Column].BidiMode;
+            Alignment := Tree.Header.Columns[Column].Alignment;
+          end;
+
+          if BidiMode <> bdLeftToRight then
+            ChangeBidiModeAlignment(Alignment);
+
+          if (Node = nil) or (TBVTCracker(Tree).HintMode <> hmToolTip) then
+          begin
+            Canvas.Font := Screen.HintFont;
+            Canvas.Font.Height := MulDiv(Canvas.Font.Height, Tree.ScaledPixels(96), Screen.PixelsPerInch); // See issue #992
+          end
+          else
+          begin
+            Canvas.Font := Tree.Font;
+            with TBVTCracker(Tree) do
+              DoPaintText(Node, Self.Canvas, Column, ttNormal);
+          end;
+
+          GetTextMetrics(Canvas.Handle, TM);
+          FTextHeight := TM.tmHeight;
+
+          if Length(HintText) = 0 then
+            Result := Types.Rect(0, 0, 0, 0)
+          else
+          begin
+            if Assigned(Node) and (TBVTCracker(Tree).HintMode = hmToolTip) then
+            begin
+              // Determine actual line break style depending on what was returned by the methods and what's in the node.
+              if LineBreakStyle = hlbDefault then
+                if (vsMultiline in Node.States) or ContainsStr(HintText, #13) then
+                  LineBreakStyle := hlbForceMultiLine
+                else
+                  LineBreakStyle := hlbForceSingleLine;
+
+              // Hint for a node.
+              if LineBreakStyle = hlbForceMultiLine then
+              begin
+                // Multiline tooltips use the columns width but extend the bottom border to fit the whole caption.
+                Result := Tree.GetDisplayRect(Node, Column, True, False);
+                R := Result;
+
+                // On Windows NT/2K/XP the behavior of the tooltip is slightly different to that on Windows 9x/Me.
+                // We don't have Unicode word wrap on the latter so the tooltip gets as wide as the largest line
+                // in the caption (limited by carriage return), which results in unoptimal overlay of the tooltip.
+                DrawText(Canvas.Handle, PChar(HintText), Length(HintText), R, DT_CALCRECT or DT_WORDBREAK);
+                if BidiMode = bdLeftToRight then
+                  Result.Right := R.Right + TBVTCracker(Tree).TextMargin
+                else
+                  Result.Left := R.Left - TBVTCracker(Tree).TextMargin + 1;
+                Result.Bottom := R.Bottom;
+
+                Inc(Result.Right);
+
+                // If the node height and the column width are both already large enough to cover the entire text,
+                // then we don't need the hint, though.
+                // However if the text is partially scrolled out of the client area then a hint is useful as well.
+                if (Tree.Header.Columns.Count > 0) and ((Tree.NodeHeight[Node] + 2) >= (Result.Bottom - Result.Top)) and
+                   ((Tree.Header.Columns[Column].Width + 2) >= (Result.Right - Result.Left)) and not
+                   ((Result.Left < 0) or (Result.Right > Tree.ClientWidth + 3) or
+                    (Result.Top < 0) or (Result.Bottom > Tree.ClientHeight + 3)) then
+                begin
+                  Result := Types.Rect(0, 0, 0, 0);
+                  Exit;
+                end;
+              end
+              else
+              begin
+                Result := TBVTCracker(Tree).LastHintRect; // = Tree.GetDisplayRect(Node, Column, True, True, True); see TBaseVirtualTree.CMHintShow
+
+                { Fixes issue #623
+
+                  Measure the rectangle to draw the text. The width of the result
+                  is always adjusted according to the hint text because it may
+                  be a custom hint coming in which can be larger or smaller than
+                  the node text.
+                  Earlier logic was using the current width of the node that was
+                  either cutting off the hint text or producing undesired space
+                  on the right.
+                }
+                R := Types.Rect(0, 0, MaxWidth, FTextHeight);
+                DrawText(Canvas.Handle, PChar(HintText), Length(HintText), R, DT_CALCRECT or DT_TOP or DT_NOPREFIX or DT_WORDBREAK);
+                if R.Right <> result.right - result.left then
+                begin
+                  result.Right := result.Left + r.Right;
+
+                  //Space on right--taken from the code in the hmHint branch below.
+                  if Assigned(Tree) then
+                    Inc(Result.Right, TBVTCracker(Tree).TextMargin + TBVTCracker(Tree).Margin + Tree.ScaledPixels(4));
+                end;
+                // Fix ends.
+
+                if toShowHorzGridLines in TBVTCracker(Tree).TreeOptions.PaintOptions then
+                  Dec(Result.Bottom);
+              end;
+
+              // Include a one pixel border.
+              InflateRect(Result, 1, 1);
+
+              // Make the coordinates relative. They will again be offset by the caller code.
+              OffsetRect(Result, -Result.Left - 1, -Result.Top - 1);
+            end
+            else
+            begin
+              // Hint for a header or non-tooltip hint.
+
+              // Start with the base size of the hint in client coordinates.
+              Result := Types.Rect(0, 0, MaxWidth, FTextHeight);
+              // Calculate the true size of the text rectangle.
+              DrawText(Canvas.Handle, PChar(HintText), Length(HintText), Result, DT_CALCRECT or DT_TOP or DT_NOPREFIX or DT_WORDBREAK);
+              // The height of the text plus 2 pixels vertical margin plus the border determine the hint window height.
+              // Minus 4 because THintWindow.ActivateHint adds 4 to Rect.Bottom anyway. Note that it is not scaled because the RTL itself does not do any scaling either.
+              Inc(Result.Bottom, Tree.ScaledPixels(6) - 4);
+              // The text is centered horizontally with usual text margin for left and right borders (plus border).
+              if not Assigned(Tree) then
+                Exit; // Workaround, because we have seen several exceptions here caught by Eurekalog. Submitted as issue #114 to http://code.google.com/p/virtual-treeview/
+              { Issue #623 Fix for strange space on the right.
+                Original logic was adding FTextHeight. Changed it to add FMargin instead and
+                it looks OK even if the hint font is larger.
+              }
+              Inc(Result.Right, TBVTCracker(Tree).TextMargin
+                  + TBVTCracker(Tree).Margin + Tree.ScaledPixels(4)); //Issue #623 space on right
+                  //+ FTextHeight); // Old code: We are extending the width here, but the text height scales with the text width and has a similar value as AveCharWdith * 2.
+            end;
+          end;
+        end;
+      end;
+    end;
+  except
+    Application.HandleException(Self);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TVirtualTreeHintWindow.IsHintMsg(Msg: TMsg): Boolean;
+
+// The VCL is a bit too generous when telling that an existing hint can be cancelled. Need to specify further here.
+
+begin
+  Result := inherited IsHintMsg(Msg) and HandleAllocated and IsWindowVisible(Handle);
+  // Avoid that mouse moves over the non-client area or cursor key presses cancel the current hint.
+  if Result and ((Msg.Message = WM_NCMOUSEMOVE) or ((Msg.Message >= WM_KEYFIRST) and (Msg.Message <= WM_KEYLAST) and (Msg.wparam in [VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT]))) then
+    Result := False;
 end;
 
 end.

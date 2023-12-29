@@ -1,4 +1,6 @@
-﻿unit VirtualTrees.ClipBoard;
+unit VirtualTrees.ClipBoard;
+
+{$mode delphi}
 
 // The contents of this file are subject to the Mozilla Public License
 // Version 1.1 (the "License"); you may not use this file except in compliance
@@ -25,14 +27,14 @@
 
 interface
 
-{$WARN UNSAFE_TYPE OFF}
-{$WARN UNSAFE_CAST OFF}
+{$I VTConfig.inc}
 
 uses
   Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.Types, VirtualTrees.BaseTree
 
   {$ifdef Windows}
   , ActiveX
+  , JwaWinUser
   {$else}
   , FakeActiveX
   {$endif}
@@ -69,8 +71,8 @@ var
 // OLE Clipboard and drag'n drop helper
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; const List: TStrings); overload;
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray); overload;
-function GetVTClipboardFormatDescription(AFormat: Word): string;
-procedure RegisterVTClipboardFormat(AFormat: Word; TreeClass: TVirtualTreeClass; Priority: Cardinal); overload;
+function GetVTClipboardFormatDescription(AFormat: TClipboardFormat): string;
+procedure RegisterVTClipboardFormat(AFormat: TClipboardFormat; TreeClass: TVirtualTreeClass; Priority: Cardinal); overload;
 function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
                                    tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil;
                                    dwAspect: Integer = DVASPECT_CONTENT; lindex: Integer = -1): Word; overload;
@@ -98,7 +100,7 @@ type
     class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray;  const AllowedFormats: TClipboardFormats = nil); overload;
     class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings); overload;
     class function FindFormat(const FormatString: string): TClipboardFormatListEntry; overload;
-    class function FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass; overload;
+    class function FindFormat(const FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass; overload;
     class function FindFormat(Fmt: Word; var Description: string): TVirtualTreeClass; overload;
   end;
 
@@ -110,13 +112,9 @@ var
   CF_VRTFNOOBJS,   // Unfortunately CF_RTF* is already defined as being
                    // registration strings so I have to use different identifiers.
   CF_HTML,
-  CF_CSV: Word;
-
+  CF_CSV: TClipboardFormat;
 
 implementation
-
-uses
-  System.SysUtils;
 
 var
   _List: TList = nil;  //Note - not using class constructors as they are not supported on C++ Builder. See also issue #
@@ -137,7 +135,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function GetVTClipboardFormatDescription(AFormat: Word): string;
+function GetVTClipboardFormatDescription(AFormat: TClipboardFormat): string;
 
 begin
   if TClipboardFormatList.FindFormat(AFormat, Result) = nil then
@@ -146,7 +144,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure RegisterVTClipboardFormat(AFormat: Word; TreeClass: TVirtualTreeClass; Priority: Cardinal);
+procedure RegisterVTClipboardFormat(AFormat: TClipboardFormat; TreeClass: TVirtualTreeClass; Priority: Cardinal);
 
 // Registers the given clipboard format for the given TreeClass.
 
@@ -361,7 +359,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class function TClipboardFormatList.FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass;
+class function TClipboardFormatList.FindFormat(const FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass;
 
 var
   I: Integer;
@@ -419,3 +417,4 @@ finalization
   FreeAndNil(_List);
 
 end.
+

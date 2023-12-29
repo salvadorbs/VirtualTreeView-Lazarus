@@ -62,7 +62,6 @@ type
     CheckBox26: TCheckBox;
     CheckBox30: TCheckBox;
     CheckBox34: TCheckBox;
-    CheckBox35: TCheckBox;
     CheckBox38: TCheckBox;
     CheckBox45: TCheckBox;
     CheckBox46: TCheckBox;
@@ -82,9 +81,6 @@ implementation
 
 {$R *.lfm}
 
-
-uses
-  VirtualTrees.Types;
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -182,7 +178,6 @@ begin
   CheckBox32.Enabled := EnableCheckBox.Checked;
   CheckBox33.Enabled := EnableCheckBox.Checked;
   CheckBox34.Enabled := EnableCheckBox.Checked;
-  CheckBox35.Enabled := EnableCheckBox.Checked;
   CheckBox36.Enabled := EnableCheckBox.Checked;
   CheckBox37.Enabled := EnableCheckBox.Checked;
   CheckBox38.Enabled := EnableCheckBox.Checked;

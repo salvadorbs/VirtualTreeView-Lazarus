@@ -17,8 +17,6 @@ type
   //Edit support Classes.
   TStringEditLink = class;
 
-  { TVTEdit }
-
   TVTEdit = class(TCustomEdit)
   private
     procedure CMAutoAdjust(var Message: TLMessage); message CM_AUTOADJUST;
@@ -30,15 +28,15 @@ type
     procedure WMGetDlgCode(var Message: TLMNoParams); message LM_GETDLGCODE;
     procedure WMKeyDown(var Message: TLMKeyDown); message LM_KEYDOWN;
   protected
-    FRefLink: IVTEditLink;
-    FLink: TStringEditLink;
+    FRefLink : IVTEditLink;
+    FLink : TStringEditLink;
     procedure AutoAdjustSize; virtual;
     function CalcMinHeight : Integer; virtual;
-    procedure CreateParams(var Params: TCreateParams); override;
+    procedure CreateParams(var Params : TCreateParams); override;
     function GetTextSize : TSize; virtual;
     procedure KeyPress(var Key : Char); override;
   public
-    constructor Create(Link: TStringEditLink); reintroduce;
+    constructor Create(Link : TStringEditLink); reintroduce;
     procedure ClearLink;
     procedure ClearRefLink;
     procedure Release; virtual;
@@ -47,9 +45,11 @@ type
     property AutoSize;
     property BorderStyle;
     property CharCase;
-    //property HideSelection;
+    property HideSelection;
     property MaxLength;
-    //property OEMConvert;
+    {$IFDEF DelphiSupport}
+    property OEMConvert;
+    {$ENDIF}
     property PasswordChar;
   end;
 
@@ -77,9 +77,6 @@ type
   //   - assign event handlers in end-user code
   //     (+) Access to external classes with data to copy to EditLink editor.
   //     (-) Lesser encapsulation
-
-  { TBaseEditLink }
-
   TBaseEditLink = class(TInterfacedObject, IVTEditLink)
   strict protected
     FEdit: TControl;                          // One of the property editor classes.
@@ -129,9 +126,6 @@ type
 
   // Edit link that has TWinControl-based Edit. Performs visibility and focus actions,
   // transfers window messages to Edit control.
-
-  { TWinControlEditLink }
-
   TWinControlEditLink = class(TBaseEditLink)
   protected
     function GetEdit: TWinControl;                //Getter for the FEdit member;
@@ -151,9 +145,9 @@ type
   // Edit link that implements default node text editor.
   TStringEditLink = class(TWinControlEditLink)
   protected
-    FTextBounds: TRect;              // Smallest rectangle around the text.
+    FTextBounds : TRect;                      //Smallest rectangle around the text.
     function GetEdit: TVTEdit;                //Getter for the FEdit member;
-    procedure SetEdit(const Value: TVTEdit); // Setter for the FEdit member;
+    procedure SetEdit(const Value : TVTEdit); //Setter for the FEdit member;
   public
     constructor Create;
 
@@ -176,18 +170,18 @@ type
 
 //----------------- TVTEdit --------------------------------------------------------------------------------------------
 
-// Implementation of a generic node caption editor.
+//Implementation of a generic node caption editor.
 
-constructor TVTEdit.Create(Link: TStringEditLink);
+constructor TVTEdit.Create(Link : TStringEditLink);
 begin
   inherited Create(nil);
   if not Assigned(Link) then
     raise EArgumentException.Create('Parameter Link must not be nil.');
   ShowHint := False;
   ParentShowHint := False;
-  // This assignment increases the reference count for the interface.
+  //This assignment increases the reference count for the interface.
   FRefLink := Link;
-  // This reference is used to access the link.
+  //This reference is used to access the link.
   FLink := Link;
 end;
 
@@ -250,11 +244,10 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVTEdit.CNCommand(var Message: TLMCommand);
-begin 
-  if Assigned(FLink) and Assigned(FLink.Tree) and (Message.NotifyCode = EN_UPDATE) and
-    not (vsMultiline in FLink.Node.States) then
-    // Instead directly calling AutoAdjustSize it is necessary on Win9x/Me to decouple this notification message
-    // and eventual resizing. Hence we use a message to accomplish that.
+begin
+  if Assigned(FLink) and Assigned(FLink.Tree) and (Message.NotifyCode = EN_UPDATE) and not (vsMultiline in FLink.Node.States) then
+    //Instead directly calling AutoAdjustSize it is necessary on Win9x/Me to decouple this notification message
+    //and eventual resizing. Hence we use a message to accomplish that.
     AutoAdjustSize()
   else
     inherited;
@@ -272,9 +265,9 @@ end;
 
 procedure TVTEdit.WMDestroy(var Message: TLMDestroy);
 begin
-  // If editing stopped by other means than accept or cancel then we have to do default processing for
-  // pending changes.
-  if Assigned(FLink) and not FLink.Stopping then
+  //If editing stopped by other means than accept or cancel then we have to do default processing for
+  //pending changes.
+  if Assigned(FLink) and not FLink.Stopping {$IFNDEF FPC} and not (csRecreating in Self.ControlState) {$ENDIF} then
   begin
     with TCustomVirtualStringTreeCracker(FLink.Tree) do
     begin
@@ -300,30 +293,30 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVTEdit.WMKeyDown(var Message: TLMKeyDown);
-// Handles some control keys.
+//Handles some control keys.
 
 var
-  Shift: TShiftState;
-  EndEdit: Boolean;
-  Tree: TBaseVirtualTree;
-  NextNode: PVirtualNode;
+  Shift : TShiftState;
+  EndEdit : Boolean;
+  Tree : TBaseVirtualTree;
+  NextNode : PVirtualNode;
   ColumnCandidate : Integer;
   EditOptions : TVTEditOptions;
   Column : TVirtualTreeColumn;
 begin
   Tree := FLink.Tree;
   case Message.CharCode of
-    VK_ESCAPE:
+    VK_ESCAPE :
       begin
         TCustomVirtualStringTreeCracker(Tree).DoCancelEdit;
       end;
-    VK_RETURN:
+    VK_RETURN :
       begin
         EndEdit := not (vsMultiline in FLink.Node.States);
         if not EndEdit then
         begin
-          // If a multiline node is being edited the finish editing only if Ctrl+Enter was pressed,
-          // otherwise allow to insert line breaks into the text.
+          //If a multiline node is being edited the finish editing only if Ctrl+Enter was pressed,
+          //otherwise allow to insert line breaks into the text.
           Shift := KeyDataToShiftState(Message.KeyData);
           EndEdit := ssCtrl in Shift;
         end;
@@ -391,19 +384,19 @@ begin
           end;
         end;
       end;
-    VK_UP:
+    VK_UP :
       begin
         if not (vsMultiline in FLink.Node.States) then
           Message.CharCode := VK_LEFT;
         inherited;
       end;
-    VK_DOWN:
+    VK_DOWN :
       begin
         if not (vsMultiline in FLink.Node.States) then
           Message.CharCode := VK_RIGHT;
         inherited;
       end;
-    VK_TAB:
+    VK_TAB :
       begin
         if Tree.IsEditing then
         begin
@@ -419,12 +412,12 @@ begin
             //Continue editing next node
             Tree.ClearSelection();
             Tree.Selected[NextNode] := True;
-          if Tree.CanEdit(Tree.FocusedNode, Tree.FocusedColumn) then
-            TCustomVirtualStringTreeCracker(Tree).DoEdit;
+            if Tree.CanEdit(Tree.FocusedNode, Tree.FocusedColumn) then
+              TCustomVirtualStringTreeCracker(Tree).DoEdit;
+          end;
         end;
       end;
-      end;
-    Ord('A'):
+    Ord('A') :
       begin
         if Tree.IsEditing and ([ssCtrl] = KeyDataToShiftState(Message.KeyData) {KeyboardStateToShiftState}) then
         begin
@@ -432,19 +425,19 @@ begin
           Message.CharCode := 0;
         end;
       end;
-  else
-    inherited;
+    else
+      inherited;
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVTEdit.AutoAdjustSize;
-// Changes the size of the edit to accomodate as much as possible of its text within its container window.
-// NewChar describes the next character which will be added to the edit's text.
+//Changes the size of the edit to accomodate as much as possible of its text within its container window.
+//NewChar describes the next character which will be added to the edit's text.
 
 var
-  Size: TSize;
+  Size : TSize;
 begin
   if not (vsMultiline in FLink.Node.States) and not (toGridExtensions in TCustomVirtualStringTreeCracker(FLink.Tree).TreeOptions.MiscOptions { see issue #252 } ) then
   begin
@@ -455,7 +448,7 @@ begin
     try
       Size := GetTextSize;
       Inc(Size.cx, 2 * TCustomVirtualStringTreeCracker(FLink.Tree).TextMargin);
-      // Repaint associated node if the edit becomes smaller.
+      //Repaint associated node if the edit becomes smaller.
       if Size.cx < Width then
         FLink.Tree.Invalidate();
 
@@ -473,14 +466,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.CreateParams(var Params: TCreateParams);
+procedure TVTEdit.CreateParams(var Params : TCreateParams);
 begin
   inherited;
   if not Assigned(FLink.Node) then
     exit; //Prevent AV exceptions occasionally seen in code below
 
-  // Only with multiline style we can use the text formatting rectangle.
-  // This does not harm formatting as single line control, if we don't use word wrapping.
+  //Only with multiline style we can use the text formatting rectangle.
+  //This does not harm formatting as single line control, if we don't use word wrapping.
   with Params do
   begin
     //todo: delphi uses Multiline for all
@@ -597,8 +590,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseEditLink.PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode;
-  Column: TColumnIndex): Boolean; stdcall;
+function TBaseEditLink.PrepareEdit(Tree : TBaseVirtualTree; Node : PVirtualNode; Column : TColumnIndex) : Boolean; stdcall;
 
 // Performs general init: assign Tree, Node, Column, other properties; destroys previous
 // edit instance.
@@ -759,7 +751,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TStringEditLink.BeginEdit: Boolean;
+function TStringEditLink.BeginEdit : Boolean;
 begin
   Result := inherited;
   if Result then
@@ -771,7 +763,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TStringEditLink.CancelEdit: Boolean;
+function TStringEditLink.CancelEdit : Boolean;
 begin
   Result := inherited;
   if Result then
@@ -783,7 +775,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TStringEditLink.EndEdit: Boolean;
+function TStringEditLink.EndEdit : Boolean;
 begin
   Result := inherited;
   if Result then
@@ -800,7 +792,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TStringEditLink.PrepareEdit(Tree: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex): Boolean;
+function TStringEditLink.PrepareEdit(Tree : TBaseVirtualTree; Node : PVirtualNode; Column : TColumnIndex) : Boolean;
 var
   Text : string;
 begin
@@ -812,9 +804,12 @@ begin
     Edit.BorderStyle := bsSingle;
     Edit.AutoSize := True;
     Edit.Parent := Tree;
-    // Initial size, font and text of the node.
+    //Initial size, font and text of the node.
     FTree.GetTextInfo(Node, Column, Edit.Font, FTextBounds, Text);
     Edit.Font.Color := clWindowText;
+    {$IFNDEF FPC}
+    Edit.RecreateWnd;
+    {$ENDIF}
     Edit.AutoSize := False;
     Edit.Text := Text;
     Edit.BidiMode := FBidiMode;
@@ -825,11 +820,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TStringEditLink.SetBounds(R: TRect);
-// Sets the outer bounds of the edit control and the actual edit area in the control.
+procedure TStringEditLink.SetBounds(R : TRect);
+//Sets the outer bounds of the edit control and the actual edit area in the control.
 
 var
-  lOffset, tOffset, Height : Integer;
+  lOffset, tOffset, Height : TDimension;
   offsets : TVTOffsets;
 begin
   if not FStopping then
@@ -844,8 +839,8 @@ begin
         Inc(R.Bottom, tOffset);
     end;
 
-    // Set the edit's bounds but make sure there's a minimum width and the right border does not
-    // extend beyond the parent's left/right border.
+    //Set the edit's bounds but make sure there's a minimum width and the right border does not
+    //extend beyond the parent's left/right border.
     if R.Left < 0 then
       R.Left := 0;
     if R.Right - R.Left < 30 then
@@ -859,9 +854,9 @@ begin
       R.Right := FTree.ClientWidth;
     Edit.BoundsRect := R;
 
-    // The selected text shall exclude the text margins and be centered vertically.
-    // We have to take out the two pixel border of the edit control as well as a one pixel "edit border" the
-    // control leaves around the (selected) text.
+    //The selected text shall exclude the text margins and be centered vertically.
+    //We have to take out the two pixel border of the edit control as well as a one pixel "edit border" the
+    //control leaves around the (selected) text.
     R := Edit.ClientRect;
 
     //If toGridExtensions are turned on, we can fine tune the left margin (or the right margin if RTL is on)
@@ -890,7 +885,7 @@ begin
     lOffset := IfThen(vsMultiline in FNode.States, 0, 2);
     if tsUseThemes in FTree.TreeStates then
       Inc(lOffset);
-    InflateRect(R, -TCustomVirtualStringTreeCracker(FTree).TextMargin + lOffset, lOffset);
+    InflateRect(R, - TCustomVirtualStringTreeCracker(FTree).TextMargin + lOffset, lOffset);
     if not (vsMultiline in FNode.States) then
     begin
       tOffset := FTextBounds.Top - Edit.Top;
@@ -898,8 +893,8 @@ begin
       if tOffset > 0 then
         OffsetRect(R, 0, tOffset);
     end;
-    R.Top := Max(-1, R.Top); // A value smaller than -1 will prevent the edit cursor from being shown by Windows, see issue #159
-    R.Left := Max(-1, R.Left);
+    R.Top := Max( - 1, R.Top); //A value smaller than -1 will prevent the edit cursor from being shown by Windows, see issue #159
+    R.Left := Max( - 1, R.Left);
     SendMessage(Edit.Handle, EM_SETRECTNP, 0, LPARAM(@R));
   end;
 end;

@@ -64,7 +64,7 @@ implementation
 
 {$R *.lfm}
 
-uses States;
+uses States, VirtualTrees.Types;
 
 
 type

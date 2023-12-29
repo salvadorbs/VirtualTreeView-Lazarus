@@ -20,6 +20,7 @@ uses
 const
   SID_IDropTargetHelper = '{4657278B-411B-11D2-839A-00C04FD918D0}';
   SID_IDragSourceHelper = '{DE5BF786-477A-11D2-839D-00C04FD918D0}';
+  SID_IDragSourceHelper2 = '{83E07D0D-0C5F-4163-BF1A-60B274051E40}';
   SID_IDropTarget = '{00000122-0000-0000-C000-000000000046}';
   
   //Bridge to ActiveX constants
@@ -60,14 +61,21 @@ type
     sizeDragImage: TSize;
     ptOffset: TPoint;
     hbmpDragImage: HBITMAP;
-    ColorRef: TColorRef;
+    crColorKey: TColorRef;
   end;
 
   IDragSourceHelper = interface(IUnknown)
     [SID_IDragSourceHelper]
-    function InitializeFromBitmap(var SHDragImage: TSHDragImage; pDataObject: IDataObject): HRESULT; stdcall;
+    function InitializeFromBitmap(SHDragImage: PSHDragImage; pDataObject: IDataObject): HRESULT; stdcall;
     function InitializeFromWindow(Window: HWND; var ppt: TPoint; pDataObject: IDataObject): HRESULT; stdcall;
   end;
+  {$EXTERNALSYM IDragSourceHelper}
+
+  IDragSourceHelper2 = interface(IDragSourceHelper)
+  [SID_IDragSourceHelper2]
+    function SetFlags(dwFlags: DWORD): HRESULT; stdcall;
+  end;
+  {$EXTERNALSYM IDragSourceHelper2}
   
   //Ole helper functions
 

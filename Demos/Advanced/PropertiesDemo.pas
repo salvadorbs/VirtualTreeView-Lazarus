@@ -58,7 +58,7 @@ implementation
 {$R *.lfm}
 
 uses
-  Editors, Math, Main, States;
+  Editors, Math, Main, States, VirtualTrees.Types;
 
 
 //----------------- TPropertiesForm ------------------------------------------------------------------------------------

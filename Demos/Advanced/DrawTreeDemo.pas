@@ -21,7 +21,8 @@ uses
   Windows,
   {$endif}
   LCLIntf, delphicompat, LCLType, SysUtils, Classes, ComCtrls, Graphics, Controls, Forms, Dialogs,
-  VirtualTrees, StdCtrls,  shlobjext, LResources, VirtualTrees.DrawTree, VirtualTrees.BaseTree;
+  VirtualTrees, StdCtrls,  shlobjext, LResources, VirtualTrees.DrawTree,
+  VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
   TDrawTreeForm = class(TForm)

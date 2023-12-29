@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.Accessibility;
+unit VirtualTrees.Accessibility;
 
 // This unit implements iAccessible interfaces for the VirtualTree visual components
 // and the currently focused node.
@@ -96,7 +96,14 @@ type
 
 implementation
 
-uses Variants, SysUtils, Types, Forms;
+uses
+  Variants, SysUtils, Types, Forms;
+
+type
+
+/// For getting access to protected members of this class
+THackVirtualStringTree = class(TVirtualStringTree)
+end;
 
 { TVirtualTreeAccessibility }
 //----------------------------------------------------------------------------------------------------------------------

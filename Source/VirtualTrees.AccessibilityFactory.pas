@@ -1,4 +1,4 @@
-﻿unit VirtualTrees.AccessibilityFactory;
+unit VirtualTrees.AccessibilityFactory;
 
 // The contents of this file are subject to the Mozilla Public License
 // Version 1.1 (the "License"); you may not use this file except in compliance
@@ -30,7 +30,7 @@
 // the AccessibleItem is returned when the Accessible is being asked for the first child
 // To create your own IAccessibles, use the VTStandardAccessible unit as a reference,
 // and assign your Accessibles to the variables in the unit's initialization.
-// You only need to add the unit to your project, and voilá, you have an accessible string tree!
+// You only need to add the unit to your project, and voil�, you have an accessible string tree!
 //
 // Written by Marco Zehe. (c) 2007
 
@@ -55,14 +55,12 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    function CreateIAccessible(ATree: TBaseVirtualTree): IAccessible;
+    function CreateIAccessible(ATree: TCustomControl): IAccessible;
     class function GetAccessibilityFactory: TVTAccessibilityFactory; static;
     procedure RegisterAccessibleProvider(const AProvider: IVTAccessibleProvider);
     procedure UnRegisterAccessibleProvider(const AProvider: IVTAccessibleProvider);
   end;
 
-var
-  VTAccessibleFactory: TVTAccessibilityFactory;
 
 implementation
 
@@ -75,11 +73,11 @@ begin
   FAccessibleProviders.Clear;
 end;
 
-function TVTAccessibilityFactory.CreateIAccessible(
-  ATree: TBaseVirtualTree): IAccessible;
+function TVTAccessibilityFactory.CreateIAccessible(ATree: TCustomControl): IAccessible;
 var
   I: Integer;
   TmpIAccessible: IAccessible;
+  lTree: TBaseVirtualTree;
 // returns an IAccessible.
 // 1. If the Accessible property of the passed-in tree is nil,
 // the first registered element will be returned.
@@ -91,23 +89,24 @@ var
 // The index for these should all be greater than 0, e g the IAccessible for the tree itself should always be registered first, then any IAccessible items.
 begin
   Result := nil;
-  if ATree <> nil then
+  lTree := (ATree as TBaseVirtualTree);
+  if lTree <> nil then
   begin
-    if ATree.Accessible = nil then
+    if lTree.Accessible = nil then
     begin
       if FAccessibleProviders.Count > 0 then
       begin
-        result := IVTAccessibleProvider(FAccessibleProviders.Items[0]).CreateIAccessible(ATree);
-        exit;
+        Result := IVTAccessibleProvider(FAccessibleProviders.Items[0]).CreateIAccessible(lTree);
+        Exit;
       end;
     end;
-    if ATree.AccessibleItem = nil then
+    if lTree.AccessibleItem = nil then
     begin
       if FAccessibleProviders.Count > 0 then
       begin
         for I := FAccessibleProviders.Count - 1 downto 1 do
         begin
-          TmpIAccessible := IVTAccessibleProvider(FAccessibleProviders.Items[I]).CreateIAccessible(ATree);
+          TmpIAccessible := IVTAccessibleProvider(FAccessibleProviders.Items[I]).CreateIAccessible(lTree);
           if TmpIAccessible <> nil then
           begin
             Result := TmpIAccessible;
@@ -116,13 +115,12 @@ begin
         end;
         if TmpIAccessible = nil then
         begin
-          result := IVTAccessibleProvider(FAccessibleProviders.Items[0]).CreateIAccessible(ATree);
+          Result := IVTAccessibleProvider(FAccessibleProviders.Items[0]).CreateIAccessible(lTree);
         end;
       end;
     end
-    else begin
-      result := ATree.AccessibleItem;
-    end;
+    else
+      Result := lTree.AccessibleItem;
   end;
 end;
 
