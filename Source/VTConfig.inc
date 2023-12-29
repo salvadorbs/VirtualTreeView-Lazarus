@@ -13,7 +13,7 @@
 
 // Enable this switch for Windows XP theme support. If you compile with Delphi 6 or lower you must download and install
 // the Soft Gems Theme Manager package.
-{.$define ThemeSupport}
+{$define ThemeSupport}
 
 // Virtual Treeview can use a tiny but very effective local memory manager for node allocation.
 // The local memory manager was implemented by David Clark from Caelo Software Inc.
@@ -34,10 +34,14 @@
 
 {$define EnableAlphaBlend}
 
+{$ifdef Windows}
+  {$define EnableWinDataObject}
+{$endif}
+
 //Don't enable this because oleacc is not available for FreePascal
 {.$define EnableAccessible}
 
-{$define ThemeSupport}
+{.$define DelphiStyleServices}
 
 {$if defined(LCLWin32) or defined(LCLWinCE)}
   {$define LCLWin}
@@ -82,3 +86,9 @@
 {$if defined(LCLGtk2) or defined(LCLCarbon) or defined(LCLQt)}
 	{$define ContextMenuBeforeMouseUp}
 {$endif}
+
+{$define AtomicIncrement:=interlockedIncrement}
+{$define AtomicDecrement:=interlockedDecrement}
+{$define AtomicExchange:=interlockedExchange}
+{$define AtomicCompareExchange:=InterlockedCompareExchange}
+

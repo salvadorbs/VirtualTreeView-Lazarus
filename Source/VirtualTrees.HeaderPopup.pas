@@ -95,7 +95,7 @@ type
     procedure OnMenuItemClick(Sender: TObject); virtual;
   public
     constructor Create(AOwner: TComponent); override;
-    procedure Popup(x, y: Integer); override;
+    procedure Popup(x, y: TDimension); override;
   published
     property Options: TVTHeaderPopupOptions read FOptions write FOptions default [poResizeToFitItem];
 
@@ -119,7 +119,7 @@ type
   public
     constructor Create(AOwner: TComponent; const ACaption: string; AClickHandler: TNotifyEvent = nil); reintroduce;
   end;
-  
+
 //----------------- TVTHeaderPopupMenu ---------------------------------------------------------------------------------
 
 constructor TVTHeaderPopupMenu.Create(AOwner: TComponent);
@@ -164,8 +164,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTHeaderPopupMenu.Popup(x, y: Integer);
-
+procedure TVTHeaderPopupMenu.Popup(x, y: TDimension);
 var
   ColPos: TColumnPosition;
   ColIdx: TColumnIndex;
@@ -214,7 +213,7 @@ begin
         with Columns[ColIdx] do
         begin
           if coVisible in Options then
-            Inc(VisibleCounter);
+            System.Inc(VisibleCounter);
           DoAddHeaderPopupItem(ColIdx, Cmd);
           if Cmd <> apHidden then
           begin
@@ -239,7 +238,7 @@ begin
         VisibleItem.Enabled := False;
     end;
   end;
-  
+
   inherited;
 end;
 

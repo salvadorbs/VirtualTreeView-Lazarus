@@ -20,7 +20,7 @@ type
   protected
     function DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
       CellContentMarginType: TVTCellContentMarginType = ccmtAllSides; Canvas: TCanvas = nil): TPoint; override;
-    function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): Integer; override;
+    function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     procedure DoPaintNode(var PaintInfo: TVTPaintInfo); override;
     function GetDefaultHintKind: TVTHintKind; override;
 
@@ -38,6 +38,7 @@ type
   public
     property Canvas;
     property LastDragEffect;
+    property CheckImageKind; // should no more be published to make #622 fix working
   published
     property Action;
     property Align;
@@ -51,11 +52,13 @@ type
     property BackgroundOffsetX;
     property BackgroundOffsetY;
     property BiDiMode;
-    //property BevelEdges;
-    //property BevelInner;
-    //property BevelOuter;
-    //property BevelKind;
-   // property BevelWidth;
+    {
+    property BevelEdges;
+    property BevelInner;
+    property BevelOuter;
+    property BevelKind;
+    property BevelWidth;
+    }
     property BorderSpacing;
     property BorderStyle default bsSingle;
     property BottomSpace;
@@ -68,6 +71,9 @@ type
     property Color;
     property Colors;
     property Constraints;
+    {
+    property Ctl3D;
+    }
     property CustomCheckImages;
     property DefaultNodeHeight;
     property DefaultPasteMode;
@@ -100,6 +106,9 @@ type
     property OperationCanceled;
     property ParentBiDiMode;
     property ParentColor default False;
+    {
+    property ParentCtl3D;
+    }
     property ParentFont;
     property ParentShowHint;
     property PopupMenu;
@@ -258,7 +267,14 @@ type
     property OnStructureChange;
     property OnUpdating;
     property OnUTF8KeyPress;
+    {
+    property OnCanResize;
+    property OnGesture;
+    property Touch;
+    property StyleElements;
+    }
   end;
+
 
 implementation
 
@@ -278,7 +294,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCustomVirtualDrawTree.DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): Integer;
+function TCustomVirtualDrawTree.DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension;
 
 begin
   Result := 2 * TextMargin;
@@ -327,5 +343,7 @@ function TVirtualDrawTree.GetOptionsClass: TTreeOptionsClass;
 begin
   Result := TVirtualTreeOptions;
 end;
+
+
 
 end.

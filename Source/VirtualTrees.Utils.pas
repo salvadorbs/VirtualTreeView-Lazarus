@@ -11,7 +11,9 @@ uses
   VirtualTrees.Types, StrUtils, Math;
 
 type
-  // Describes the mode how to blend pixels.
+  /// <summary>
+  /// Describes the mode how to blend pixels.
+  /// </summary>
   TBlendMode = (
     bmConstantAlpha,         // apply given constant alpha
     bmPerPixelAlpha,         // use alpha value of the source pixel
@@ -35,12 +37,24 @@ procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer); inline;
 /// </summary>
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
+procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas; X, Y: Integer; Style: Cardinal; Enabled: Boolean);
+
 /// <summary>
 /// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
 /// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
 /// For higher speed (and multiple entries to be shorted) specify this value explicitely.
 /// </summary>
-function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string;
+function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string; overload;
+
+//--------------------------
+// ShortenString similar to VTV's version, except:
+// -- Does not assume using three dots or any particular character for ellipsis
+// -- Does not add ellipsis to string, so could be added anywhere
+// -- Requires EllipsisWidth, and zero does nothing special
+// Returns:
+//   ShortenedString as var param
+//   True if shortened (ie: add ellipsis somewhere), otherwise false
+function ShortenString(TargetCanvasDC: HDC; const StrIn: string; const AllowedWidth_px: Integer; const EllipsisWidth_px: Integer; var ShortenedString: string): boolean; overload;
 
 /// <summary>
 /// Wrap the given string S so that it fits into a space of given width.
@@ -51,7 +65,7 @@ function WrapString(DC: HDC; const S: string; const Bounds: TRect; RTL: Boolean;
 /// <summary>
 /// Calculates bounds of a drawing rectangle for the given string
 /// </summary>
-procedure GetStringDrawRect(DC: HDC; const S: String; var Bounds: TRect; DrawFormat: Cardinal);
+procedure GetStringDrawRect(DC: HDC; const S: string; var Bounds: TRect; DrawFormat: Cardinal);
 
 /// <summary>
 /// Converts the incoming rectangle so that left and top are always less than or equal to right and bottom.
@@ -64,7 +78,29 @@ function OrderRect(const R: TRect): TRect;
 /// <remarks>
 /// (used in DragMove of the drag manager and DragTo of the header columns).
 /// </remarks>
-procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; out RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
+procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
+
+/// <summary>
+/// Attaches a bitmap as drag image to an IDataObject, see issue #405
+/// <code>
+/// Usage: Set property DragImageKind to diNoImage, in your event handler OnCreateDataObject
+/// <para>       call VirtualTrees.Utils.ApplyDragImage() with your `IDataObject` and your bitmap.</para>
+/// </code>
+/// </summary>
+procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
+
+/// <summary>
+/// Returns True if the mouse cursor is currently visible and False in case it is suppressed.
+/// Useful when doing hot-tracking on touchscreens, see issue #766
+/// </summary>
+function IsMouseCursorVisible(): Boolean;
+
+procedure ScaleImageList(const ImgList: TImageList; M, D: Integer);
+
+/// <summary>
+/// Returns True if the high contrast theme is anabled in the system settings, False otherwise.
+/// </summary>
+function IsHighContrastEnabled(): Boolean;
 
 /// <summary>
 /// Divide depend of parameter type uses different division operator:
@@ -72,6 +108,13 @@ procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; out
 /// <code>Single uses /</code>
 /// </summary>
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer; overload; inline;
+
+/// <summary>
+/// Divide depend of parameter type uses different division operator:
+/// <code>Integer uses div</code>
+/// <code>Single uses /</code>
+/// </summary>
+function Divide(const Dimension: Single; const DivideBy: Integer): Single; overload; inline;
 
 function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 

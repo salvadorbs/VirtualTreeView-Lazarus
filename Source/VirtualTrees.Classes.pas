@@ -1,5 +1,27 @@
 unit VirtualTrees.Classes;
 
+// The contents of this file are subject to the Mozilla Public License
+// Version 1.1 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at http://www.mozilla.org/MPL/
+//
+// Alternatively, you may redistribute this library, use and/or modify it under the terms of the
+// GNU Lesser General Public License as published by the Free Software Foundation;
+// either version 2.1 of the License, or (at your option) any later version.
+// You may obtain a copy of the LGPL at http://www.gnu.org/copyleft/.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+// specific language governing rights and limitations under the License.
+//
+// The original code is VirtualTrees.pas, released September 30, 2000.
+//
+// The initial developer of the original code is digital publishing AG (Munich, Germany, www.digitalpublishing.de),
+// written by Mike Lischke (public@soft-gems.net, www.soft-gems.net).
+//
+// Portions created by digital publishing AG are Copyright
+// (C) 1999-2001 digital publishing AG. All Rights Reserved.
+//----------------------------------------------------------------------------------------------------------------------
+
 {$mode delphi}
 
 interface
@@ -26,21 +48,19 @@ type
     property AsString: RawByteString read GetAsString;
   end;
 
-  { TBufferedUTF8String }
-
   TBufferedString = class
   private
     FStart,
     FPosition,
-    FEnd: PChar;
-    function GetAsString: String;
+    FEnd: PWideChar;
+    function GetAsString: string;
   public
     destructor Destroy; override;
 
-    procedure Add(const S: String);
+    procedure Add(const S: string);
     procedure AddNewLine;
 
-    property AsString: String read GetAsString;
+    property AsString: string read GetAsString;
   end;
 
 
@@ -155,11 +175,11 @@ begin
     NewLen := FEnd - FStart + (Len + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, NewLen);
+    ReallocMem(FStart, 2 * NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
-  System.Move(PChar(S)^, FPosition^, Len);
+  Move(PWideChar(S)^, FPosition^, 2 * Len);
   Inc(FPosition, Len);
 end;
 
@@ -175,12 +195,11 @@ begin
   // Make room for the CR/LF characters.
   if FEnd - FPosition <= 4 then
   begin
-    //todo: see in calculation of NewLen is correct for String
     // Round up NewLen so it is always a multiple of AllocIncrement.
     NewLen := FEnd - FStart + (2 + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, NewLen);
+    ReallocMem(FStart, 2 * NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
@@ -189,5 +208,6 @@ begin
   FPosition^ := #10;
   Inc(FPosition);
 end;
+
 
 end.

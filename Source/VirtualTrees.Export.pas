@@ -38,7 +38,7 @@ function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceTyp
 
 // Renders the current tree content (depending on Source) as HTML text encoded in UTF-8.
 // If Caption is not empty then it is used to create and fill the header for the table built here.
-// Based on ideas and code from Frank van den Bergh and Andreas H??emeier.
+// Based on ideas and code from Frank van den Bergh and Andreas H?rstemeier.
 
 var
   Buffer: TBufferedString;
@@ -63,15 +63,15 @@ var
 
       Value := 48 + (Component shr 4);
       if Value > $39 then
-        Inc(Value, 7);
+        System.Inc(Value, 7);
       Buffer.Add(AnsiChar(Value));
-      Inc(I);
+      System.Inc(I);
 
       Value := 48 + (Component and $F);
       if Value > $39 then
-        Inc(Value, 7);
+        System.Inc(Value, 7);
       Buffer.Add(AnsiChar(Value));
-      Inc(I);
+      System.Inc(I);
 
       WinColor := WinColor shr 8;
     end;
@@ -136,7 +136,7 @@ var
   lGetCellTextEventArgs: TVSTGetCellTextEventArgs;
 begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
-  
+
   CrackTree.StartOperation(TVTOperationKind.okExport);
   Buffer := TBufferedString.Create;
   lGetCellTextEventArgs.ExportType := TVTExportType.etHtml;
@@ -230,8 +230,8 @@ begin
       if (CrackTree.CanExportNode(Run)) then
       begin
         Level := CrackTree.GetNodeLevel(Run);
-          if Level > MaxLevel then
-            MaxLevel := Level;
+        if Level > MaxLevel then
+          MaxLevel := Level;
       end;
       Run := GetNextNode(Run);
     end;
@@ -430,7 +430,7 @@ begin
 
         if not RenderColumns then
           Break;
-        Inc(I);
+        System.Inc(I);
       end;
       if Assigned(CrackTree.OnAfterNodeExport) then
         CrackTree.OnAfterNodeExport(CrackTree, etHTML, Run);
@@ -452,7 +452,7 @@ end;
 function ContentToRTF(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType): RawByteString;
 
 // Renders the current tree content (depending on Source) as RTF (rich text).
-// Based on ideas and code from Frank van den Bergh and Andreas H??emeier.
+// Based on ideas and code from Frank van den Bergh and Andreas Hoerstemeier.
 
 var
   Fonts: TStringList;
@@ -520,7 +520,7 @@ var
 
   //---------------------------------------------------------------------------
 
-  procedure TextPlusFont(const Text: String; Font: TFont);
+  procedure TextPlusFont(const Text: string; Font: TFont);
 
   var
     UseUnderline,
@@ -626,7 +626,7 @@ begin
     begin
       for I := 0 to High(Columns) do
       begin
-        Inc(J, Columns[I].Width);
+        System.Inc(J, Columns[I].Width);
         // This value must be expressed in twips (1 inch = 1440 twips).
         Twips := Round(1440 * J / Screen.PixelsPerInch);
         Buffer.Add('\cellx');
@@ -760,7 +760,7 @@ begin
 
         if not RenderColumns then
           Break;
-        Inc(I);
+        System.Inc(I);
       end;
       Buffer.Add('\row');
       Buffer.AddNewLine;
@@ -993,10 +993,10 @@ function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source
     EndHTMLIndex := EndFragmentIndex + Length(HTMLExtro);
 
     Description := Version +
-    SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
-    SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
-    SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
-    SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
+    System.SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
+    System.SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
+    System.SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
+    System.SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
     HTML := Description + DocType + HTMLIntro + HTML + HTMLExtro;
   end;
 

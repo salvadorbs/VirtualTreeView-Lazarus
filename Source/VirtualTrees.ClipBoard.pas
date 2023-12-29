@@ -2,19 +2,44 @@ unit VirtualTrees.ClipBoard;
 
 {$mode delphi}
 
+// The contents of this file are subject to the Mozilla Public License
+// Version 1.1 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at http://www.mozilla.org/MPL/
+//
+// Alternatively, you may redistribute this library, use and/or modify it under the terms of the
+// GNU Lesser General Public License as published by the Free Software Foundation;
+// either version 2.1 of the License, or (at your option) any later version.
+// You may obtain a copy of the LGPL at http://www.gnu.org/copyleft/.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+// specific language governing rights and limitations under the License.
+//
+// The original code is VirtualTrees.pas, released September 30, 2000.
+//
+// The initial developer of the original code is digital publishing AG (Munich, Germany, www.digitalpublishing.de),
+// written by Mike Lischke (public@soft-gems.net, www.soft-gems.net).
+//
+// Portions created by digital publishing AG are Copyright
+// (C) 1999-2001 digital publishing AG. All Rights Reserved.
+//----------------------------------------------------------------------------------------------------------------------
+
+
 interface
 
 {$I VTConfig.inc}
 
 uses
-  Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.Types, VirtualTrees.BaseTree
+  Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.BaseTree
 
   {$ifdef Windows}
   , ActiveX
+  , JwaWinUser
   {$else}
   , FakeActiveX
   {$endif}
-  ;
+
+  , VirtualTrees.Types;
 
 type
   TClipboardFormatEntry = record
@@ -45,45 +70,45 @@ var
     }
   );
 
+
 // OLE Clipboard and drag'n drop helper
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; const List: TStrings); overload;
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray); overload;
 function GetVTClipboardFormatDescription(AFormat: TClipboardFormat): string;
 procedure RegisterVTClipboardFormat(AFormat: TClipboardFormat; TreeClass: TVirtualTreeClass; Priority: Cardinal); overload;
-function RegisterVTClipboardFormat(Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
-  tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil; dwAspect: Integer = DVASPECT_CONTENT;
-  lindex: Integer = -1): Word; overload;
+function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
+                                   tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil;
+                                   dwAspect: Integer = DVASPECT_CONTENT; lindex: Integer = -1): Word; overload;
 
 //----------------- TClipboardFormats ----------------------------------------------------------------------------------
 
 type
-  PClipboardFormatListEntry = ^TClipboardFormatListEntry;
-  TClipboardFormatListEntry = record
-    Description: string;               // The string used to register the format with Windows.
+  TClipboardFormatListEntry = class
+  public
+    Description: string;               // The string used to register the format with Winapi.Windows.
     TreeClass: TVirtualTreeClass;      // The tree class which supports rendering this format.
     Priority: Cardinal;                // Number which determines the order of formats used in IDataObject.
     FormatEtc: TFormatEtc;             // The definition of the format in the IDataObject.
   end;
 
   TClipboardFormatList = class
-  private
-    FList: TFpList;
-    procedure Sort;
+  strict private
+    class function GetList(): TList; static;
+    class property List: TList read GetList;
+  protected
+   class procedure Sort;
   public
-    constructor Create;
-    destructor Destroy; override;
-
-    procedure Add(FormatString: string; AClass: TVirtualTreeClass; Priority: Cardinal; AFormatEtc: TFormatEtc);
-    procedure Clear;
-    procedure EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray;
-      const AllowedFormats: TClipboardFormats = nil); overload;
-    procedure EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings); overload;
-    function FindFormat(FormatString: string): PClipboardFormatListEntry; overload;
-    function FindFormat(FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass; overload;
-    function FindFormat(Fmt: TClipboardFormat; out Description: string): TVirtualTreeClass; overload;
+    class procedure Add(const FormatString: string; AClass: TVirtualTreeClass; Priority: Cardinal; AFormatEtc: TFormatEtc);
+    class procedure Clear;
+    class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray;  const AllowedFormats: TClipboardFormats = nil); overload;
+    class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings); overload;
+    class function FindFormat(const FormatString: string): TClipboardFormatListEntry; overload;
+    class function FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass; overload;
+    class function FindFormat(Fmt: Word; var Description: string): TVirtualTreeClass; overload;
   end;
 
-var // Clipboard format IDs used in OLE drag'n drop and clipboard transfers.
+var
+  // Clipboard format IDs used in OLE drag'n drop and clipboard transfers.
   CF_VIRTUALTREE,
   CF_VTREFERENCE,
   CF_VRTF,
@@ -91,16 +116,16 @@ var // Clipboard format IDs used in OLE drag'n drop and clipboard transfers.
                    // registration strings so I have to use different identifiers.
   CF_HTML,
   CF_CSV: TClipboardFormat;
-  InternalClipboardFormats: TClipboardFormatList;
 
 implementation
+
+var
+  _List: TList = nil;  //Note - not using class constructors as they are not supported on C++ Builder. See also issue #
 
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; const List: TStrings);
 
 begin
-  if InternalClipboardFormats = nil then
-    InternalClipboardFormats := TClipboardFormatList.Create;
-  InternalClipboardFormats.EnumerateFormats(TreeClass, List);
+  TClipboardFormatList.EnumerateFormats(TreeClass, List);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -108,9 +133,7 @@ end;
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray);
 
 begin
-  if InternalClipboardFormats = nil then
-    InternalClipboardFormats := TClipboardFormatList.Create;
-  InternalClipboardFormats.EnumerateFormats(TreeClass, Formats);
+  TClipboardFormatList.EnumerateFormats(TreeClass, Formats);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -118,9 +141,7 @@ end;
 function GetVTClipboardFormatDescription(AFormat: TClipboardFormat): string;
 
 begin
-  if InternalClipboardFormats = nil then
-    InternalClipboardFormats := TClipboardFormatList.Create;
-  if InternalClipboardFormats.FindFormat(AFormat, Result) = nil then
+  if TClipboardFormatList.FindFormat(AFormat, Result) = nil then
     Result := '';
 end;
 
@@ -132,11 +153,10 @@ procedure RegisterVTClipboardFormat(AFormat: TClipboardFormat; TreeClass: TVirtu
 
 var
   I: Integer;
+  Buffer: array[0..2048] of Char;
   FormatEtc: TFormatEtc;
 
 begin
-  if InternalClipboardFormats = nil then
-    InternalClipboardFormats := TClipboardFormatList.Create;
 
   // Assumes a HGlobal format.
   FormatEtc.cfFormat := AFormat;
@@ -153,19 +173,20 @@ begin
     for I := 1 to High(ClipboardDescriptions) do
       if ClipboardDescriptions[I].ID = AFormat then
       begin
-        InternalClipboardFormats.Add(ClipboardDescriptions[I].Description, TreeClass, Priority, FormatEtc);
+        TClipboardFormatList.Add(ClipboardDescriptions[I].Description, TreeClass, Priority, FormatEtc);
         Break;
       end;
   end
   else
   begin
-    InternalClipboardFormats.Add(ClipboardFormatToMimeType(AFormat), TreeClass, Priority, FormatEtc);
+    GetClipboardFormatName(AFormat, Buffer, Length(Buffer));
+    TClipboardFormatList.Add(Buffer, TreeClass, Priority, FormatEtc);
   end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function RegisterVTClipboardFormat(Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
+function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
   tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil; dwAspect: Integer = DVASPECT_CONTENT;
   lindex: Integer = -1): Word;
 
@@ -177,64 +198,43 @@ var
   FormatEtc: TFormatEtc;
 
 begin
-  if InternalClipboardFormats = nil then
-    InternalClipboardFormats := TClipboardFormatList.Create;
-  Result := ClipboardRegisterFormat(Description);
+  Result := RegisterClipboardFormat(PChar(Description));
   FormatEtc.cfFormat := Result;
   FormatEtc.ptd := ptd;
   FormatEtc.dwAspect := dwAspect;
   FormatEtc.lindex := lindex;
   FormatEtc.tymed := tymed;
-  InternalClipboardFormats.Add(Description, TreeClass, Priority, FormatEtc);
+  TClipboardFormatList.Add(Description, TreeClass, Priority, FormatEtc);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-constructor TClipboardFormatList.Create;
-
-begin
-  FList := TFpList.Create;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-destructor TClipboardFormatList.Destroy;
-
-begin
-  Clear;
-  FList.Free;
-  inherited;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TClipboardFormatList.Sort;
+class procedure TClipboardFormatList.Sort;
 
 // Sorts all entry for priority (increasing priority value).
 
   //--------------- local function --------------------------------------------
-
   procedure QuickSort(L, R: Integer);
 
   var
     I, J: Integer;
-    P, T: PClipboardFormatListEntry;
+    P, T: TClipboardFormatListEntry;
 
   begin
     repeat
       I := L;
       J := R;
-      P := FList[(L + R) shr 1];
+      P := _List[(L + R) shr 1];
       repeat
-        while PClipboardFormatListEntry(FList[I]).Priority < P.Priority do
+        while TClipboardFormatListEntry(_List[I]).Priority < P.Priority do
           Inc(I);
-        while PClipboardFormatListEntry(FList[J]).Priority > P.Priority do
+        while TClipboardFormatListEntry(_List[J]).Priority > P.Priority do
           Dec(J);
         if I <= J then
         begin
-          T := FList[I];
-          FList[I] := FList[J];
-          FList[J] := T;
+          T := List[I];
+          _List[I] := _List[J];
+          _List[J] := T;
           Inc(I);
           Dec(J);
         end;
@@ -244,67 +244,66 @@ procedure TClipboardFormatList.Sort;
       L := I;
     until I >= R;
   end;
-
   //--------------- end local function ----------------------------------------
 
 begin
-  if FList.Count > 1 then
-    QuickSort(0, FList.Count - 1);
+  if List.Count > 1 then
+    QuickSort(0, List.Count - 1);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TClipboardFormatList.Add(FormatString: string; AClass: TVirtualTreeClass; Priority: Cardinal;
-  AFormatEtc: TFormatEtc);
+class procedure TClipboardFormatList.Add(const FormatString: string; AClass: TVirtualTreeClass; Priority: Cardinal; AFormatEtc: TFormatEtc);
 
 // Adds the given data to the internal list. The priority value is used to sort formats for importance. Larger priority
 // values mean less priority.
 
 var
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
-  New(Entry);
+  Entry := TClipboardFormatListEntry.Create;
   Entry.Description := FormatString;
   Entry.TreeClass := AClass;
   Entry.Priority := Priority;
   Entry.FormatEtc := AFormatEtc;
-  FList.Add(Entry);
+  List.Add(Entry);
 
   Sort;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TClipboardFormatList.Clear;
+class procedure TClipboardFormatList.Clear;
 
 var
   I: Integer;
 
 begin
-  for I := 0 to FList.Count - 1 do
-    Dispose(PClipboardFormatListEntry(FList[I]));
-  FList.Clear;
+  if Assigned(_List) then begin
+    for I := 0 to _List.Count - 1 do
+      TClipboardFormatListEntry(List[I]).Free;
+    _List.Clear;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TClipboardFormatList.EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray;
-  const AllowedFormats: TClipboardFormats = nil);
+class procedure TClipboardFormatList.EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray; const AllowedFormats: TClipboardFormats = nil);
 
 // Returns a list of format records for the given class. If assigned the AllowedFormats is used to limit the
 // enumerated formats to those described in the list.
 
 var
   I, Count: Integer;
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
-  SetLength(Formats, FList.Count);
+  SetLength(Formats, List.Count);
   Count := 0;
-  for I := 0 to FList.Count - 1 do
+  for I := 0 to List.Count - 1 do
   begin
-    Entry := FList[I];
+    Entry := List[I];
     // Does the tree class support this clipboard format?
     if TreeClass.InheritsFrom(Entry.TreeClass) then
     begin
@@ -323,18 +322,18 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TClipboardFormatList.EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings);
+class procedure TClipboardFormatList.EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings);
 
 // Returns a list of format descriptions for the given class.
 
 var
   I: Integer;
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
-  for I := 0 to FList.Count - 1 do
+  for I := 0 to List.Count - 1 do
   begin
-    Entry := FList[I];
+    Entry := List[I];
     if TreeClass.InheritsFrom(Entry.TreeClass) then
       Formats.Add(Entry.Description);
   end;
@@ -342,17 +341,17 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TClipboardFormatList.FindFormat(FormatString: string): PClipboardFormatListEntry;
+class function TClipboardFormatList.FindFormat(const FormatString: string): TClipboardFormatListEntry;
 
 var
   I: Integer;
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
   Result := nil;
-  for I := FList.Count - 1 downto 0 do
+  for I := List.Count - 1 downto 0 do
   begin
-    Entry := FList[I];
+    Entry := List[I];
     if CompareText(Entry.Description, FormatString) = 0 then
     begin
       Result := Entry;
@@ -363,17 +362,17 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TClipboardFormatList.FindFormat(FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass;
+class function TClipboardFormatList.FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass;
 
 var
   I: Integer;
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
   Result := nil;
-  for I := FList.Count - 1 downto 0 do
+  for I := List.Count - 1 downto 0 do
   begin
-    Entry := FList[I];
+    Entry := List[I];
     if CompareText(Entry.Description, FormatString) = 0 then
     begin
       Result := Entry.TreeClass;
@@ -385,17 +384,17 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TClipboardFormatList.FindFormat(Fmt: TClipboardFormat; out Description: string): TVirtualTreeClass;
+class function TClipboardFormatList.FindFormat(Fmt: Word; var Description: string): TVirtualTreeClass;
 
 var
   I: Integer;
-  Entry: PClipboardFormatListEntry;
+  Entry: TClipboardFormatListEntry;
 
 begin
   Result := nil;
-  for I := FList.Count - 1 downto 0 do
+  for I := List.Count - 1 downto 0 do
   begin
-    Entry := FList[I];
+    Entry := List[I];
     if Entry.FormatEtc.cfFormat = Fmt then
     begin
       Result := Entry.TreeClass;
@@ -404,5 +403,20 @@ begin
     end;
   end;
 end;
+
+
+class function TClipboardFormatList.GetList: TList;
+begin
+  if not Assigned(_List) then
+    _List :=  TList.Create;
+  Exit(_List);
+end;
+
+initialization
+
+finalization
+
+  TClipboardFormatList.Clear;
+  FreeAndNil(_List);
 
 end.

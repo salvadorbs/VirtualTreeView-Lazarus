@@ -10,15 +10,13 @@ uses
   Classes, VirtualTrees.BaseTree, SyncObjs, LCLIntf, VirtualTrees.Types;
 
 type
-  { TWorkerThread }
-
+  // internal worker thread
   TWorkerThread = class(TThread)
   private
     FCurrentTree: TBaseVirtualTree;
     FWaiterList: TThreadList;
     FRefCount: Integer;
     FWorkEvent: TEvent;
-
     class procedure EnsureCreated();
     class procedure Dispose(CanBlock: Boolean);
     procedure WaitForValidationTermination(Tree: TBaseVirtualTree);
@@ -36,6 +34,10 @@ type
     class procedure RemoveTree(pTree: TBaseVirtualTree; pWaitForValidationTermination: Boolean);
   end;
 
+
+
+
+
 implementation
 
 uses
@@ -51,7 +53,6 @@ type
 
 var
   WorkerThread: TWorkerThread = nil;
-
 //----------------- TWorkerThread --------------------------------------------------------------------------------------
 
 class procedure TWorkerThread.EnsureCreated();
@@ -73,6 +74,7 @@ begin
   if CanBlock then
     LRef.Free;
 end;
+
 
 class procedure TWorkerThread.AddThreadReference;
 begin
@@ -140,7 +142,7 @@ procedure TWorkerThread.Execute();
 // Does some background tasks, like validating tree caches.
 
 var
-  EnterStates, LeaveStates: TVirtualTreeStates;
+  EnterStates: TVirtualTreeStates;
   lCurrentTree: TBaseVirtualTree;
 begin
   TThread.NameThreadForDebugging('VirtualTrees.TWorkerThread');
@@ -223,5 +225,6 @@ begin
   if pWaitForValidationTermination then
     WorkerThread.WaitForValidationTermination(pTree);
 end;
+
 
 end.
