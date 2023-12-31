@@ -159,3 +159,10 @@ jobs:
     - name: Validate Cache
       if: steps.cache.outputs.cache-hit == 'true'
       run: ${{ matrix.lazbuild }} --version && echo "success=true" >> $GITHUB_OUTPUT || echo "success=false" >> $GITHUB_OUTPUT
+
+    - name: Upload the Build Artifact
+      uses: actions/upload-artifact@v3.1.1
+      with:
+        name: demos_${{ matrix.build-widgetset }}
+        path: |
+          ${{ env.VTV_SOURCE }}/Demos/**/*.exe
