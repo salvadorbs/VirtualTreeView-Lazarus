@@ -17,6 +17,7 @@ const
 
   SID_IDropTargetHelper = '{4657278B-411B-11D2-839A-00C04FD918D0}';
   SID_IDragSourceHelper = '{DE5BF786-477A-11D2-839D-00C04FD918D0}';
+  SID_IDragSourceHelper2 = '{83E07D0D-0C5F-4163-BF1A-60B274051E40}';
   SID_IDropTarget = '{00000122-0000-0000-C000-000000000046}';
   
   //Bridge to ActiveX constants
@@ -38,6 +39,7 @@ type
   WinBool= LongBool;
   Bool= WinBool;
   ULONG  = cardinal;
+  PULONG = ^ULONG;
   LONGLONG  = int64;
   LPDWORD = ^DWORD;
   LPVOID  = pointer;
@@ -170,7 +172,7 @@ type
 
    IEnumSTATDATA = Interface (IUnknown)
     ['{00000105-0000-0000-C000-000000000046}']
-    Function Next(Celt:ULong;Out Rgelt:statdata;Out pceltFetched:ULong):HResult; StdCall;
+    Function Next (Celt:ULong;Out xcelt;pceltfetched : PUlong):HResult; StdCall;
 //      Function RemoteNext(Celt:ULong;Out Rgelt:statdata;Out pceltFetched:ULong):HResult; StdCall;
     Function Skip(Celt:ULong):HResult;StdCall;
     Function Reset:HResult;StdCall;
@@ -179,7 +181,7 @@ type
 
    IEnumFORMATETC = Interface (IUnknown)
    ['{00000103-0000-0000-C000-000000000046}']
-   Function Next(Celt:ULong;Out Rgelt:FormatEtc;Out pceltFetched:ULong):HResult; StdCall;
+   Function Next(Celt:ULong;Out Rgelt:FormatEtc;pceltFetched:pULong=nil):HResult; StdCall;
 //     Function RemoteNext(Celt:ULong;Out Rgelt:FormatEtc;Out pceltFetched:ULong):HResult; StdCall;
    Function Skip(Celt:ULong):HResult;StdCall;
    Function Reset:HResult;StdCall;
@@ -271,14 +273,14 @@ type
    Function GetData(Const formatetcIn : FORMATETC;Out medium : STGMEDIUM):HRESULT; STDCALL;
    Function GetDataHere(CONST pformatetc : FormatETC; Out medium : STGMEDIUM):HRESULT; STDCALL;
    Function QueryGetData(const pformatetc : FORMATETC):HRESULT; STDCALL;
-   Function GetCanonicalFormatTEtc(const pformatetcIn : FORMATETC;Out pformatetcOut : FORMATETC):HResult; STDCALl;
+   Function GetCanonicalFormatEtc(const pformatetcIn : FORMATETC;Out pformatetcOut : FORMATETC):HResult; STDCALl;
    Function SetData (Const pformatetc : FORMATETC;
-     {$IF FPC_FullVersion >= 30200}var{$ELSE}const{$IFEND} medium:STGMEDIUM;
+     {$IF FPC_FullVersion >= 30200}var{$else}const{$IFEND} medium:STGMEDIUM;
      FRelease : BOOL):HRESULT; StdCall;
    Function EnumFormatEtc(dwDirection : DWord; OUT enumformatetcpara : IENUMFORMATETC):HRESULT; StdCall;
    Function DAdvise(const formatetc : FORMATETC;advf :DWORD; CONST AdvSink : IAdviseSink;OUT dwConnection:DWORD):HRESULT;StdCall;
    Function DUnadvise(dwconnection :DWord) :HRESULT;StdCall;
-   Function EnumDAvise(Out enumAdvise : IEnumStatData):HResult;StdCall;
+   Function EnumDAdvise(Out enumAdvise : IEnumStatData):HResult;StdCall;
    End;
 
  IDropTarget = interface(IUnknown)
@@ -293,8 +295,8 @@ type
   IDropSource = interface(IUnknown)
     ['{00000121-0000-0000-C000-000000000046}']
     function QueryContinueDrag(fEscapePressed: BOOL;
-      grfKeyState: LongWord):HResult;StdCall;
-    function GiveFeedback(dwEffect: LongWord): HResult;StdCall;
+      grfKeyState: DWORD):HResult;StdCall;
+    function GiveFeedback(dwEffect: DWORD): HResult;StdCall;
   end;
   
   
@@ -318,15 +320,20 @@ type
     sizeDragImage: TSize;
     ptOffset: TPoint;
     hbmpDragImage: HBITMAP;
-    ColorRef: TColorRef;
+    crColorKey: TColorRef;
   end;
 
   IDragSourceHelper = interface(IUnknown)
     [SID_IDragSourceHelper]
-    function InitializeFromBitmap(var SHDragImage: TSHDragImage; pDataObject: IDataObject): HRESULT; stdcall;
+    function InitializeFromBitmap(SHDragImage: PSHDragImage; pDataObject: IDataObject): HRESULT; stdcall;
     function InitializeFromWindow(Window: HWND; var ppt: TPoint; pDataObject: IDataObject): HRESULT; stdcall;
   end;
 
+  IDragSourceHelper2 = interface(IDragSourceHelper)
+  [SID_IDragSourceHelper2]
+    function SetFlags(dwFlags: DWORD): HRESULT; stdcall;
+  end;
+  
   //Ole helper functions
 
   function Succeeded(Status : HRESULT) : BOOLEAN;

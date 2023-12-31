@@ -13,9 +13,8 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}
+  virtualdragmanager,
   SysUtils, Graphics, ImgList, LCLVersion;
 
 const
@@ -143,7 +142,7 @@ const
   DEFAULT_HEADER_HEIGHT = 19;
   DEFAULT_INDENT = 18;
   DEFAULT_MARGIN = 4;
-  DEFAULT_NODE_HEIGHT = 18;
+  DEFAULT_NODE_HEIGHT = cInitialDefaultNodeHeight;
   DEFAULT_SPACING = 3;
 
   LIS_NORMAL = 1;
@@ -158,11 +157,10 @@ const
   {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
 
 type
-  TDimension = Integer; 
+  TDimension = Integer;
   PDimension = ^Integer;
   TNodeHeight = NativeInt;
-  TVTCursor = LCLType.HCURSOR;
-  IDataObject= ActiveX.IDataObject;
+  //TVTCursor = LCLType.HCURSOR;
   TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
   TVTPaintContext = HDC;

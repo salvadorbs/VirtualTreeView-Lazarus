@@ -11,11 +11,8 @@ uses
   {$ifdef Windows}
   Windows,
   ActiveX,
-  {$else}
-  FakeActiveX,
   {$endif}
-  DelphiCompat
-  , VirtualTrees.Types;
+  DelphiCompat;
 
 const
   SID_IDropTargetHelper = '{4657278B-411B-11D2-839A-00C04FD918D0}';
@@ -125,7 +122,7 @@ type
 implementation
 
 uses
-  VirtualTrees.BaseTree, oleutils, VirtualTrees.ClipBoard;
+  VirtualTrees.BaseTree, oleutils, VirtualTrees.ClipBoard, VirtualTrees.Types;
   
 type
   TVirtualTreeAccess = class (TBaseVirtualTree)

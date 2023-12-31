@@ -34,17 +34,14 @@
 
 {$define EnableAlphaBlend}
 
-{$ifdef Windows}
-  {$define EnableWinDataObject}
-{$endif}
-
 //Don't enable this because oleacc is not available for FreePascal
 {.$define EnableAccessible}
 
 {.$define DelphiStyleServices}
 
-{$if defined(LCLWin32) or defined(LCLWinCE)}
+{$if defined(LCLWin32) or defined(LCLWin64) or defined(LCLWinCE)}
   {$define LCLWin}
+  {$define EnableWinDataObject}
 {$endif}
 
 //Logging on console
@@ -75,7 +72,7 @@
      {$undef windows}
 {$endif}
 
-{$if defined(LCLGtk) or defined(LCLGtk2)}
+{$if defined(LCLGtk) or defined(LCLGtk2) or defined(LCLGtk3)}
 	{$define Gtk}
 {$endif}
 

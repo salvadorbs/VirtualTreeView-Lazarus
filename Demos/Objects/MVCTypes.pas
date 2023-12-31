@@ -200,16 +200,8 @@ type { TMVCNode is the encapsulation of a single Node in the structure.
      FTree:TMVCTree;
      FInternalDataOffset: Cardinal;               // offset to the internal data
 
-     { Here's the Viewer. I have descended from the base class to maximize
-       the functionality that is moved to our code, should you be happy
-       with any of the predeclared descendants use of them. }
-     TMVCEditLink=class;
-     TMVCTreeView=class(TVTAncestor)
-       private
-         { This is a pointer to the structure associated with
-           this viewer. }
-         FTree:TMVCTree;
-         FInternalDataOffset: Cardinal;               // offset to the internal data
+     { Make and break the link with a list }
+     procedure SetTree(aTree:TMVCTree);
 
      { These are for direct access to our structure
        through the viewer. You can use them to find
