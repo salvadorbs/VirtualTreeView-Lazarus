@@ -1,5 +1,27 @@
 unit VirtualTrees.Utils;
 
+// The contents of this file are subject to the Mozilla Public License
+// Version 1.1 (the "License"); you may not use this file except in compliance
+// with the License. You may obtain a copy of the License at http://www.mozilla.org/MPL/
+//
+// Alternatively, you may redistribute this library, use and/or modify it under the terms of the
+// GNU Lesser General Public License as published by the Free Software Foundation;
+// either version 2.1 of the License, or (at your option) any later version.
+// You may obtain a copy of the LGPL at http://www.gnu.org/copyleft/.
+//
+// Software distributed under the License is distributed on an "AS IS" basis,
+// WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for the
+// specific language governing rights and limitations under the License.
+//
+// The original code is VirtualTrees.pas, released September 30, 2000.
+//
+// The initial developer of the original code is digital publishing AG (Munich, Germany, www.digitalpublishing.de),
+// written by Mike Lischke (public@soft-gems.net, www.soft-gems.net).
+//
+// Portions created by digital publishing AG are Copyright
+// (C) 1999-2001 digital publishing AG. All Rights Reserved.
+//----------------------------------------------------------------------------------------------------------------------
+
 {$mode delphi}
 
 interface
@@ -37,24 +59,12 @@ procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer); inline;
 /// </summary>
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
-procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas; X, Y: Integer; Style: Cardinal; Enabled: Boolean);
-
 /// <summary>
 /// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
 /// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
 /// For higher speed (and multiple entries to be shorted) specify this value explicitely.
 /// </summary>
 function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string; overload;
-
-//--------------------------
-// ShortenString similar to VTV's version, except:
-// -- Does not assume using three dots or any particular character for ellipsis
-// -- Does not add ellipsis to string, so could be added anywhere
-// -- Requires EllipsisWidth, and zero does nothing special
-// Returns:
-//   ShortenedString as var param
-//   True if shortened (ie: add ellipsis somewhere), otherwise false
-function ShortenString(TargetCanvasDC: HDC; const StrIn: string; const AllowedWidth_px: Integer; const EllipsisWidth_px: Integer; var ShortenedString: string): boolean; overload;
 
 /// <summary>
 /// Wrap the given string S so that it fits into a space of given width.
@@ -81,26 +91,10 @@ function OrderRect(const R: TRect): TRect;
 procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
 
 /// <summary>
-/// Attaches a bitmap as drag image to an IDataObject, see issue #405
-/// <code>
-/// Usage: Set property DragImageKind to diNoImage, in your event handler OnCreateDataObject
-/// <para>       call VirtualTrees.Utils.ApplyDragImage() with your `IDataObject` and your bitmap.</para>
-/// </code>
-/// </summary>
-procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
-
-/// <summary>
 /// Returns True if the mouse cursor is currently visible and False in case it is suppressed.
 /// Useful when doing hot-tracking on touchscreens, see issue #766
 /// </summary>
 function IsMouseCursorVisible(): Boolean;
-
-procedure ScaleImageList(const ImgList: TImageList; M, D: Integer);
-
-/// <summary>
-/// Returns True if the high contrast theme is anabled in the system settings, False otherwise.
-/// </summary>
-function IsHighContrastEnabled(): Boolean;
 
 /// <summary>
 /// Divide depend of parameter type uses different division operator:
@@ -109,13 +103,6 @@ function IsHighContrastEnabled(): Boolean;
 /// </summary>
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer; overload; inline;
 
-/// <summary>
-/// Divide depend of parameter type uses different division operator:
-/// <code>Integer uses div</code>
-/// <code>Single uses /</code>
-/// </summary>
-function Divide(const Dimension: Single; const DivideBy: Integer): Single; overload; inline;
-
 function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 
 function GetBitmapBitsFromBitmap(Bitmap: HBITMAP): Pointer;
@@ -123,153 +110,6 @@ function GetBitmapBitsFromBitmap(Bitmap: HBITMAP): Pointer;
 implementation
 
 {$i vtgraphicsi.inc}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function GetRGBColor(Value: TColor): DWORD;
-
-// Little helper to convert a Delphi color to an image list color.
-
-begin
-  Result := ColorToRGB(Value);
-  case Result of
-    clNone:
-      Result := CLR_NONE;
-    clDefault:
-      Result := CLR_DEFAULT;
-  end;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-{$ifdef EnablePrint}
-procedure PrtStretchDrawDIB(Canvas: TCanvas; DestRect: TRect; ABitmap: TBitmap);
-
-// Stretch draw on to the new canvas.
-
-var
-  Header,
-  Bits: Pointer;
-  HeaderSize,
-  BitsSize: Cardinal;
-
-begin
-  GetDIBSizes(ABitmap.Handle, HeaderSize, BitsSize);
-
-  GetMem(Header, HeaderSize);
-  GetMem(Bits, BitsSize);
-  try
-    GetDIB(ABitmap.Handle, ABitmap.Palette, Header^, Bits^);
-    StretchDIBits(Canvas.Handle, DestRect.Left, DestRect.Top, DestRect.Right - DestRect.Left, DestRect.Bottom -
-      DestRect.Top, 0, 0, ABitmap.Width, ABitmap.Height, Bits, TBitmapInfo(Header^), DIB_RGB_COLORS, SRCCOPY);
-  finally
-    FreeMem(Header);
-    FreeMem(Bits);
-  end;
-end;
-{$endif}
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; out RClip, RScroll, RSamp1, RSamp2, RDraw1,
-  RDraw2: TRect);
-
-// Fills the given rectangles with values which can be used while dragging around an image
-// (used in DragMove of the drag manager and DragTo of the header columns).
-
-begin
-  // ScrollDC limits
-  RClip := Rect(0, 0, DragWidth, DragHeight);
-  if DeltaX > 0 then
-  begin
-    // move to the left
-    if DeltaY = 0 then
-    begin
-      // move only to the left
-      // background movement
-      RScroll := Rect(0, 0, DragWidth - DeltaX, DragHeight);
-      RSamp1 := Rect(0, 0, DeltaX, DragHeight);
-      RDraw1 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
-    end
-    else
-      if DeltaY < 0 then
-      begin
-        // move to bottom left
-        RScroll := Rect(0, -DeltaY, DragWidth - DeltaX, DragHeight);
-        RSamp1 := Rect(0, 0, DeltaX, DragHeight);
-        RSamp2 := Rect(DeltaX, DragHeight + DeltaY, DragWidth - DeltaX, -DeltaY);
-        RDraw1 := Rect(0, 0, DragWidth - DeltaX, -DeltaY);
-        RDraw2 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
-      end
-      else
-      begin
-        // move to upper left
-        RScroll := Rect(0, 0, DragWidth - DeltaX, DragHeight - DeltaY);
-        RSamp1 := Rect(0, 0, DeltaX, DragHeight);
-        RSamp2 := Rect(DeltaX, 0, DragWidth - DeltaX, DeltaY);
-        RDraw1 := Rect(0, DragHeight - DeltaY, DragWidth - DeltaX, DeltaY);
-        RDraw2 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
-      end;
-  end
-  else
-    if DeltaX = 0 then
-    begin
-      // vertical movement only
-      if DeltaY < 0 then
-      begin
-        // move downwards
-        RScroll := Rect(0, -DeltaY, DragWidth, DragHeight);
-        RSamp2 := Rect(0, DragHeight + DeltaY, DragWidth, -DeltaY);
-        RDraw2 := Rect(0, 0, DragWidth, -DeltaY);
-      end
-      else
-      begin
-        // move upwards
-        RScroll := Rect(0, 0, DragWidth, DragHeight - DeltaY);
-        RSamp2 := Rect(0, 0, DragWidth, DeltaY);
-        RDraw2 := Rect(0, DragHeight - DeltaY, DragWidth, DeltaY);
-      end;
-    end
-    else
-    begin
-      // move to the right
-      if DeltaY > 0 then
-      begin
-        // move up right
-        RScroll := Rect(-DeltaX, 0, DragWidth, DragHeight);
-        RSamp1 := Rect(0, 0, DragWidth + DeltaX, DeltaY);
-        RSamp2 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
-        RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
-        RDraw2 := Rect(-DeltaX, DragHeight - DeltaY, DragWidth + DeltaX, DeltaY);
-      end
-      else
-        if DeltaY = 0 then
-        begin
-          // to the right only
-          RScroll := Rect(-DeltaX, 0, DragWidth, DragHeight);
-          RSamp1 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
-          RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
-        end
-        else
-        begin
-          // move down right
-          RScroll := Rect(-DeltaX, -DeltaY, DragWidth, DragHeight);
-          RSamp1 := Rect(0, DragHeight + DeltaY, DragWidth + DeltaX, -DeltaY);
-          RSamp2 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
-          RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
-          RDraw2 := Rect(-DeltaX, 0, DragWidth + DeltaX, -DeltaY);
-        end;
-    end;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function Divide(const Dimension: Integer; const DivideBy: Integer): Integer;
-begin
-  Result:= Dimension div DivideBy;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
 
 function OrderRect(const R: TRect): TRect;
 
@@ -300,18 +140,20 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+
 procedure SetBrushOrigin(Canvas: TCanvas; X, Y: Integer);
 
 // Set the brush origin of a given canvas.
 
-var
-  P: TPoint;
+//var
+//  P: TPoint;
 
 begin
-  P := Point(X, Y);
-  LPtoDP(Canvas.Handle, P, 1);
-  {$ifndef INCOMPLETE_WINAPI}
-  SetBrushOrgEx(Canvas.Handle, P.X, P.Y, nil);
+  //P := Point(X, Y);
+  //LPtoDP(Canvas.Handle, P, 1);// No longer used, see issue #608
+  {$ifndef INCOMPLETE_WINAPI}  
+  //SetBrushOrgEx(Canvas.Handle, P.X, P.Y, nil);
+  SetBrushOrgEx(Canvas.Handle, X, Y, nil);
   {$endif}
 end;
 
@@ -357,7 +199,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure GetStringDrawRect(DC: HDC; const S: String; var Bounds: TRect; DrawFormat: Cardinal);
+
+procedure GetStringDrawRect(DC: HDC; const S: string; var Bounds: TRect; DrawFormat: Cardinal);
 
 // Calculates bounds of a drawing rectangle for the given string
 
@@ -375,7 +218,7 @@ end;
 // the unicode version is used when all winapi is available
 
 {$ifndef INCOMPLETE_WINAPI}
-function ShortenString(DC: HDC; const S: String; Width: TDimension; EllipsisWidth: TDimension = 0): String;
+function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string;
 
 // Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
 // the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
@@ -423,7 +266,7 @@ begin
   end;
 end;
 {$else}
-function ShortenString(DC: HDC; const S: String; Width: Integer; EllipsisWidth: Integer = 0): String;
+function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string;
 
 // Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
 // the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
@@ -472,8 +315,9 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function WrapString(DC: HDC; const S: String; const Bounds: TRect; RTL: Boolean;
-  DrawFormat: Cardinal): String;
+
+function WrapString(DC: HDC; const S: string; const Bounds: TRect; RTL: Boolean; DrawFormat: Cardinal): string;
+
 
 // Wrap the given string S so that it fits into a space of given width.
 // RTL determines if right-to-left reading is active.
@@ -485,8 +329,8 @@ var
   WordsInLine,
   I, W: Integer;
   Buffer,
-  Line: String;
-  Words: array of String;
+  Line: string;
+  Words: array of string;
   R: TRect;
 
 begin
@@ -625,5 +469,168 @@ begin
     SetLength(Result, Len);
 end;
 
-end.
+//----------------------------------------------------------------------------------------------------------------------
 
+function GetRGBColor(Value: TColor): DWORD;
+
+// Little helper to convert a Delphi color to an image list color.
+
+begin
+  Result := ColorToRGB(Value);
+  case Result of
+    clNone:
+      Result := CLR_NONE;
+    clDefault:
+      Result := CLR_DEFAULT;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+{$ifdef EnablePrint}
+procedure PrtStretchDrawDIB(Canvas: TCanvas; DestRect: TRect; ABitmap: TBitmap);
+
+// Stretch draw on to the new canvas.
+
+var
+  Header,
+  Bits: Pointer;
+  HeaderSize,
+  BitsSize: Cardinal;
+
+begin
+  GetDIBSizes(ABitmap.Handle, HeaderSize, BitsSize);
+
+  GetMem(Header, HeaderSize);
+  GetMem(Bits, BitsSize);
+  try
+    GetDIB(ABitmap.Handle, ABitmap.Palette, Header^, Bits^);
+    StretchDIBits(Canvas.Handle, DestRect.Left, DestRect.Top, DestRect.Right - DestRect.Left, DestRect.Bottom -
+      DestRect.Top, 0, 0, ABitmap.Width, ABitmap.Height, Bits, TBitmapInfo(Header^), DIB_RGB_COLORS, SRCCOPY);
+  finally
+    FreeMem(Header);
+    FreeMem(Bits);
+  end;
+end;
+{$endif}
+
+//----------------------------------------------------------------------------------------------------------------------
+
+
+procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
+
+// Fills the given rectangles with values which can be used while dragging around an image
+// (used in DragMove of the drag manager and DragTo of the header columns).
+
+begin
+  // ScrollDC limits
+  RClip := Rect(0, 0, DragWidth, DragHeight);
+  if DeltaX > 0 then
+  begin
+    // move to the left
+    if DeltaY = 0 then
+    begin
+      // move only to the left
+      // background movement
+      RScroll := Rect(0, 0, DragWidth - DeltaX, DragHeight);
+      RSamp1 := Rect(0, 0, DeltaX, DragHeight);
+      RDraw1 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
+    end
+    else
+      if DeltaY < 0 then
+      begin
+        // move to bottom left
+        RScroll := Rect(0, -DeltaY, DragWidth - DeltaX, DragHeight);
+        RSamp1 := Rect(0, 0, DeltaX, DragHeight);
+        RSamp2 := Rect(DeltaX, DragHeight + DeltaY, DragWidth - DeltaX, -DeltaY);
+        RDraw1 := Rect(0, 0, DragWidth - DeltaX, -DeltaY);
+        RDraw2 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
+      end
+      else
+      begin
+        // move to upper left
+        RScroll := Rect(0, 0, DragWidth - DeltaX, DragHeight - DeltaY);
+        RSamp1 := Rect(0, 0, DeltaX, DragHeight);
+        RSamp2 := Rect(DeltaX, 0, DragWidth - DeltaX, DeltaY);
+        RDraw1 := Rect(0, DragHeight - DeltaY, DragWidth - DeltaX, DeltaY);
+        RDraw2 := Rect(DragWidth - DeltaX, 0, DeltaX, DragHeight);
+      end;
+  end
+  else
+    if DeltaX = 0 then
+    begin
+      // vertical movement only
+      if DeltaY < 0 then
+      begin
+        // move downwards
+        RScroll := Rect(0, -DeltaY, DragWidth, DragHeight);
+        RSamp2 := Rect(0, DragHeight + DeltaY, DragWidth, -DeltaY);
+        RDraw2 := Rect(0, 0, DragWidth, -DeltaY);
+      end
+      else
+      begin
+        // move upwards
+        RScroll := Rect(0, 0, DragWidth, DragHeight - DeltaY);
+        RSamp2 := Rect(0, 0, DragWidth, DeltaY);
+        RDraw2 := Rect(0, DragHeight - DeltaY, DragWidth, DeltaY);
+      end;
+    end
+    else
+    begin
+      // move to the right
+      if DeltaY > 0 then
+      begin
+        // move up right
+        RScroll := Rect(-DeltaX, 0, DragWidth, DragHeight);
+        RSamp1 := Rect(0, 0, DragWidth + DeltaX, DeltaY);
+        RSamp2 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
+        RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
+        RDraw2 := Rect(-DeltaX, DragHeight - DeltaY, DragWidth + DeltaX, DeltaY);
+      end
+      else
+        if DeltaY = 0 then
+        begin
+          // to the right only
+          RScroll := Rect(-DeltaX, 0, DragWidth, DragHeight);
+          RSamp1 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
+          RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
+        end
+        else
+        begin
+          // move down right
+          RScroll := Rect(-DeltaX, -DeltaY, DragWidth, DragHeight);
+          RSamp1 := Rect(0, DragHeight + DeltaY, DragWidth + DeltaX, -DeltaY);
+          RSamp2 := Rect(DragWidth + DeltaX, 0, -DeltaX, DragHeight);
+          RDraw1 := Rect(0, 0, -DeltaX, DragHeight);
+          RDraw2 := Rect(-DeltaX, 0, DragWidth + DeltaX, -DeltaY);
+        end;
+    end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function IsMouseCursorVisible(): Boolean;
+{$IFDEF DelphiSupport}
+var
+  CI: TCursorInfo;
+{$ENDIF}
+begin
+  Result := true;
+  {$IFDEF DelphiSupport}
+  CI.cbSize := SizeOf(CI);
+  Result := GetCursorInfo(CI) and (CI.flags = CURSOR_SHOWING);
+  // 0                     Hidden
+  // CURSOR_SHOWING (1)    Visible
+  // CURSOR_SUPPRESSED (2) Touch/Pen Input (Windows 8+)
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms648381(v=vs.85).aspx
+  {$ENDIF}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function Divide(const Dimension: Integer; const DivideBy: Integer): Integer;
+begin
+  Result:= Dimension div DivideBy;
+end;
+
+end.

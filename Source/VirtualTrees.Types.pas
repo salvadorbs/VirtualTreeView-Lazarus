@@ -828,8 +828,10 @@ type
     procedure SetPaintOptions(const Value : TVTPaintOptions);
     procedure SetSelectionOptions(const Value : TVTSelectionOptions);
   protected
+  {$IFDEF DelphiStyleServices}
     // Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
     function StyleServices(AControl : TControl = nil) : TCustomStyleServices;
+  {$ENDIF}
   public
     constructor Create(AOwner : TCustomControl); virtual;
     //these bypass the side effects in the regular setters.

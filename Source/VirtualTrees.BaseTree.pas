@@ -16,6 +16,7 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
+  Win32Int,
   {$else}
   FakeActiveX,
   {$endif}
@@ -162,10 +163,13 @@ type
     Node: PVirtualNode;
     Column: TColumnIndex;
     HintRect: TRect;            // used for draw trees only, string trees get the size from the hint string
+    DefaultHint: String;        // used only if there is no node specific hint string available
+                                // or a header hint is about to appear
     HintText: string;    // set when size of the hint window is calculated
     BidiMode: TBidiMode;
     Alignment: TAlignment;
     LineBreakStyle: TVTToolTipLineBreakStyle;
+    HintInfo: PHintInfo;
   end;
 
   // The trees need an own hint window class because of Unicode output and adjusted font.
@@ -215,7 +219,7 @@ type
   // ----- Event prototypes:
 
   // node enumeration
-  TVTGetNodeProc = reference to procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean);
+  TVTGetNodeProc = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Data: Pointer; var Abort: Boolean) of object;
   // node events
   TVTChangingEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; var Allowed: Boolean) of object;
   TVTCheckChangingEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; var NewState: TCheckState;
@@ -545,7 +549,7 @@ type
     FDragHeight: Integer;                        // size of the drag image, the larger the more CPU power is needed
     FClipboardFormats: TClipboardFormats;        // a list of clipboard format descriptions enabled for this tree
     FLastVCLDragTarget: PVirtualNode;            // A node cache for VCL drag'n drop (keywords: DragLeave on DragDrop).
-    FVCLDragEffect: Integer;                     // A cache for VCL drag'n drop to keep the current drop effect.
+    FVCLDragEffect: LongWord;                     // A cache for VCL drag'n drop to keep the current drop effect.
 
     // scroll support
     FScrollBarOptions: TScrollBarOptions;        // common properties of horizontal and vertical scrollbar
@@ -798,8 +802,13 @@ type
     procedure ImageListChange(Sender: TObject);
     procedure InitializeFirstColumnValues(var PaintInfo: TVTPaintInfo);
     procedure InitRootNode(OldSize: Cardinal = 0);
+    function IsDragHeightStored: Boolean;
+    function IsDragWidthStored: Boolean;
     function IsFirstVisibleChild(Parent, Node: PVirtualNode): Boolean;
     function IsLastVisibleChild(Parent, Node: PVirtualNode): Boolean;
+    function IsSelectionCurveRadiusStored: Boolean;
+    //lcl
+    procedure LoadPanningCursors;
     function MakeNewNode: PVirtualNode;
     {$ifdef PACKARRAYPASCAL}
     function PackArray({*}const TheArray: TNodeArray; Count: Integer): Integer;
@@ -894,7 +903,7 @@ type
     procedure TVMGetItemRect(var Message: TMessage); message TVM_GETITEMRECT;
     procedure TVMGetNextItem(var Message: TMessage); message TVM_GETNEXTITEM;
     {$endif}
-    procedure WMCancelMode(var Message: TWMCancelMode); message WM_CANCELMODE;
+    procedure WMCancelMode(var Message: TLMessage); message WM_CANCELMODE;
     procedure WMChar(var Message: TWMChar); message WM_CHAR;
     procedure WMContextMenu(var Message: TWMContextMenu); message WM_CONTEXTMENU;
     procedure WMCopy(var Message: TWMCopy); message WM_COPY;
@@ -953,6 +962,10 @@ type
     procedure AutoScale(isDpiChange: Boolean); virtual;
     procedure AddToSelection(Node: PVirtualNode; NotifySynced: Boolean); overload; virtual;
     procedure AddToSelection(const NewItems: TNodeArray; NewLength: Integer; ForceInsert: Boolean = False); overload; virtual;
+    procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+      var ImageInfo: TVTImageInfo); virtual; overload;
+    procedure AdjustImageBorder(ImageWidth, ImageHeight: Integer; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+      var ImageInfo: TVTImageInfo); overload;
     procedure AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; var NextNonEmpty: TColumnIndex); virtual;
     procedure AdjustPanningCursor(X, Y: TDimension); virtual;
     procedure AdjustTotalHeight(Node: PVirtualNode; Value: TDimension; relative: Boolean = False);
@@ -965,7 +978,7 @@ type
     function CanSplitterResizeNode(P: TPoint; Node: PVirtualNode; Column: TColumnIndex): Boolean;
     procedure Change(Node: PVirtualNode); virtual;
     procedure ChangeTreeStatesAsync(EnterStates, LeaveStates: TVirtualTreeStates);
-    procedure ChangeScale(M, D: Integer; isDpiChange: Boolean); override;
+    procedure ChangeScale(M, D: Integer{$if CompilerVersion >= 31}; isDpiChange: Boolean{$ifend}); override;
     function CheckParentCheckState(Node: PVirtualNode; NewCheckState: TCheckState): Boolean; virtual;
     procedure ClearDragManager;
     procedure ClearSelection(pFireChangeEvent: Boolean); overload; virtual;
@@ -977,7 +990,9 @@ type
     procedure CreateParams(var Params: TCreateParams); override;
     procedure CreateWnd; override;
     procedure DecVisibleCount;
+    {$IFDEF OnlyDelphiSupport}
     procedure DefineProperties(Filer: TFiler); override;
+    {$ENDIF}
     procedure DeleteNode(Node: PVirtualNode; Reindex: Boolean; ParentClearing: Boolean); overload;
     procedure DestroyHandle; override;
     function DetermineDropMode(const P: TPoint; var HitInfo: THitInfo; var NodeRect: TRect): TDropMode; virtual;
@@ -1029,9 +1044,9 @@ type
     function DoDragMsg(ADragMessage: TDragMessage; APosition: TPoint;
       ADragObject: TDragObject; ATarget: TControl; ADocking: Boolean): LRESULT; override;
     function DoDragOver(Source: TObject; Shift: TShiftState; State: TDragState; Pt: TPoint; Mode: TDropMode;
-      var Effect: Integer): Boolean; virtual;
+      var Effect: LongWord): Boolean; virtual;
     procedure DoDragDrop(Source: TObject; const DataObject: TVTDragDataObject; const Formats: TFormatArray; Shift: TShiftState; Pt: TPoint;
-      var Effect: Integer; Mode: TDropMode); virtual;
+      var Effect: LongWord; Mode: TDropMode); virtual;
     procedure DoDrawHint(Canvas: TCanvas; Node: PVirtualNode; R: TRect; Column:
         TColumnIndex);
     procedure DoEdit; virtual;
@@ -1113,13 +1128,13 @@ type
     function DoValidateCache: Boolean; virtual;
     procedure DragAndDrop(AllowedEffects: DWord; const DataObject: TVTDragDataObject; var DragEffect: Integer); virtual;
     procedure DragCanceled; override;
-    function DragDrop(const DataObject: TVTDragDataObject; KeyState: Integer; Pt: TPoint;
-      var Effect: Integer): HResult; reintroduce; virtual;
-    function DragEnter(KeyState: Integer; Pt: TPoint; var Effect: Integer): HResult; virtual;
+    function DragDrop(const DataObject: TVTDragDataObject; KeyState: LongWord; Pt: TPoint;
+      var Effect: LongWord): HResult; reintroduce; virtual;
+    function DragEnter(KeyState: LongWord; Pt: TPoint; var Effect: LongWord): HResult; virtual;
     procedure DragFinished; virtual;
     procedure DragLeave; virtual;
-    function DragOver(Source: TObject; KeyState: Integer; DragState: TDragState; Pt: TPoint;
-      var Effect: Integer): HResult; reintroduce; virtual;
+    function DragOver(Source: TObject; KeyState: LongWord; DragState: TDragState; Pt: TPoint;
+      var Effect: LongWord): HResult; reintroduce; virtual;
     procedure DrawDottedHLine(const PaintInfo: TVTPaintInfo; Left, Right, Top: TDimension; dottedBrush: TBrush); virtual;
     procedure DrawDottedVLine(const PaintInfo: TVTPaintInfo; Top, Bottom, Left: TDimension; dottedBrush: TBrush; UseSelectedBkColor: Boolean = False); virtual;
     procedure EndOperation(OperationKind: TVTOperationKind);
@@ -1215,7 +1230,9 @@ type
     procedure UpdateDesigner; virtual;
     procedure UpdateEditBounds; virtual;
     procedure UpdateHeaderRect; virtual;
+    {$ifdef VCLStyleSupport}
     procedure UpdateStyleElements; override;
+    {$ifend}
     procedure UpdateWindowAndDragImage(const Tree: TBaseVirtualTree; TreeRect: TRect; UpdateNCArea,
       ReshowDragImage: Boolean); virtual;
     procedure ValidateCache; virtual;
@@ -1682,7 +1699,7 @@ type
     property ChildCount[Node: PVirtualNode]: Cardinal read GetChildCount write SetChildCount;
     property ChildrenInitialized[Node: PVirtualNode]: Boolean read GetChildrenInitialized;
     property CutCopyCount: Integer read GetCutCopyCount;
-    property DragManager: IVTDragManager read GetDragManager;
+    property VTVDragManager: IVTDragManager read GetDragManager;
     property DropTargetNode: PVirtualNode read FDropTargetNode write FDropTargetNode;
     property EditLink: IVTEditLink read FEditLink;
     property EmptyListMessage: string read FEmptyListMessage write SetEmptyListMessage;
@@ -1756,6 +1773,7 @@ uses
   {$ifdef EnableAccessible}
   , VirtualTrees.AccessibilityFactory
   {$endif}
+  , GraphUtil
   , VirtualTrees.ClipBoard
   , VirtualTrees.WorkerThread
   , VirtualTrees.DragnDrop
@@ -4233,6 +4251,28 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TBaseVirtualTree.IsDragHeightStored: Boolean;
+begin
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FDragHeight <> Scale96ToFont(DEFAULT_DRAG_HEIGHT);
+  {$ELSE}
+  Result := FDragHeight <> DEFAULT_DRAG_HEIGHT;
+  {$IFEND}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TBaseVirtualTree.IsDragWidthStored: Boolean;
+begin
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FDragWidth <> Scale96ToFont(DEFAULT_DRAG_WIDTH);
+  {$ELSE}
+  Result := FDragWidth <> DEFAULT_DRAG_WIDTH;
+  {$IFEND}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TBaseVirtualTree.IsFirstVisibleChild(Parent, Node: PVirtualNode): Boolean;
 
 // Helper method to check if Node is the same as the first visible child of Parent.
@@ -4265,6 +4305,13 @@ begin
     Run := Run.PrevSibling;
 
   Result := Assigned(Run) and (Run = Node);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TBaseVirtualTree.IsSelectionCurveRadiusStored: Boolean;
+begin
+  Result := FSelectionCurveRadius <> 0;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -4540,8 +4587,8 @@ begin
         if tsUseThemes in FStates then
         begin
           R := Rect(0, 0, 100, 100);
-          if OSVersionInfo.dwMajorVersion > 10 and (OSVersionInfo.dwBuildNumber >= 15063)  then
-            Theme := OpenThemeDataForDPI(Handle, 'TREEVIEW', Self.FCurrentPPI)
+          if (OSVersionInfo.dwMajorVersion > 10) and (OSVersionInfo.dwBuildNumber >= 15063)  then
+            Theme := OpenThemeDataForDPI(Handle, 'TREEVIEW', Screen.PixelsPerInch)
           else
             Theme := OpenThemeData(Handle, 'TREEVIEW');
           if IsWinVistaOrAbove and (toUseExplorerTheme in FOptions.PaintOptions) then
@@ -7144,7 +7191,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMCancelMode(var Message: TWMCancelMode);
+procedure TBaseVirtualTree.WMCancelMode(var Message: TLMessage);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMCancelMode');{$endif}
@@ -8663,7 +8710,7 @@ begin
           end
           else
             NewCursor := Cursor;
-          Winapi.Windows.SetCursor(Screen.Cursors[NewCursor]);
+          Windows.SetCursor(Screen.Cursors[NewCursor]);
           Message.Result := 1;
         end
         else
@@ -9271,7 +9318,7 @@ begin
   // Don't scroll the client area if the header is currently doing tracking or dragging.
   // Do auto scroll only if there is a draw selection in progress or the tree is the current drop target or
   // wheel panning/scrolling is active.
-  IsDropTarget := Assigned(FDragManager) and DragManager.IsDropTarget;
+  IsDropTarget := Assigned(FDragManager) and VTVDragManager.IsDropTarget;
   IsDrawSelecting := [tsDrawSelPending, tsDrawSelecting] * FStates <> [];
   IsWheelPanning := [tsWheelPanning, tsWheelScrolling] * FStates <> [];
   Result := ((toAutoScroll in FOptions.AutoOptions) or IsWheelPanning) and
@@ -9316,14 +9363,13 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.ChangeScale(M, D: Integer; isDpiChange: Boolean);
-
+procedure TBaseVirtualTree.ChangeScale(M, D: Integer{$if CompilerVersion >= 31}; isDpiChange: Boolean{$ifend});
 begin
   if (toAutoChangeScale in FOptions.AutoOptions) then
   begin
     if (M <> D) then
     begin
-        TVTHeaderCracker(FHeader).ChangeScale(M, D, isDpiChange);
+        TVTHeaderCracker(FHeader).ChangeScale(M, D, {$if CompilerVersion >= 31}isDpiChange{$ELSE} M <> D{$ifend});
         SetDefaultNodeHeight(MulDiv(FDefaultNodeHeight, M, D));
         Indent := MulDiv(Indent, M, D);
         FTextMargin := MulDiv(FTextMargin, M, D);
@@ -9334,9 +9380,7 @@ begin
         ScaleNodeHeights(M, D);
     end;// if M<>D
   end;//if toAutoChangeScale
-
-  inherited ChangeScale(M, D, isDpiChange);
-
+  inherited ChangeScale(M, D{$if CompilerVersion >= 31}, isDpiChange{$ifend});
   if (M <> D) then
     PrepareBitmaps(True, False); // See issue #991
   // It is important to do this call after calling inherited, so that the Font has been updated.
@@ -9384,7 +9428,7 @@ begin
           DoStateChange(EnterStates, LeaveStates);
         if (tsValidating in FStates) and (tsValidating in LeaveStates) then
           UpdateEditBounds();
-      end);
+      end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -9567,7 +9611,8 @@ end;
 procedure TBaseVirtualTree.CreateParams(var Params: TCreateParams);
 
 const
-  ScrollBar: array[TScrollStyle] of Cardinal = (0, WS_HSCROLL, WS_VSCROLL, WS_HSCROLL or WS_VSCROLL);
+  ScrollBar: array[TScrollStyle] of Cardinal = (0, WS_HSCROLL, WS_VSCROLL, WS_HSCROLL or WS_VSCROLL,
+    0,0,0);
 
 begin
   //todo_lcl
@@ -9610,7 +9655,9 @@ procedure TBaseVirtualTree.CreateWnd;
 // Initializes data which depends on a valid window handle.
 
 begin
+  {$IFDEF DelphiStyleServices}
   VclStyleChanged(); // Moved here due to issue #986
+  {$ENDIF}
   DoStateChange([tsWindowCreating]);
   inherited;
   {$ifdef DEBUG_VTV}Logger.Send([lcInfo],'Handle (CreateWnd)',Handle);{$endif}
@@ -9647,7 +9694,7 @@ begin
   // Register tree as OLE drop target.
   if not (csDesigning in ComponentState) and (toAcceptOLEDrop in FOptions.MiscOptions) then
     if not (csLoading in ComponentState) then // will be done in Loaded after all inherited settings are loaded from the DFMs
-      RegisterDragDrop(Handle, DragManager as IDropTarget);
+      RegisterDragDrop(Handle, VTVDragManager as IDropTarget);
   {$endif}
 
   UpdateScrollBars(True);
@@ -9671,6 +9718,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF OnlyDelphiSupport}
 procedure TBaseVirtualTree.DefineProperties(Filer: TFiler);
 
 // There were heavy changes in some properties during development of VT. This method helps to make migration easier
@@ -9705,6 +9753,7 @@ begin
   /// #730 removed property HintAnimation
   Filer.DefineProperty('HintAnimation', FakeReadIdent, nil, false);
 end;
+{$ENDIF}
 
 procedure TBaseVirtualTree.DestroyHandle;
 begin
@@ -10254,7 +10303,7 @@ begin
       // Since scrolling during dragging is not handled via the timer we do a check here whether the auto
       // scroll timeout already has elapsed or not.
       if (Result <> []) and
-        ((Assigned(FDragManager) and DragManager.IsDropTarget) or
+        ((Assigned(FDragManager) and VTVDragManager.IsDropTarget) or
         (FindDragTarget(Point(X, Y), False) = Self)) then
       begin
         if FDragScrollStart = 0 then
@@ -10791,7 +10840,7 @@ begin
     DoStartDrag(DragObject);
     DragObject.Free;
 
-    DataObject := DragManager.DataObject;
+    DataObject := VTVDragManager.DataObject;
     PrepareDragImage(P, DataObject);
 
     FLastDropMode := dmOnNode;
@@ -10800,7 +10849,7 @@ begin
     AllowedEffects := GetDragOperations;
     try
       DragAndDrop(AllowedEffects, DataObject, FLastDragEffect);
-      DragManager.ForceDragLeave;
+      VTVDragManager.ForceDragLeave;
     finally
       GetCursorPos(P);
       P := ScreenToClient(P);
@@ -10837,7 +10886,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.DoDragOver(Source: TObject; Shift: TShiftState; State: TDragState; Pt: TPoint; Mode: TDropMode;
-  var Effect: Integer): Boolean;
+  var Effect: LongWord): Boolean;
 
 begin
   Result := False;
@@ -10848,7 +10897,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TBaseVirtualTree.DoDragDrop(Source: TObject; const DataObject: TVTDragDataObject; const Formats: TFormatArray;
-  Shift: TShiftState; Pt: TPoint; var Effect: Integer; Mode: TDropMode);
+  Shift: TShiftState; Pt: TPoint; var Effect: LongWord; Mode: TDropMode);
 
 begin
   if Assigned(FOnDragDrop) then
@@ -10881,7 +10930,7 @@ begin
     if Assigned(FEditLink) then
     begin
       DoStateChange([tsEditing], [tsDrawSelecting, tsDrawSelPending, tsToggleFocusedSelection, tsOLEDragPending,
-        tsOLEDragging, tsClearPending, tsDrawSelPending, tsScrollPending, tsScrolling]);
+        tsOLEDragging, tsClearPending, tsScrolling]);
       if FEditLink.PrepareEdit(Self, FFocusedNode, FEditColumn) then
       begin
         UpdateEditBounds;
@@ -11986,7 +12035,7 @@ begin
     else
     begin
       // Scroll only if there is no drag'n drop in progress. Drag'n drop scrolling is handled in DragOver.
-      if ((FDragManager = nil) or not DragManager.IsDropTarget) and ((DeltaX <> 0) or (DeltaY <> 0)) then
+      if ((FDragManager = nil) or not VTVDragManager.IsDropTarget) and ((DeltaX <> 0) or (DeltaY <> 0)) then
         DoSetOffsetXY(Point(FOffsetX + DeltaX, FOffsetY + DeltaY), DefaultScrollUpdateFlags, nil);
     end;
     UpdateWindow();
@@ -12125,7 +12174,7 @@ begin
   end
   else
   }
-    ActiveX.DoDragDrop(DataObject, DragManager as IDropSource, AllowedEffects, @DragEffect);
+    ActiveX.DoDragDrop(DataObject, VTVDragManager as IDropSource, AllowedEffects, @DragEffect);
   {$endif}
 end;
 
@@ -12143,8 +12192,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseVirtualTree.DragDrop(const DataObject: TVTDragDataObject; KeyState: Integer; Pt: TPoint;
-  var Effect: Integer): HResult;
+function TBaseVirtualTree.DragDrop(const DataObject: TVTDragDataObject; KeyState: LongWord; Pt: TPoint;
+  var Effect: LongWord): HResult;
 
 var
   Shift: TShiftState;
@@ -12163,7 +12212,7 @@ begin
   // Ask explicitly again whether the action is allowed. Otherwise we may accept a drop which is intentionally not
   // allowed but cannot be prevented by the application because when the tree was scrolling while dropping
   // no DragOver event is created by the OLE subsystem.
-  Result := DragOver(DragManager.DragSource, KeyState, dsDragMove, Pt, Effect);
+  Result := DragOver(VTVDragManager.DragSource, KeyState, dsDragMove, Pt, Effect);
   try
     if (Result <> NOERROR) or ((Effect and not DROPEFFECT_SCROLL) = DROPEFFECT_NONE) then
       Result := E_FAIL
@@ -12191,7 +12240,7 @@ begin
           SetLength(Formats, Length(Formats) + 1);
           Formats[High(Formats)] := OLEFormat.cfFormat;
         end;
-        DoDragDrop(DragManager.DragSource, DataObject, Formats, Shift, Pt, Effect, FLastDropMode);
+        DoDragDrop(VTVDragManager.DragSource, DataObject, Formats, Shift, Pt, Effect, FLastDropMode);
       except
         // An unhandled exception here leaks memory.
         Application.HandleException(Self);
@@ -12210,7 +12259,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseVirtualTree.DragEnter(KeyState: Integer; Pt: TPoint; var Effect: Integer): HResult;
+function TBaseVirtualTree.DragEnter(KeyState: LongWord; Pt: TPoint; var Effect: LongWord): HResult;
 
 // callback routine for the drop target interface
 
@@ -12234,8 +12283,8 @@ begin
     if tsRightButtonDown in FStates then
       Include(Shift, ssRight);
     Pt := ScreenToClient(Pt);
-    Effect := SuggestDropEffect(DragManager.DragSource, Shift, Pt, Effect);
-    Accept := DoDragOver(DragManager.DragSource, Shift, dsDragEnter, Pt, FLastDropMode, Effect);
+    Effect := SuggestDropEffect(VTVDragManager.DragSource, Shift, Pt, Effect);
+    Accept := DoDragOver(VTVDragManager.DragSource, Shift, dsDragEnter, Pt, FLastDropMode, Effect);
     if not Accept then
       Effect := DROPEFFECT_NONE
     else
@@ -12300,7 +12349,7 @@ end;
 procedure TBaseVirtualTree.DragLeave;
 
 var
-  Effect: Integer;
+  Effect: LongWord;
 
 begin
   StopTimer(ExpandTimer);
@@ -12319,8 +12368,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseVirtualTree.DragOver(Source: TObject; KeyState: Integer; DragState: TDragState; Pt: TPoint;
-  var Effect: Integer): HResult;
+function TBaseVirtualTree.DragOver(Source: TObject; KeyState: LongWord; DragState: TDragState; Pt: TPoint;
+  var Effect: LongWord): HResult;
 
 // callback routine for the drop target interface
 
@@ -14642,7 +14691,7 @@ begin
   // Call RegisterDragDrop after all visual inheritance changes to MiscOptions have been applied.
   if not (csDesigning in ComponentState) and (toAcceptOLEDrop in FOptions.MiscOptions) then
     if HandleAllocated then
-      RegisterDragDrop(Handle, DragManager as IDropTarget);
+      RegisterDragDrop(Handle, VTVDragManager as IDropTarget);
 
   // If a root node count has been set during load of the tree then update its child structure now
   // as this hasn't been done yet in this case.
@@ -16798,6 +16847,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$ifdef VCLStyleSupport}
 procedure TBaseVirtualTree.VclStyleChanged();
 
   // Updates the member FVclStyleEnabled, should be called initially and when the VCL style changes
@@ -16806,6 +16856,7 @@ begin
   FVclStyleEnabled := StyleServices.Enabled and not StyleServices.IsSystemStyle {$IF CompilerVersion < 35} and not (csDesigning in ComponentState) {$ifend};
   Header.StyleChanged();
 end;
+{$ifend}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -17685,13 +17736,13 @@ begin
   begin
     DisableAutoSizing;
     try
-      if IsDefaultNodeHeightStored then
+      if IsStored_DefaultNodeHeight then
         FDefaultNodeHeight := Round(FDefaultNodeHeight * YProportion);
-      if IsIndentStored then
+      if IsStored_Indent then
         FIndent := Round(FIndent * YProportion);
-      if IsMarginStored then
+      if IsStored_Margin then
         FMargin := Round(FMargin * XProportion);
-      if IsTextMarginStored then
+      if IsStored_TextMargin then
         FTextMargin := Round(FTextMargin * XProportion);
       if IsSelectionCurveRadiusStored then
         FSelectionCurveRadius := Round(FSelectionCurveRadius * XProportion);
@@ -21187,28 +21238,44 @@ end;
 
 function TBaseVirtualTree.IsStored_DefaultNodeHeight: Boolean;
 begin
-  Result:= CompareValue(FDefaultNodeHeight, 18)<>EqualsValue;
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FDefaultNodeHeight <> Scale96ToFont(DEFAULT_NODE_HEIGHT);
+  {$ELSE}
+  Result := FDefaultNodeHeight <> DEFAULT_NODE_HEIGHT;
+  {$IFEND}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.IsStored_Indent: Boolean;
 begin
-  Result:= CompareValue(FIndent, 18)<>EqualsValue;
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FIndent <> Scale96ToFont(DEFAULT_INDENT);
+  {$ELSE}
+  Result := FIndent <> DEFAULT_INDENT;
+  {$IFEND}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.IsStored_Margin: Boolean;
 begin
-  Result:= CompareValue(FMargin, 4)<>EqualsValue;
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FMargin <> Scale96ToFont(DEFAULT_MARGIN);
+  {$ELSE}
+  Result := FMargin <> DEFAULT_MARGIN;
+  {$IFEND}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 function TBaseVirtualTree.IsStored_TextMargin: Boolean;
 begin
-  Result:= CompareValue(FTextMargin, 4)<>EqualsValue;
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FTextMargin <> Scale96ToFont(DEFAULT_MARGIN);
+  {$ELSE}
+  Result := FTextMargin <> DEFAULT_MARGIN;
+  {$IFEND}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -21415,6 +21482,7 @@ begin
     if (toVariableNodeHeight in FOptions.MiscOptions) then
     begin
       NewNodeHeight := Node.NodeHeight;
+      {$IFDEF DelphiAnonymusThread}
       // Anonymous methods help to make this thread safe easily.
       if (MainThreadId <> GetCurrentThreadId) then
         TThread.Synchronize(nil,
@@ -21425,6 +21493,7 @@ begin
           end
         )
       else
+      {$IFEND}
       begin
         DoMeasureItem(Canvas, Node, NewNodeHeight);
         SetNodeHeight(Node, NewNodeHeight);
@@ -24081,12 +24150,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$ifdef VCLStyleSupport}
 procedure TBaseVirtualTree.UpdateStyleElements;
 begin
   inherited;
   UpdateHeaderRect;
   FHeader.Columns.PaintHeader(Canvas, FHeaderRect, Point(0,0));
 end;
+{$ifend}
 
 //----------------------------------------------------------------------------------------------------------------------
 

@@ -993,10 +993,10 @@ function ContentToClipboard(Tree: TCustomVirtualStringTree; Format: Word; Source
     EndHTMLIndex := EndFragmentIndex + Length(HTMLExtro);
 
     Description := Version +
-    System.SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
-    System.SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
+    SysUtils.Format('%s%.8d', [StartHTML, StartHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndHTML, EndHTMLIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [StartFragment, StartFragmentIndex]) + #13#10 +
+    SysUtils.Format('%s%.8d', [EndFragment, EndFragmentIndex]) + #13#10;
     HTML := Description + DocType + HTMLIntro + HTML + HTMLExtro;
   end;
 

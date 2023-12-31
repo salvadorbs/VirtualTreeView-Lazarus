@@ -52,10 +52,10 @@ type
     constructor Create(AOwner : TCustomControl; ForClipboard : Boolean); virtual;
     destructor Destroy; override;
 
-    function DAdvise(const FormatEtc : TFormatEtc; advf : integer; const advSink : IAdviseSink; out dwConnection : integer) : HResult; virtual; stdcall;
-    function DUnadvise(dwConnection : integer) : HResult; virtual; stdcall;
+    function DAdvise(const FormatEtc : TFormatEtc; advf : DWord; const advSink : IAdviseSink; out dwConnection : DWord) : HResult; virtual; stdcall;
+    function DUnadvise(dwConnection : DWord) : HResult; virtual; stdcall;
     function EnumDAdvise(out enumAdvise : IEnumStatData) : HResult; virtual; stdcall;
-    function EnumFormatEtc(Direction : integer; out EnumFormatEtc : IEnumFormatEtc) : HResult; virtual; stdcall;
+    function EnumFormatEtc(Direction : DWord; out EnumFormatEtc : IEnumFormatEtc) : HResult; virtual; stdcall;
     function GetCanonicalFormatEtc(const FormatEtc : TFormatEtc; out FormatEtcOut : TFormatEtc) : HResult; virtual; stdcall;
     function GetData(const FormatEtcIn : TFormatEtc; out Medium : TStgMedium) : HResult; virtual; stdcall;
     function GetDataHere(const FormatEtc : TFormatEtc; out Medium : TStgMedium) : HResult; virtual; stdcall;
@@ -192,6 +192,7 @@ function TVTDataObject.HGlobalClone(HGlobal : THandle) : THandle;
 var
   Size          : Cardinal;
   Data, NewData : PByte;
+{$ENDIF}
 begin
   {$IFDEF EnableWinDataObject}
   Size := GlobalSize(HGlobal);
@@ -242,8 +243,10 @@ function TVTDataObject.StgMediumIncRef(const InStgMedium : TStgMedium; var OutSt
 // This way we increase the reference count to ourselves and pass the STGMEDIUM structure initially stored in SetData.
 // This way when the caller frees the structure it sees the unkForRelease is not nil and calls Release on the object
 // instead of destroying the actual data.
+{$IFDEF EnableWinDataObject}
 var
   Len : integer;
+{$ENDIF}
 begin
   {$IFDEF EnableWinDataObject}
   Result := S_OK;
@@ -265,7 +268,7 @@ begin
         end
         else
           // Don't generate a copy just use ourselves and the copy previously saved.
-          OutStgMedium.unkForRelease := Pointer(DataObject); // Does not increase RefCount.
+          OutStgMedium.PunkForRelease := Pointer(DataObject); // Does not increase RefCount.
       end;
     TYMED_FILE :
       begin
@@ -274,39 +277,39 @@ begin
         Move(InStgMedium.lpszFileName^, OutStgMedium.lpszFileName^, 2 * Len);
       end;
     TYMED_ISTREAM :
-      IUnknown(OutStgMedium.stm)._AddRef;
+      IUnknown(OutStgMedium.Pstm)._AddRef;
     TYMED_ISTORAGE :
-      IUnknown(OutStgMedium.stg)._AddRef;
+      IUnknown(OutStgMedium.Pstg)._AddRef;
     TYMED_GDI :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy GDI objects right now.
     TYMED_MFPICT :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy MetaFile objects right now.
     TYMED_ENHMF :
       if not CopyInMedium then
         // Don't generate a copy just use ourselves and the previously saved data.
-        OutStgMedium.unkForRelease := Pointer(DataObject) // Does not increase RefCount.
+        OutStgMedium.PunkForRelease := Pointer(DataObject) // Does not increase RefCount.
       else
         Result := DV_E_TYMED;                             // Don't know how to copy enhanced metafiles objects right now.
   else
     Result := DV_E_TYMED;
   end;
 
-  if (Result = S_OK) and Assigned(OutStgMedium.unkForRelease) then
-    IUnknown(OutStgMedium.unkForRelease)._AddRef;
+  if (Result = S_OK) and Assigned(OutStgMedium.PunkForRelease) then
+    IUnknown(OutStgMedium.PunkForRelease)._AddRef;
   {$ENDIF}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.DAdvise(const FormatEtc : TFormatEtc; advf : integer; const advSink : IAdviseSink; out dwConnection : integer) : HResult;
+function TVTDataObject.DAdvise(const FormatEtc : TFormatEtc; advf : DWord; const advSink : IAdviseSink; out dwConnection : DWord) : HResult;
 // Advise sink management is greatly simplified by the IDataAdviseHolder interface.
 // We use this interface and forward all concerning calls to it.
 begin
@@ -321,7 +324,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.DUnadvise(dwConnection : integer) : HResult;
+function TVTDataObject.DUnadvise(dwConnection : DWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   if FAdviseHolder = nil then
@@ -345,7 +348,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.EnumFormatEtc(Direction : integer; out EnumFormatEtc : IEnumFormatEtc) : HResult;
+function TVTDataObject.EnumFormatEtc(Direction : DWord; out EnumFormatEtc : IEnumFormatEtc) : HResult;
 {$IFDEF EnableWinDataObject}
 var
   NewList : TEnumFormatEtc;
@@ -402,7 +405,7 @@ begin
       Data.Tree := TBaseVirtualTree(FOwner);
       GlobalUnLock(Medium.HGlobal);
       Medium.tymed := TYMED_HGLOBAL;
-      Medium.unkForRelease := nil;
+      Medium.PunkForRelease := nil;
       Result := S_OK;
     end;
   end
@@ -528,10 +531,10 @@ begin
     // Can get a circular reference if the client calls GetData then calls SetData with the same StgMedium.
     // Because the unkForRelease for the IDataObject can be marshalled it is necessary to get pointers that
     // can be correctly compared. See the IDragSourceHelper article by Raymond Chen at MSDN.
-    if Assigned(LocalStgMedium.unkForRelease) then
+    if Assigned(LocalStgMedium.PunkForRelease) then
     begin
-      if CanonicalIUnknown(Self) = CanonicalIUnknown(IUnknown(LocalStgMedium.unkForRelease)) then
-        IUnknown(LocalStgMedium.unkForRelease) := nil; // release the interface
+      if CanonicalIUnknown(Self) = CanonicalIUnknown(IUnknown(LocalStgMedium.PunkForRelease)) then
+        IUnknown(LocalStgMedium.PunkForRelease) := nil; // release the interface
     end;
   end;
 

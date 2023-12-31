@@ -49,7 +49,9 @@ type
     property CharCase;
     property HideSelection;
     property MaxLength;
+    {$IFDEF DelphiProps}
     property OEMConvert;
+    {$ENDIF}
     property PasswordChar;
   end;
 
@@ -267,7 +269,7 @@ procedure TVTEdit.WMDestroy(var Message : TWMDestroy);
 begin
   //If editing stopped by other means than accept or cancel then we have to do default processing for
   //pending changes.
-  if Assigned(FLink) and not FLink.Stopping and not (csRecreating in Self.ControlState) then
+  if Assigned(FLink) and not FLink.Stopping {$IFNDEF FPC} and not (csRecreating in Self.ControlState) {$ENDIF} then
   begin
     with TCustomVirtualStringTreeCracker(FLink.Tree) do
     begin
@@ -807,7 +809,9 @@ begin
     //Initial size, font and text of the node.
     FTree.GetTextInfo(Node, Column, Edit.Font, FTextBounds, Text);
     Edit.Font.Color := clWindowText;
+    {$IFNDEF FPC}
     Edit.RecreateWnd;
+    {$ENDIF}
     Edit.AutoSize := False;
     Edit.Text := Text;
     Edit.BidiMode := FBidiMode;

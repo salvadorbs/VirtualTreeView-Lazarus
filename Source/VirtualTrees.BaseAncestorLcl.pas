@@ -49,6 +49,7 @@ type
     property DottedBrushTreeLines: TBrush read FDottedBrushTreeLines write FDottedBrushTreeLines;
     property DottedBrushGridLines: TBrush read GetDottedBrushGridLines;
   public // methods
+    procedure RecreateWnd;
     procedure CopyToClipboard; virtual; abstract;
     procedure CutToClipboard; virtual; abstract;
     function PasteFromClipboard: Boolean; virtual; abstract;
@@ -113,6 +114,11 @@ begin
     end;
 
   Result.Bitmap.Handle := CreateBitmap(8, 8, 1, 1, Bits);
+end;
+
+procedure TVTBaseAncestorLcl.RecreateWnd;
+begin
+  Repaint;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

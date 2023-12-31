@@ -24,6 +24,8 @@ uses
   , SysUtils;
 
 type
+  TBitmap = Graphics.TBitmap;
+
   // Drag image support for the tree.
   TVTTransparency = 0 .. 255;
   TVTBias = - 128 .. 127;
@@ -81,7 +83,8 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop;
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop,
+  virtualdragmanager;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 
@@ -160,6 +163,7 @@ var
   SourceRun, TargetRun                      : PBGRA;
   X, Y, MaxDimension, HalfWidth, HalfHeight : Integer;
   T                                         : Extended;
+  SourceBits, TargetBits: Pointer;
 begin
   {$ifdef EnableAdvancedGraphics}
   SourceBits := GetBitmapBitsFromBitmap(Source.Handle);

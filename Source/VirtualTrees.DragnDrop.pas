@@ -27,9 +27,34 @@ type
     constructor Create(const AFormatEtcArray : TFormatEtcArray);
 
     function Clone(out Enum : IEnumFormatEtc) : HResult; stdcall;
-    function Next(celt : Integer; out elt; pceltFetched : PLongint) : HResult; stdcall;
+    function Next(celt : LongWord; out elt: FormatEtc; pceltFetched : pULong=nil) : HResult; stdcall;
     function Reset : HResult; stdcall;
-    function Skip(celt : Integer) : HResult; stdcall;
+    function Skip(celt : LongWord) : HResult; stdcall;
+  end;
+
+  // ----- OLE drag'n drop handling
+
+  IVTDragManager = interface(IUnknown)
+    ['{C4B25559-14DA-446B-8901-0C879000EB16}']
+    procedure ForceDragLeave; stdcall;
+    function GetDataObject: IDataObject; stdcall;
+    function GetDragSource: TBaseVirtualTree; stdcall;
+    function GetDropTargetHelperSupported: Boolean; stdcall;
+    function GetIsDropTarget: Boolean; stdcall;
+
+    property DataObject: IDataObject read GetDataObject;
+    property DragSource: TBaseVirtualTree read GetDragSource;
+    property DropTargetHelperSupported: Boolean read GetDropTargetHelperSupported;
+    property IsDropTarget: Boolean read GetIsDropTarget;
+  end;
+
+  IDropTargetHelper = interface(IUnknown)
+    [SID_IDropTargetHelper]
+    function DragEnter(hwndTarget: HWND; pDataObject: IDataObject; var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function DragLeave: HRESULT; stdcall;
+    function DragOver(var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function Drop(pDataObject: IDataObject; var ppt: TPoint; dwEffect: LongWord): HRESULT; stdcall;
+    function Show(fShow: Boolean): HRESULT; stdcall;
   end;
 
   // TVTDragManager is a class to manage drag and drop in a Virtual Treeview.
@@ -44,15 +69,16 @@ type
 
     function GetDataObject : IDataObject; stdcall;
     function GetDragSource : TBaseVirtualTree; stdcall;
+    function GetDropTargetHelperSupported: Boolean; stdcall;
     function GetIsDropTarget : Boolean; stdcall;
   public
     constructor Create(AOwner : TBaseVirtualTree); virtual;
     destructor Destroy; override;
 
-    function DragEnter(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Longint) : HResult; stdcall;
+    function DragEnter(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
     function DragLeave : HResult; stdcall;
-    function DragOver(KeyState : Integer; Pt : TPoint; var Effect : Longint) : HResult; stdcall;
-    function Drop(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult; stdcall;
+    function DragOver(KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
+    function Drop(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult; stdcall;
     procedure ForceDragLeave; stdcall;
     {$IF (FPC_FULLVERSION < 020601) and DEFINED(LCLWin32)}
     function GiveFeedback(Effect: Longint): HResult; stdcall;
@@ -128,7 +154,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TEnumFormatEtc.Next(celt : Integer; out elt; pceltFetched : PLongint) : HResult;
+function TEnumFormatEtc.Next(celt : LongWord; out elt: FormatEtc; pceltFetched : pULong=nil) : HResult;
 {$IFDEF EnableWinDataObject}
 var
   CopyCount : Integer;
@@ -162,7 +188,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TEnumFormatEtc.Skip(celt : Integer) : HResult;
+function TEnumFormatEtc.Skip(celt : LongWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   if FCurrentIndex + celt < High(FFormatEtcArray) then
@@ -238,6 +264,16 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TVTDragManager.GetDropTargetHelperSupported: Boolean; stdcall;
+
+begin
+  {$IFDEF EnableWinDataObject}
+  Result := Assigned(FDropTargetHelper);
+  {$ENDIF}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TVTDragManager.GetIsDropTarget : Boolean;
 begin
   Result := True;
@@ -248,7 +284,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.DragEnter(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.DragEnter(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   FDataObject := DataObject;
@@ -289,7 +325,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.DragOver(KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.DragOver(KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
@@ -301,7 +337,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.Drop(const DataObject : IDataObject; KeyState : Integer; Pt : TPoint; var Effect : Integer) : HResult;
+function TVTDragManager.Drop(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   if Assigned(FDropTargetHelper) and FFullDragging then
@@ -328,7 +364,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.GiveFeedback(Effect : Integer) : HResult;
+function TVTDragManager.GiveFeedback(Effect : LongWord) : HResult;
 begin
   {$IFDEF EnableWinDataObject}
   Result := DRAGDROP_S_USEDEFAULTCURSORS;
@@ -337,7 +373,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDragManager.QueryContinueDrag(EscapePressed : BOOL; KeyState : Integer) : HResult;
+function TVTDragManager.QueryContinueDrag(EscapePressed : BOOL; KeyState : LongWord) : HResult;
 var
   RButton, LButton : Boolean;
 begin

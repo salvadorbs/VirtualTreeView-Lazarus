@@ -66,7 +66,6 @@ type
     property ButtonStyle;
     property BorderWidth;
     property ChangeDelay;
-    property CheckImageKind;
     property ClipboardFormats;
     property Color;
     property Colors;

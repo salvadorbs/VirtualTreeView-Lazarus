@@ -1636,6 +1636,49 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+type
+  TOldVTStringOption = (soSaveCaptions, soShowStaticText);
+
+procedure TCustomVirtualStringTree.ReadOldStringOptions(Reader: TReader);
+
+// Migration helper routine to silently convert forms containing the old tree options member into the new
+// sub-options structure.
+
+var
+  OldOption: TOldVTStringOption;
+  EnumName: string;
+
+begin
+  // If we are at design time currently then let the designer know we changed something.
+  UpdateDesigner;
+
+  // It should never happen at this place that there is something different than the old set.
+  if Reader.ReadValue = vaSet then
+    with TreeOptions do
+    begin
+      // Remove all default values set by the constructor.
+      StringOptions := [];
+
+      while True do
+      begin
+        // Sets are stored with their members as simple strings. Read them one by one and map them to the new option
+        // in the correct sub-option set.
+        EnumName := Reader.ReadString;
+        if EnumName = '' then
+          Break;
+        OldOption := TOldVTStringOption(GetEnumValue(TypeInfo(TOldVTStringOption), EnumName));
+        case OldOption of
+          soSaveCaptions:
+            StringOptions := StringOptions + [toSaveCaptions];
+          soShowStaticText:
+            StringOptions := StringOptions + [toShowStaticText];
+        end;
+      end;
+    end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TCustomVirtualStringTree.RenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium;
   ForClipboard: Boolean): HResult;
 

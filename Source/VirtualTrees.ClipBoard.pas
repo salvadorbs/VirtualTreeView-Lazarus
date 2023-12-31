@@ -103,7 +103,7 @@ type
     class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; var Formats: TFormatEtcArray;  const AllowedFormats: TClipboardFormats = nil); overload;
     class procedure EnumerateFormats(TreeClass: TVirtualTreeClass; const Formats: TStrings); overload;
     class function FindFormat(const FormatString: string): TClipboardFormatListEntry; overload;
-    class function FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass; overload;
+    class function FindFormat(const FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass; overload;
     class function FindFormat(Fmt: Word; var Description: string): TVirtualTreeClass; overload;
   end;
 
@@ -362,7 +362,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-class function TClipboardFormatList.FindFormat(const FormatString: string; var Fmt: Word): TVirtualTreeClass;
+class function TClipboardFormatList.FindFormat(const FormatString: string; var Fmt: TClipboardFormat): TVirtualTreeClass;
 
 var
   I: Integer;
