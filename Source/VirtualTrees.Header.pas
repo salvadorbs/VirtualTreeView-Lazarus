@@ -34,8 +34,6 @@ const
 
 type
 
-  {$I lclaliases.inc}
-
   TVTHeader = class;
   TVirtualTreeColumn = class;
   TBitmap = Graphics.TBitmap;
@@ -405,8 +403,8 @@ type
     function GetColumnsClass : TVirtualTreeColumnsClass; virtual;
     function GetOwner : TPersistent; override;
     function GetShiftState : TShiftState;
-    function HandleHeaderMouseMove(var Message : TWMMouseMove) : Boolean;
-    function HandleMessage(var Message : TMessage) : Boolean; virtual;
+    function HandleHeaderMouseMove(var Message: TLMMouseMove): Boolean;
+    function HandleMessage(var Message: TLMessage): Boolean; virtual;
     procedure ImageListChange(Sender : TObject);
     procedure PrepareDrag(P, Start : TPoint);
     procedure ReadColumns(Reader : TReader);
@@ -1443,7 +1441,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTHeader.HandleHeaderMouseMove(var Message : TWMMouseMove) : Boolean;
+function TVTHeader.HandleHeaderMouseMove(var Message: TLMMouseMove): Boolean;
 
 var
   P             : TPoint;
@@ -1555,7 +1553,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTHeader.HandleMessage(var Message : TMessage) : Boolean;
+function TVTHeader.HandleMessage(var Message: TLMessage): Boolean;
 
 //The header gets here the opportunity to handle certain messages before they reach the tree. This is important
 //because the tree needs to handle various non-client area messages for the header as well as some dragging/tracking
@@ -1593,7 +1591,7 @@ var
 begin
   Result := False;
   case Message.Msg of
-    WM_SIZE :
+    LM_SIZE:
       begin
         if not (tsWindowCreating in TBaseVirtualTreeCracker(FOwner).TreeStates) then
           if (hoAutoResize in FOptions) and not (hsAutoSizing in FStates) then
@@ -1614,10 +1612,10 @@ begin
       for I := 0 to FColumns.Count - 1 do
         if coParentBiDiMode in FColumns[I].Options then
           FColumns[I].ParentBiDiModeChanged;
-    WM_NCMBUTTONDOWN :
+    LM_MBUTTONDOWN:
       begin
         //lclheader : NCMessages are given in screen coordinates unlike the ordinary
-        with TWMNCMButtonDown(Message) do
+        with TLMMButtonDown(Message) do
           P:= Point(XPos, YPos);
           {
           P := Tree.ScreenToClient(Point(XCursor, YCursor));
@@ -1626,9 +1624,9 @@ begin
         if InHeader(P) then
           TBaseVirtualTreeCracker(FOwner).DoHeaderMouseDown(mbMiddle, GetShiftState, P.X, P.Y { + Integer(FHeight)});
       end;
-    WM_NCMBUTTONUP :
+    LM_MBUTTONUP:
       begin
-        with TWMNCMButtonUp(Message) do
+        with TLMMButtonUp(Message) do
           P:= Point(XPos, YPos);
           {
           P := FOwner.ScreenToClient(Point(XCursor, YCursor));
@@ -1645,12 +1643,13 @@ begin
           end;
         end;
       end;
-    //lcl: workaround for error duplicate case label
-    WM_LBUTTONDBLCLK{, WM_NCLBUTTONDBLCLK}, WM_NCMBUTTONDBLCLK, WM_NCRBUTTONDBLCLK :
+    LM_LBUTTONDBLCLK,
+    LM_MBUTTONDBLCLK,
+    LM_RBUTTONDBLCLK:
       begin
-        if Message.Msg <> WM_LBUTTONDBLCLK then
-          with TWMNCLButtonDblClk(Message) do
-            P := FOwner.ScreenToClient(Point(XCursor, YCursor))
+        if Message.Msg <> LM_LBUTTONDBLCLK then
+        with TLMLButtonDblClk(Message) do
+            P := FOwner.ScreenToClient(Point(XPos, YPos))
         else
           with TWMLButtonDblClk(Message) do
             P := Point(XPos, YPos);
@@ -1664,7 +1663,7 @@ begin
             SetHeight(FMinHeight);
           Result := True;
         end
-        else if HSplitterHit and ((Message.Msg = WM_NCLBUTTONDBLCLK) or (Message.Msg = WM_LBUTTONDBLCLK)) and (hoDblClickResize in FOptions) and (FColumns.TrackIndex > NoColumn)
+        else if HSplitterHit and (Message.Msg = LM_LBUTTONDBLCLK) and (hoDblClickResize in FOptions) and (FColumns.TrackIndex > NoColumn)
         then
         begin
           //If the click was on a splitter then resize column to smallest width.
@@ -1673,12 +1672,12 @@ begin
           Message.Result := 0;
           Result := True;
         end
-        else if IsInHeader and (Message.Msg <> WM_LBUTTONDBLCLK) then
+        else if IsInHeader and (Message.Msg <> LM_LBUTTONDBLCLK) then
         begin
           case Message.Msg of
-            WM_NCMBUTTONDBLCLK :
+            LM_MBUTTONDBLCLK :
               Button := mbMiddle;
-            WM_NCRBUTTONDBLCLK :
+            LM_RBUTTONDBLCLK :
               Button := mbRight;
           else
               //WM_NCLBUTTONDBLCLK
@@ -1691,8 +1690,7 @@ begin
       end;
     //The "hot" area of the headers horizontal splitter is partly within the client area of the the tree, so we need
     //to handle WM_LBUTTONDOWN here, too.
-    //lcl: workaround for error duplicate case label
-    WM_LBUTTONDOWN{, WM_NCLBUTTONDOWN} :
+    LM_LBUTTONDOWN :
       begin
 
         Application.CancelHint;
@@ -1710,7 +1708,7 @@ begin
           end;
         end;
 
-          with TWMLButtonDown(Message) do
+          with TLMLButtonDown(Message) do
           begin
             //want the drag start point in screen coordinates
             P := Point(XPos, YPos);
@@ -1769,9 +1767,9 @@ begin
         if not (csDesigning in Tree.ComponentState) and IsInHeader then
           TBaseVirtualTreeCracker(FOwner).DoHeaderMouseDown(mbLeft, GetShiftState, P.X, P.Y { + Integer(FHeight)});
       end;
-    WM_NCRBUTTONDOWN :
+    LM_RBUTTONDOWN :
       begin
-        with TWMNCRButtonDown(Message) do
+        with TLMRButtonDown(Message) do
           P:=Point(XPos,YPos);
           {
           P := FOwner.ScreenToClient(Point(XCursor, YCursor));
@@ -1780,9 +1778,9 @@ begin
         if InHeader(P) then
           TBaseVirtualTreeCracker(FOwner).DoHeaderMouseDown(mbRight, GetShiftState, P.X, P.Y { + Integer(FHeight)});
       end;
-    WM_NCRBUTTONUP :
+    LM_RBUTTONUP :
       if not (csDesigning in FOwner.ComponentState) then
-        with TWMNCRButtonUp(Message) do
+        with TLMRButtonUp(Message) do
         begin
           Application.CancelHint;
           P := Point(XPos,YPos);
@@ -1796,8 +1794,7 @@ begin
           end;
         end;
     //When the tree window has an active mouse capture then we only get "client-area" messages.
-    //lcl: workaround for error duplicate case label
-    WM_LBUTTONUP{, WM_NCLBUTTONUP} :
+    LM_LBUTTONUP :
       begin
         Application.CancelHint;
 
@@ -1813,7 +1810,7 @@ begin
           if hsDragging in FStates then
           begin
             //successfull dragging moves columns
-            with TWMLButtonUp(Message) do
+            with TLMLButtonUp(Message) do
               P := Tree.ClientToScreen(Point(XPos, YPos));
             GetWindowRect(Tree.Handle, R);
             {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / R',R);{$endif}
@@ -1874,8 +1871,8 @@ begin
         end;
 
         case Message.Msg of
-          WM_LBUTTONUP :
-            with TWMLButtonUp(Message) do
+          LM_LBUTTONUP :
+            with TLMLButtonUp(Message) do
             begin
               with TVirtualTreeColumnsCracker(FColumns) do
               begin
@@ -1887,8 +1884,8 @@ begin
             end;
           //todo: there's a difference here
           {
-          WM_NCLBUTTONUP :
-            with TWMNCLButtonUp(Message) do
+          LM_NCLBUTTONUP :
+            with TLMLButtonUp(Message) do
             begin
               P := FOwner.ScreenToClient(Point(XCursor, YCursor));
               TVirtualTreeColumnsCracker(FColumns).HandleClick(P, mbLeft, True, False);
@@ -1928,7 +1925,7 @@ begin
         FDownIndex := NoColumn;
       end;
     //todo: see the difference to below
-    WM_NCMOUSEMOVE:
+    LM_MOUSEMOVE:
       with TLMMouseMove(Message), FColumns do
       begin
         //lcl
@@ -2000,8 +1997,9 @@ begin
         HandleMessage := True;
       end;
     end;
-    WM_KEYDOWN, WM_KILLFOCUS :
-      if (Message.Msg = WM_KILLFOCUS) or (TWMKeyDown(Message).CharCode = VK_ESCAPE) then
+    LM_KEYDOWN,
+    LM_KILLFOCUS:
+      if (Message.Msg = LM_KILLFOCUS) or (TLMKeyDown(Message).CharCode = VK_ESCAPE) then
       begin
         if hsDragging in FStates then
         begin

@@ -54,8 +54,6 @@ var
 
 type
 
-  {$I lclaliases.inc}
-
   TBitmap = Graphics.TBitmap;
 
   TScrollInfo = LCLType.TScrollInfo;
@@ -874,78 +872,80 @@ type
     procedure TileBackground(Source: TVTBackground; Target: TCanvas; Offset: TPoint; R: TRect; aBkgColor: TColor);
     function ToggleCallback(Step, StepSize: Integer; Data: Pointer): Boolean;
 
-    procedure CMColorChange(var Message: TMessage); message CM_COLORCHANGED;
+    procedure CMColorChange(var Message: TLMessage); message CM_COLORCHANGED;
 {$IFDEF DelphiWinEvents}
     procedure CMCtl3DChanged(var Message: TMessage); message CM_CTL3DCHANGED;
 {$ENDIF}
-    procedure CMBiDiModeChanged(var Message: TMessage); message CM_BIDIMODECHANGED;
+    procedure CMBiDiModeChanged(var Message: TLMessage); message CM_BIDIMODECHANGED;
 {$IFDEF DelphiWinEvents}
     procedure CMBorderChanged(var Message: TMessage); message CM_BORDERCHANGED;
 {$ENDIF}
-    procedure CMDenySubclassing(var Message: TMessage); message CM_DENYSUBCLASSING;
+    procedure CMDenySubclassing(var Message: TLMessage); message CM_DENYSUBCLASSING;
 {$IFDEF DelphiWinEvents}
     procedure CMDrag(var Message: TCMDrag); message CM_DRAG;
     procedure CMEnabledChanged(var Message: TMessage); message CM_ENABLEDCHANGED;
 {$ENDIF}
-    procedure CMFontChanged(var Message: TMessage); message CM_FONTCHANGED;
+    procedure CMFontChanged(var Message: TLMessage); message CM_FONTCHANGED;
     procedure CMHintShow(var Message: TCMHintShow); message CM_HINTSHOW;
 {$IFDEF DelphiWinEvents}
     procedure CMHintShowPause(var Message: TCMHintShowPause); message CM_HINTSHOWPAUSE;
 {$ENDIF}
-    procedure CMMouseEnter(var Message: TMessage); message CM_MOUSEENTER;
-    procedure CMMouseLeave(var Message: TMessage); message CM_MOUSELEAVE;
-    procedure CMMouseWheel(var Message: TCMMouseWheel); message CM_MOUSEWHEEL;
+    procedure CMMouseEnter(var Message: TLMessage); message CM_MOUSEENTER;
+    procedure CMMouseLeave(var Message: TLMessage); message CM_MOUSELEAVE;
+    procedure CMMouseWheel(var Message: TLMMouseEvent); message LM_MOUSEWHEEL;
 {$IFDEF DelphiWinEvents}
     procedure CMSysColorChange(var Message: TMessage); message CM_SYSCOLORCHANGE;
 {$ENDIF}
     {$ifdef EnableNativeTVM}
-    procedure TVMGetItem(var Message: TMessage); message TVM_GETITEM;
-    procedure TVMGetItemRect(var Message: TMessage); message TVM_GETITEMRECT;
-    procedure TVMGetNextItem(var Message: TMessage); message TVM_GETNEXTITEM;
+    procedure TVMGetItem(var Message: TLMessage); message TVM_GETITEM;
+    procedure TVMGetItemRect(var Message: TLMessage); message TVM_GETITEMRECT;
+    procedure TVMGetNextItem(var Message: TLMessage); message TVM_GETNEXTITEM;
     {$endif}
-    procedure WMCancelMode(var Message: TLMessage); message WM_CANCELMODE;
-    procedure WMChar(var Message: TWMChar); message WM_CHAR;
-    procedure WMContextMenu(var Message: TWMContextMenu); message WM_CONTEXTMENU;
-    procedure WMCopy(var Message: TWMCopy); message WM_COPY;
-    procedure WMCut(var Message: TWMCut); message WM_CUT;
-    procedure WMEnable(var Message: TWMEnable); message WM_ENABLE;
-    procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
-    procedure WMGetDlgCode(var Message: TWMGetDlgCode); message WM_GETDLGCODE;
-    procedure WMHScroll(var Message: TWMHScroll); message WM_HSCROLL;
-    procedure WMKeyDown(var Message: TWMKeyDown); message WM_KEYDOWN;
-    procedure WMKeyUp(var Message: TWMKeyUp); message WM_KEYUP;
-    procedure WMKillFocus(var Msg: TWMKillFocus); message WM_KILLFOCUS;
-    procedure WMLButtonDblClk(var Message: TWMLButtonDblClk); message WM_LBUTTONDBLCLK;
-    procedure WMLButtonDown(var Message: TWMLButtonDown); message WM_LBUTTONDOWN;
-    procedure WMLButtonUp(var Message: TWMLButtonUp); message WM_LBUTTONUP;
-    procedure WMMButtonDblClk(var Message: TWMMButtonDblClk); message WM_MBUTTONDBLCLK;
-    procedure WMMButtonDown(var Message: TWMMButtonDown); message WM_MBUTTONDOWN;
-    procedure WMMButtonUp(var Message: TWMMButtonUp); message WM_MBUTTONUP;
+    procedure WMCancelMode(var Message: TLMessage); message LM_CANCELMODE;
+    procedure WMChar(var Message: TLMChar); message LM_CHAR;
+    procedure WMContextMenu(var Message: TLMContextMenu); message LM_CONTEXTMENU;
+    procedure WMCopy(var Message: TLMNoParams); message LM_COPY;
+    procedure WMCut(var Message: TLMNoParams); message LM_CUT;
+    procedure WMEnable(var Message: TLMNoParams); message LM_ENABLE;
+    procedure WMEraseBkgnd(var Message: TLMEraseBkgnd); message LM_ERASEBKGND;
+    procedure WMGetDlgCode(var Message: TLMNoParams); message LM_GETDLGCODE;
+    procedure WMHScroll(var Message: TLMHScroll); message LM_HSCROLL;
+    procedure WMKeyDown(var Message: TLMKeyDown); message LM_KEYDOWN;
+    procedure WMKeyUp(var Message: TLMKeyUp); message LM_KEYUP;
+    procedure WMKillFocus(var Msg: TLMKillFocus); message LM_KILLFOCUS;
+    procedure WMLButtonDblClk(var Message: TLMLButtonDblClk); message LM_LBUTTONDBLCLK;
+    procedure WMLButtonDown(var Message: TLMLButtonDown); message LM_LBUTTONDOWN;
+    procedure WMLButtonUp(var Message: TLMLButtonUp); message LM_LBUTTONUP;
+    procedure WMMButtonDblClk(var Message: TLMMButtonDblClk); message LM_MBUTTONDBLCLK;
+    procedure WMMButtonDown(var Message: TLMMButtonDown); message LM_MBUTTONDOWN;
+    procedure WMMButtonUp(var Message: TLMMButtonUp); message LM_MBUTTONUP;
     {$ifdef EnableNCFunctions}
     procedure WMNCCalcSize(var Message: TWMNCCalcSize); message WM_NCCALCSIZE;
+{$IFDEF DelphiWinEvents}
     procedure WMNCDestroy(var Message: TWMNCDestroy); message WM_NCDESTROY;
+{$ENDIF}
     procedure WMNCHitTest(var Message: TWMNCHitTest); message WM_NCHITTEST;
     procedure WMNCPaint(var Message: TWMNCPaint); message WM_NCPAINT;
     {$endif}
-    procedure WMPaint(var Message: TWMPaint); message WM_PAINT;
-    procedure WMPaste(var Message: TWMPaste); message WM_PASTE;
+    procedure WMPaint(var Message: TLMPaint); message LM_PAINT;
+    procedure WMPaste(var Message: TLMNoParams); message LM_PASTE;
     {$ifdef EnablePrintFunctions}
     procedure WMPrint(var Message: TWMPrint); message WM_PRINT;
     procedure WMPrintClient(var Message: TWMPrintClient); message WM_PRINTCLIENT;
     {$endif}
-    procedure WMRButtonDblClk(var Message: TWMRButtonDblClk); message WM_RBUTTONDBLCLK;
-    procedure WMRButtonDown(var Message: TWMRButtonDown); message WM_RBUTTONDOWN;
-    procedure WMRButtonUp(var Message: TWMRButtonUp); message WM_RBUTTONUP;
-    procedure WMSetCursor(var Message: TWMSetCursor); message WM_SETCURSOR;
-    procedure WMSetFocus(var Msg: TWMSetFocus); message WM_SETFOCUS;
-    procedure WMSize(var Message: TWMSize); message WM_SIZE;
-    procedure WMTimer(var Message: TWMTimer); message WM_TIMER;
+    procedure WMRButtonDblClk(var Message: TLMRButtonDblClk); message LM_RBUTTONDBLCLK;
+    procedure WMRButtonDown(var Message: TLMRButtonDown); message LM_RBUTTONDOWN;
+    procedure WMRButtonUp(var Message: TLMRButtonUp); message LM_RBUTTONUP;
+    procedure WMSetCursor(var Message: TLMSetCursor); message LM_SETCURSOR;
+    procedure WMSetFocus(var Msg: TLMSetFocus); message LM_SETFOCUS;
+    procedure WMSize(var Message: TLMSize); message LM_SIZE;
+    procedure WMTimer(var Message: TLMTimer); message LM_TIMER;
     {$ifdef ThemeSupport}
     {$ifdef Windows}
-    procedure WMThemeChanged(var Message: TMessage); message WM_THEMECHANGED;
+      procedure WMThemeChanged(var Message: TLMessage); message WM_THEMECHANGED;
     {$endif}
     {$endif ThemeSupport}
-    procedure WMVScroll(var Message: TWMVScroll); message WM_VSCROLL;
+    procedure WMVScroll(var Message: TLMVScroll); message LM_VSCROLL;
     function GetRangeX: TDimension;
     function GetDoubleBuffered: Boolean;
     procedure SetDoubleBuffered(const Value: Boolean);
@@ -1162,9 +1162,9 @@ type
     function GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree; virtual;
     procedure HandleHotTrack(X, Y: TDimension); virtual;
     procedure HandleIncrementalSearch(CharCode: Word); virtual;
-    procedure HandleMouseDblClick(var Message: TWMMouse; const HitInfo: THitInfo); virtual;
-    procedure HandleMouseDown(var Message: TWMMouse; var HitInfo: THitInfo); virtual;
-    procedure HandleMouseUp(var Message: TWMMouse; const HitInfo: THitInfo); virtual;
+    procedure HandleMouseDblClick(var Message: TLMMouse; const HitInfo: THitInfo); virtual;
+    procedure HandleMouseDown(var Message: TLMMouse; var HitInfo: THitInfo); virtual;
+    procedure HandleMouseUp(var Message: TLMMouse; const HitInfo: THitInfo); virtual;
     procedure HandleClickSelection(LastFocused, NewNode: PVirtualNode; Shift: TShiftState; DragPending: Boolean);
     function HasImage(Node: PVirtualNode; Kind: TVTImageKind; Column: TColumnIndex): Boolean; virtual; deprecated 'Use GetImageSize instead';
     function HasPopupMenu(Node: PVirtualNode; Column: TColumnIndex; Pos: TPoint): Boolean; virtual;
@@ -1237,7 +1237,7 @@ type
       ReshowDragImage: Boolean); virtual;
     procedure ValidateCache; virtual;
     procedure ValidateNodeDataSize(var Size: Integer); virtual;
-    procedure WndProc(var Message: TMessage); override;
+    procedure WndProc(var Message: TLMessage); override;
     procedure WriteChunks(Stream: TStream; Node: PVirtualNode); virtual;
     procedure WriteNode(Stream: TStream; Node: PVirtualNode); virtual;
     class procedure RaiseVTError(const Msg: string; HelpContext: Integer); static;
@@ -6281,7 +6281,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMColorChange(var Message: TMessage);
+procedure TBaseVirtualTree.CMColorChange(var Message: TLMessage);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'CMColorChange');{$endif}
@@ -6308,7 +6308,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMBiDiModeChanged(var Message: TMessage);
+procedure TBaseVirtualTree.CMBiDiModeChanged(var Message: TLMessage);
 
 begin
   inherited;
@@ -6348,7 +6348,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMDenySubclassing(var Message: TMessage);
+procedure TBaseVirtualTree.CMDenySubclassing(var Message: TLMessage);
 
 // If a Windows XP Theme Manager component is used in the application it will try to subclass all controls which do not
 // explicitly deny this. Virtual Treeview knows how to handle XP themes so it does not need subclassing.
@@ -6576,10 +6576,10 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMFontChanged(var Message: TMessage);
+procedure TBaseVirtualTree.CMFontChanged(var Message: TLMessage);
 
 var
-  HeaderMessage: TMessage;
+  HeaderMessage: TLMessage;
 
 begin
   inherited;
@@ -6903,7 +6903,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMMouseEnter(var Message: TMessage);
+procedure TBaseVirtualTree.CMMouseEnter(var Message: TLMessage);
 begin
   DoMouseEnter();
   inherited;
@@ -6911,7 +6911,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMMouseLeave(var Message: TMessage);
+procedure TBaseVirtualTree.CMMouseLeave(var Message: TLMessage);
 
 var
   LeaveStates: TVirtualTreeStates;
@@ -6954,7 +6954,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.CMMouseWheel(var Message: TCMMouseWheel);
+procedure TBaseVirtualTree.CMMouseWheel(var Message: TLMMouseEvent);
 
 var
   ScrollAmount: TDimension;
@@ -7033,7 +7033,7 @@ end;
 
 {$ifdef EnableNativeTVM}
 
-procedure TBaseVirtualTree.TVMGetItem(var Message: TMessage);
+procedure TBaseVirtualTree.TVMGetItem(var Message: TLMessage);
 
 // Screen reader support function. The method returns information about a particular node.
 
@@ -7122,7 +7122,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.TVMGetItemRect(var Message: TMessage);
+procedure TBaseVirtualTree.TVMGetItemRect(var Message: TLMessage);
 
 // Screen read support function. This method returns a node's display rectangle.
 
@@ -7144,7 +7144,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.TVMGetNextItem(var Message: TMessage);
+procedure TBaseVirtualTree.TVMGetNextItem(var Message: TLMessage);
 
 // Screen read support function. This method returns a node depending on the requested case.
 
@@ -7214,7 +7214,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMChar(var Message: TWMChar);
+procedure TBaseVirtualTree.WMChar(var Message: TLMChar);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMChar');{$endif}
@@ -7230,7 +7230,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMContextMenu(var Message: TWMContextMenu);
+procedure TBaseVirtualTree.WMContextMenu(var Message: TLMContextMenu);
 
 // This method is called when a popup menu is about to be displayed.
 // We have to cancel some pending states here to avoid interferences.
@@ -7274,7 +7274,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMCopy(var Message: TWMCopy);
+procedure TBaseVirtualTree.WMCopy(var Message: TLMNoParams);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMCopy');{$endif}
@@ -7284,7 +7284,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMCut(var Message: TWMCut);
+procedure TBaseVirtualTree.WMCut(var Message: TLMNoParams);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMCut');{$endif}
@@ -7294,7 +7294,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMEnable(var Message: TWMEnable);
+procedure TBaseVirtualTree.WMEnable(var Message: TLMNoParams);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMEnable');{$endif}
@@ -7306,7 +7306,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMEraseBkgnd(var Message: TWMEraseBkgnd);
+procedure TBaseVirtualTree.WMEraseBkgnd(var Message: TLMEraseBkgnd);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcEraseBkgnd],'WMEraseBkgnd');{$endif}
@@ -7316,7 +7316,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMGetDlgCode(var Message: TWMGetDlgCode);
+procedure TBaseVirtualTree.WMGetDlgCode(var Message: TLMNoParams);
 
 begin
   {$ifdef DEBUG_VTV}Logger.Send([lcMessages],'WMGetDlgCode');{$endif}
@@ -7327,7 +7327,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMHScroll(var Message: TWMHScroll);
+procedure TBaseVirtualTree.WMHScroll(var Message: TLMHScroll);
 
   //--------------- local functions -------------------------------------------
 
@@ -7401,7 +7401,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMKeyDown(var Message: TWMKeyDown);
+procedure TBaseVirtualTree.WMKeyDown(var Message: TLMKeyDown);
 
 // Keyboard event handling for node focus, selection, node specific popup menus and help invokation.
 // For a detailed description of every action done here read the help.
@@ -8140,7 +8140,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMKeyUp(var Message: TWMKeyUp);
+procedure TBaseVirtualTree.WMKeyUp(var Message: TLMKeyUp);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMKeyUp');{$endif}
@@ -8155,7 +8155,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMKillFocus(var Msg: TWMKillFocus);
+procedure TBaseVirtualTree.WMKillFocus(var Msg: TLMKillFocus);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMKillFocus');{$endif}
@@ -8191,7 +8191,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMLButtonDblClk(var Message: TWMLButtonDblClk);
+procedure TBaseVirtualTree.WMLButtonDblClk(var Message: TLMLButtonDblClk);
 
 var
   HitInfo: THitInfo;
@@ -8217,7 +8217,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMLButtonDown(var Message: TWMLButtonDown);
+procedure TBaseVirtualTree.WMLButtonDown(var Message: TLMLButtonDown);
 
 var
   HitInfo: THitInfo;
@@ -8239,7 +8239,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMLButtonUp(var Message: TWMLButtonUp);
+procedure TBaseVirtualTree.WMLButtonUp(var Message: TLMLButtonUp);
 
 var
   HitInfo: THitInfo;
@@ -8257,7 +8257,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMMButtonDblClk(var Message: TWMMButtonDblClk);
+procedure TBaseVirtualTree.WMMButtonDblClk(var Message: TLMMButtonDblClk);
 
 var
   HitInfo: THitInfo;
@@ -8279,7 +8279,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMMButtonDown(var Message: TWMMButtonDown);
+procedure TBaseVirtualTree.WMMButtonDown(var Message: TLMMButtonDown);
 
 var
   HitInfo: THitInfo;
@@ -8316,7 +8316,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMMButtonUp(var Message: TWMMButtonUp);
+procedure TBaseVirtualTree.WMMButtonUp(var Message: TLMMButtonUp);
 
 var
   HitInfo: THitInfo;
@@ -8353,7 +8353,7 @@ end;
 
 {$ifdef EnableNCFunctions}
 
-procedure TBaseVirtualTree.WMNCCalcSize(var Message: TWMNCCalcSize);
+procedure TBaseVirtualTree.WMNCCalcSize(var Message: TLMNCCalcSize);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMNCCalcSize');{$endif}
@@ -8455,7 +8455,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMPaint(var Message: TWMPaint);
+procedure TBaseVirtualTree.WMPaint(var Message: TLMPaint);
 var
   DC: HDC;
 begin
@@ -8500,7 +8500,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMPaste(var Message: TWMPaste);
+procedure TBaseVirtualTree.WMPaste(var Message: TLMNoParams);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMPaste');{$endif}
@@ -8564,7 +8564,7 @@ end;
 {$endif}
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMRButtonDblClk(var Message: TWMRButtonDblClk);
+procedure TBaseVirtualTree.WMRButtonDblClk(var Message: TLMRButtonDblClk);
 
 var
   HitInfo: THitInfo;
@@ -8617,7 +8617,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMRButtonUp(var Message: TWMRButtonUp);
+procedure TBaseVirtualTree.WMRButtonUp(var Message: TLMRButtonUp);
 
 // handle right click selection and node specific popup menu
 
@@ -8655,7 +8655,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMSetCursor(var Message: TWMSetCursor);
+procedure TBaseVirtualTree.WMSetCursor(var Message: TLMSetCursor);
 
 // Sets the hot node mouse cursor for the tree. Cursor changes for the header are handled in Header.HandleMessage.
 
@@ -8724,7 +8724,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMSetFocus(var Msg: TWMSetFocus);
+procedure TBaseVirtualTree.WMSetFocus(var Msg: TLMSetFocus);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMSetFocus') ;{$endif}
@@ -8736,7 +8736,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMSize(var Message: TWMSize);
+procedure TBaseVirtualTree.WMSize(var Message: TLMSize);
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMSize');{$endif}
@@ -8767,7 +8767,7 @@ end;
 {$ifdef ThemeSupport}
 {$ifdef Windows}
 //todo
-procedure TBaseVirtualTree.WMThemeChanged(var Message: TMessage);
+procedure TBaseVirtualTree.WMThemeChanged(var Message: TLMessage);
 
 begin
   inherited;
@@ -8788,7 +8788,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMTimer(var Message: TWMTimer);
+procedure TBaseVirtualTree.WMTimer(var Message: TLMTimer);
 
 // centralized timer handling happens here
 
@@ -8839,7 +8839,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.WMVScroll(var Message: TWMVScroll);
+procedure TBaseVirtualTree.WMVScroll(var Message: TLMVScroll);
 
   //--------------- local functions -------------------------------------------
 
@@ -12335,12 +12335,12 @@ begin
   GetCursorPos(P);
   P := ScreenToClient(P);
   if tsRightButtonDown in FStates then
-    Perform(WM_RBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))))
+    Perform(LM_RBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))))
   else
     if tsMiddleButtonDown in FStates then
-      Perform(WM_MBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))))
+      Perform(LM_MBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))))
     else
-      Perform(WM_LBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))));
+      Perform(LM_LBUTTONUP, 0, LPARAM(Integer(PointToSmallPoint(P))));
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcDrag],'DragFinished');{$endif}
 end;
 
@@ -13441,7 +13441,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.HandleMouseDblClick(var Message: TWMMouse; const HitInfo: THitInfo);
+procedure TBaseVirtualTree.HandleMouseDblClick(var Message: TLMMouse; const HitInfo: THitInfo);
 
 var
   Node: PVirtualNode;
@@ -13538,7 +13538,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.HandleMouseDown(var Message: TWMMouse; var HitInfo: THitInfo);
+procedure TBaseVirtualTree.HandleMouseDown(var Message: TLMMouse; var HitInfo: THitInfo);
 
 // centralized mouse button down handling
 
@@ -13897,7 +13897,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.HandleMouseUp(var Message: TWMMouse; const HitInfo: THitInfo);
+procedure TBaseVirtualTree.HandleMouseUp(var Message: TLMMouse; const HitInfo: THitInfo);
 
 // Counterpart to the mouse down handler.
 
@@ -16588,7 +16588,9 @@ procedure TBaseVirtualTree.UpdateHeaderRect();
 var
   OffsetX,
   OffsetY: TDimension;
+  {
   EdgeSize: TDimension;
+  }
   Size: TSize;
 
 begin
@@ -16861,7 +16863,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 //PROFILE-NO
-procedure TBaseVirtualTree.WndProc(var Message: TMessage);
+procedure TBaseVirtualTree.WndProc(var Message: TLMessage);
 
 var
   Handled: Boolean;
@@ -16876,7 +16878,7 @@ begin
   begin
     // For auto drag mode, let tree handle itself, instead of TControl.
     if not (csDesigning in ComponentState) and
-       ((Message.Msg = WM_LBUTTONDOWN) or (Message.Msg = WM_LBUTTONDBLCLK)) then
+       ((Message.Msg = LM_LBUTTONDOWN) or (Message.Msg = LM_LBUTTONDBLCLK)) then
     begin
       if (DragMode = dmAutomatic) and (DragKind = dkDrag) then
       begin

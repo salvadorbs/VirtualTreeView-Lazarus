@@ -30,7 +30,7 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.BaseTree
+  Classes, LCLType, LCLIntf, SysUtils, VirtualTrees.Types, VirtualTrees.BaseTree
 
   {$ifdef Windows}
   , ActiveX
@@ -38,8 +38,7 @@ uses
   {$else}
   , FakeActiveX
   {$endif}
-
-  , VirtualTrees.Types;
+  ;
 
 type
   TClipboardFormatEntry = record
@@ -64,10 +63,8 @@ var
     (ID: CF_UNICODETEXT; Description: 'Unicode text'), // Do not localize
     (ID: CF_ENHMETAFILE; Description: 'Enhanced metafile image'), // Do not localize
     (ID: CF_HDROP; Description: 'File name(s)'), // Do not localize
-    (ID: CF_LOCALE; Description: 'Locale descriptor') // Do not localize
-    {
-    ,(ID: CF_DIBV5; Description: 'DIB image V5') // Do not localize
-    }
+    (ID: CF_LOCALE; Description: 'Locale descriptor'), // Do not localize
+    (ID: CF_DIBV5; Description: 'DIB image V5') // Do not localize
   );
 
 

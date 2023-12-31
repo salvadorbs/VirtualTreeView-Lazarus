@@ -13,22 +13,20 @@ uses
   Classes, Controls, StdCtrls, LMessages, VirtualTrees.Types, VirtualTrees.BaseTree, VirtualTrees,
   LCLType, LCLIntf, Types;
 
-type
-  {$I lclaliases.inc}
-  
+type  
   //Edit support Classes.
   TStringEditLink = class;
 
   TVTEdit = class(TCustomEdit)
   private
-    procedure CMAutoAdjust(var Message : TMessage); message CM_AUTOADJUST;
-    procedure CMExit(var Message : TMessage); message CM_EXIT;
+    procedure CMAutoAdjust(var Message: TLMessage); message CM_AUTOADJUST;
+    procedure CMExit(var Message: TLMessage); message CM_EXIT;
     procedure DoRelease(Data: PtrInt);
-    procedure CNCommand(var Message : TWMCommand); message CN_COMMAND;
-    procedure WMChar(var Message : TWMChar); message WM_CHAR;
-    procedure WMDestroy(var Message : TWMDestroy); message WM_DESTROY;
-    procedure WMGetDlgCode(var Message : TWMGetDlgCode); message WM_GETDLGCODE;
-    procedure WMKeyDown(var Message : TWMKeyDown); message WM_KEYDOWN;
+    procedure CNCommand(var Message: TLMCommand); message CN_COMMAND;
+    procedure WMChar(var Message: TLMChar); message LM_CHAR;
+    procedure WMDestroy(var Message: TLMDestroy); message LM_DESTROY;
+    procedure WMGetDlgCode(var Message: TLMNoParams); message LM_GETDLGCODE;
+    procedure WMKeyDown(var Message: TLMKeyDown); message LM_KEYDOWN;
   protected
     FRefLink : IVTEditLink;
     FLink : TStringEditLink;
@@ -103,7 +101,7 @@ type
     function EndEdit : Boolean; virtual; stdcall;
     function GetBounds : TRect; virtual; stdcall; abstract;
     function PrepareEdit(Tree : TBaseVirtualTree; Node : PVirtualNode; Column : TColumnIndex) : Boolean; virtual; stdcall;
-    procedure ProcessMessage(var Message : TMessage); virtual; stdcall; abstract;
+    procedure ProcessMessage(var Message : TLMessage); virtual; stdcall; abstract;
     procedure SetBounds(R : TRect); virtual; stdcall; abstract;
 
     // Methods to plug custom actions into main ones. In base class only call event handlers.
@@ -139,7 +137,7 @@ type
     function CancelEdit : Boolean; override; stdcall;
     function EndEdit : Boolean; override; stdcall;
     function GetBounds : TRect; override; stdcall;
-    procedure ProcessMessage(var Message : TMessage); override; stdcall;
+    procedure ProcessMessage(var Message : TLMessage); override; stdcall;
 
     property Edit : TWinControl read GetEdit write SetEdit;
   end;
@@ -217,14 +215,14 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.CMAutoAdjust(var Message : TMessage);
+procedure TVTEdit.CMAutoAdjust(var Message: TLMessage);
 begin
   AutoAdjustSize;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.CMExit(var Message : TMessage);
+procedure TVTEdit.CMExit(var Message: TLMessage);
 begin
   if Assigned(FLink) and not FLink.Stopping then
     with TCustomVirtualStringTreeCracker(FLink.Tree) do
@@ -245,7 +243,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.CNCommand(var Message : TWMCommand);
+procedure TVTEdit.CNCommand(var Message: TLMCommand);
 begin
   if Assigned(FLink) and Assigned(FLink.Tree) and (Message.NotifyCode = EN_UPDATE) and not (vsMultiline in FLink.Node.States) then
     //Instead directly calling AutoAdjustSize it is necessary on Win9x/Me to decouple this notification message
@@ -257,7 +255,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.WMChar(var Message : TWMChar);
+procedure TVTEdit.WMChar(var Message: TLMChar);
 begin
   if not (Message.CharCode in [VK_ESCAPE, VK_TAB]) then
     inherited;
@@ -265,7 +263,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.WMDestroy(var Message : TWMDestroy);
+procedure TVTEdit.WMDestroy(var Message: TLMDestroy);
 begin
   //If editing stopped by other means than accept or cancel then we have to do default processing for
   //pending changes.
@@ -285,7 +283,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.WMGetDlgCode(var Message : TWMGetDlgCode);
+procedure TVTEdit.WMGetDlgCode(var Message: TLMNoParams);
 begin
   inherited;
 
@@ -294,7 +292,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTEdit.WMKeyDown(var Message : TWMKeyDown);
+procedure TVTEdit.WMKeyDown(var Message: TLMKeyDown);
 //Handles some control keys.
 
 var
@@ -421,7 +419,7 @@ begin
       end;
     Ord('A') :
       begin
-        if Tree.IsEditing and ([ssCtrl] = KeyboardStateToShiftState) then
+        if Tree.IsEditing and ([ssCtrl] = KeyDataToShiftState(Message.KeyData) {KeyboardStateToShiftState}) then
         begin
           Self.SelectAll();
           Message.CharCode := 0;
@@ -543,7 +541,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseEditLink.BeginEdit : Boolean;
+function TBaseEditLink.BeginEdit: Boolean; stdcall;
 //Notifies the edit link that editing can start now. descendants may cancel node edit
 //by returning False.
 
@@ -555,7 +553,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseEditLink.CancelEdit : Boolean;
+function TBaseEditLink.CancelEdit: Boolean; stdcall;
 
 // Performs edit cancelling.
 
@@ -574,7 +572,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseEditLink.EndEdit : Boolean;
+function TBaseEditLink.EndEdit: Boolean; stdcall;
 
 // Performs edit ending.
 
@@ -592,7 +590,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseEditLink.PrepareEdit(Tree : TBaseVirtualTree; Node : PVirtualNode; Column : TColumnIndex) : Boolean;
+function TBaseEditLink.PrepareEdit(Tree : TBaseVirtualTree; Node : PVirtualNode; Column : TColumnIndex) : Boolean; stdcall;
 
 // Performs general init: assign Tree, Node, Column, other properties; destroys previous
 // edit instance.
@@ -677,7 +675,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TWinControlEditLink.BeginEdit: Boolean;
+function TWinControlEditLink.BeginEdit: Boolean; stdcall;
 begin
   Result := inherited;
   if Result then
@@ -689,7 +687,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TWinControlEditLink.CancelEdit: Boolean;
+function TWinControlEditLink.CancelEdit: Boolean; stdcall;
 begin
   Result := inherited;
   if Result then
@@ -700,21 +698,21 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TWinControlEditLink.GetBounds : TRect;
+function TWinControlEditLink.GetBounds: TRect; stdcall;
 begin
   Result := FEdit.BoundsRect;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TWinControlEditLink.ProcessMessage(var Message : TMessage);
+procedure TWinControlEditLink.ProcessMessage(var Message: TLMessage); stdcall;
 begin
   FEdit.WindowProc(Message);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TWinControlEditLink.EndEdit: Boolean;
+function TWinControlEditLink.EndEdit: Boolean; stdcall;
 begin
   Result := inherited;
   if Result then

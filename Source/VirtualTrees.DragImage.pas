@@ -83,7 +83,7 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DataObject, VirtualTrees.DragnDrop,
+  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop,
   virtualdragmanager;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------

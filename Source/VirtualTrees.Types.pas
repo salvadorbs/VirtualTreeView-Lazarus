@@ -7,7 +7,7 @@ interface
 {$I VTConfig.inc}
 
 uses
-  LMessages, Types, LCLIntf, LCLType, Controls, Classes, StdCtrls, Themes, GraphUtil,
+  Types, LCLIntf, LCLType, Controls, Classes, StdCtrls, Themes, GraphUtil,
   {$ifdef Windows}
   Windows,
   ActiveX,
@@ -140,6 +140,10 @@ const
   crVT_MOVEE = TCursor(72);
   crVT_MOVEN = TCursor(73);
   crVT_MOVES = TCursor(74);
+
+  {$if defined(LCLCarbon) or defined(LCLCocoa)}
+    ssCtrl = ssMeta;     // Mac OS X fix
+  {$endif}
 
   cUtilityImageSize = 16; // Needed by descendants for hittests.
 

@@ -52,7 +52,7 @@ type
   private
     FStart,
     FPosition,
-    FEnd: PWideChar;
+    FEnd: PChar;
     function GetAsString: string;
   public
     destructor Destroy; override;
@@ -175,11 +175,11 @@ begin
     NewLen := FEnd - FStart + (Len + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, 2 * NewLen);
+    ReallocMem(FStart, NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
-  Move(PWideChar(S)^, FPosition^, 2 * Len);
+  System.Move(PChar(S)^, FPosition^, Len);
   Inc(FPosition, Len);
 end;
 
@@ -195,11 +195,12 @@ begin
   // Make room for the CR/LF characters.
   if FEnd - FPosition <= 4 then
   begin
+    //todo: see in calculation of NewLen is correct for String
     // Round up NewLen so it is always a multiple of AllocIncrement.
     NewLen := FEnd - FStart + (2 + AllocIncrement - 1) and not (AllocIncrement - 1);
     // Keep last offset to restore it correctly in the case that FStart gets a new memory block assigned.
     LastOffset := FPosition - FStart;
-    ReallocMem(FStart, 2 * NewLen);
+    ReallocMem(FStart, NewLen);
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
