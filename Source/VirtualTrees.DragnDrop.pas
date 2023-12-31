@@ -16,7 +16,8 @@ uses
   {$endif}
   DelphiCompat
   , VirtualTrees.Types
-  , VirtualTrees.BaseTree;
+  , VirtualTrees.BaseTree
+  , virtualdragmanager;
 
 type
   TEnumFormatEtc = class(TInterfacedObject, IEnumFormatEtc)

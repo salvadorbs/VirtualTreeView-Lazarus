@@ -103,7 +103,7 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Types
+  VirtualTrees, VirtualTrees.BaseTree, VirtualTrees.Types, VirtualTrees.Utils
   {$ifdef Windows}
   , Windows
   {$endif}

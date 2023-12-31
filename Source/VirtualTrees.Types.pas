@@ -104,11 +104,6 @@ const
 
   DSH_ALLOWDROPDESCRIPTIONTEXT = $1;
 
-  SID_IDropTargetHelper = '{4657278B-411B-11D2-839A-00C04FD918D0}';
-  SID_IDragSourceHelper = '{DE5BF786-477A-11D2-839D-00C04FD918D0}';
-  SID_IDragSourceHelper2 = '{83E07D0D-0C5F-4163-BF1A-60B274051E40}';
-  SID_IDropTarget = '{00000122-0000-0000-C000-000000000046}';
-
   // Help identifiers for exceptions. Application developers are responsible to link them with actual help topics.
   hcTFEditLinkIsNil        = 2000;
   hcTFWrongMoveError       = 2001;
@@ -1376,7 +1371,7 @@ begin
             RevokeDragDrop(Handle);
           if toFullRepaintOnResize in ToBeSet + ToBeCleared then
             //todo_lcl_check
-            RecreateWnd(FOwner);
+            RecreateWnd;
           if toAcceptOLEDrop in ToBeSet then
             RegisterDragDrop(Handle, DragManager as IDropTarget);
           if toVariableNodeHeight in ToBeSet then
@@ -1522,10 +1517,12 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF DelphiStyleServices}
 function TCustomVirtualTreeOptions.StyleServices(AControl : TControl) : TCustomStyleServices;
 begin
   Result := VTStyleServices(FOwner);
 end;
+{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -1611,7 +1608,7 @@ begin
     FAlwaysVisible := Value;
     //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
-      TVTCracker(FOwner).RecreateWnd(FOwner);
+      TVTCracker(FOwner).RecreateWnd;
   end;
 end;
 
@@ -1624,7 +1621,7 @@ begin
     FScrollBars := Value;
     //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
-      TVTCracker(FOwner).RecreateWnd(FOwner);
+      TVTCracker(FOwner).RecreateWnd;
   end;
 end;
 

@@ -59,12 +59,28 @@ procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer); inline;
 /// </summary>
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
+{$IFDEF OnlyDelphiSupport}
+procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas; X, Y: Integer; Style: Cardinal; Enabled: Boolean);
+{$ENDIF}
+
 /// <summary>
 /// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
 /// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
 /// For higher speed (and multiple entries to be shorted) specify this value explicitely.
 /// </summary>
 function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string; overload;
+
+{$IFDEF OnlyDelphiSupport}
+//--------------------------
+// ShortenString similar to VTV's version, except:
+// -- Does not assume using three dots or any particular character for ellipsis
+// -- Does not add ellipsis to string, so could be added anywhere
+// -- Requires EllipsisWidth, and zero does nothing special
+// Returns:
+//   ShortenedString as var param
+//   True if shortened (ie: add ellipsis somewhere), otherwise false
+function ShortenString(TargetCanvasDC: HDC; const StrIn: string; const AllowedWidth_px: Integer; const EllipsisWidth_px: Integer; var ShortenedString: string): boolean; overload;
+{$ENDIF}
 
 /// <summary>
 /// Wrap the given string S so that it fits into a space of given width.
@@ -90,11 +106,32 @@ function OrderRect(const R: TRect): TRect;
 /// </remarks>
 procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
 
+{$IFDEF OnlyDelphiSupport}
+/// <summary>
+/// Attaches a bitmap as drag image to an IDataObject, see issue #405
+/// <code>
+/// Usage: Set property DragImageKind to diNoImage, in your event handler OnCreateDataObject
+/// <para>       call VirtualTrees.Utils.ApplyDragImage() with your `IDataObject` and your bitmap.</para>
+/// </code>
+/// </summary>
+procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
+{$ENDIF}
+
 /// <summary>
 /// Returns True if the mouse cursor is currently visible and False in case it is suppressed.
 /// Useful when doing hot-tracking on touchscreens, see issue #766
 /// </summary>
 function IsMouseCursorVisible(): Boolean;
+
+{$IFDEF OnlyDelphiSupport}
+procedure ScaleImageList(const ImgList: TImageList; M, D: Integer);
+
+/// <summary>
+/// Returns True if the high contrast theme is anabled in the system settings, False otherwise.
+/// </summary>
+{$ENDIF}
+
+function IsHighContrastEnabled(): Boolean;
 
 /// <summary>
 /// Divide depend of parameter type uses different division operator:
@@ -103,17 +140,56 @@ function IsMouseCursorVisible(): Boolean;
 /// </summary>
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer; overload; inline;
 
+{$IFDEF OnlyDelphiSupport}
+/// <summary>
+/// Divide depend of parameter type uses different division operator:
+/// <code>Integer uses div</code>
+/// <code>Single uses /</code>
+/// </summary>
+function Divide(const Dimension: Single; const DivideBy: Integer): Single; overload; inline;
+{$ENDIF}
+
 function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 
 function GetBitmapBitsFromBitmap(Bitmap: HBITMAP): Pointer;
 
 implementation
 
+{$IFDEF OnlyDelphiSupport}
+procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
+var
+  DragSourceHelper: IDragSourceHelper;
+  DragInfo: SHDRAGIMAGE;
+  lDragSourceHelper2: IDragSourceHelper2;// Needed to get Windows Vista+ style drag hints.
+  lNullPoint: TPoint;
+begin
+
+  if Assigned(pDataObject) and Succeeded(CoCreateInstance(CLSID_DragDropHelper, nil, CLSCTX_INPROC_SERVER,
+    IID_IDragSourceHelper, DragSourceHelper)) then
+  begin
+    if Supports(DragSourceHelper, IDragSourceHelper2, lDragSourceHelper2) then
+      lDragSourceHelper2.SetFlags(DSH_ALLOWDROPDESCRIPTIONTEXT);// Show description texts
+    if not Succeeded(DragSourceHelper.InitializeFromWindow(0, lNullPoint, pDataObject)) then begin   // First let the system try to initialze the DragSourceHelper, this works fine e.g. for file system objects
+      // Create drag image
+
+      if not Assigned(pBitmap) then
+        Exit();
+      DragInfo.crColorKey := clBlack;
+      DragInfo.sizeDragImage.cx := pBitmap.Width;
+      DragInfo.sizeDragImage.cy := pBitmap.Height;
+      DragInfo.ptOffset.X := pBitmap.Width div 8;
+      DragInfo.ptOffset.Y := pBitmap.Height div 10;
+      DragInfo.hbmpDragImage := CopyImage(pBitmap.Handle, IMAGE_BITMAP, pBitmap.Width, pBitmap.Height, LR_COPYRETURNORG);
+      if not Succeeded(DragSourceHelper.InitializeFromBitmap(@DragInfo, pDataObject)) then
+        DeleteObject(DragInfo.hbmpDragImage);
+    end;//if not InitializeFromWindow
+  end;
+end;
+{$ENDIF}
+
 {$i vtgraphicsi.inc}
 
 function OrderRect(const R: TRect): TRect;
-
-// Converts the incoming rectangle so that left and top are always less than or equal to right and bottom.
 
 begin
   if R.Left < R.Right then
@@ -182,8 +258,6 @@ end;
 
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
-// Clip a given canvas to ClipRect while transforming the given rect to device coordinates.
-
 var
   ClipRegion: HRGN;
 
@@ -202,8 +276,6 @@ end;
 
 procedure GetStringDrawRect(DC: HDC; const S: string; var Bounds: TRect; DrawFormat: Cardinal);
 
-// Calculates bounds of a drawing rectangle for the given string
-
 begin
   Bounds.Right := Bounds.Left + 1;
   Bounds.Bottom := Bounds.Top + 1;
@@ -219,11 +291,6 @@ end;
 
 {$ifndef INCOMPLETE_WINAPI}
 function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string;
-
-// Adjusts the given string S so that it fits into the given width. EllipsisWidth gives the width of
-// the three points to be added to the shorted string. If this value is 0 then it will be determined implicitely.
-// For higher speed (and multiple entries to be shorted) specify this value explicitely.
-// Note: It is assumed that the string really needs shortage. Check this in advance.
 
 var
   Size: TSize;
@@ -313,14 +380,77 @@ begin
 end;
 {$endif}
 
+{$IFDEF OnlyDelphiSupport}
+//--------------------------
+function ShortenString(TargetCanvasDC: HDC; const StrIn: string; const AllowedWidth_px: Integer; const EllipsisWidth_px: Integer; var ShortenedString: string): boolean;
+//--------------------------
+var
+  Size_px_x_px: TSize;  // cx, cy
+  StrInLen: Integer;
+  LoLen, HiLen, TestLen, TestWidth_px: Integer;
+
+begin
+  StrInLen := Length(StrIn);
+  if (StrInLen = 0) then
+  Begin
+    ShortenedString := '';
+    Result := False;  // No ellipsis needed since original was empty
+  End else
+  if (AllowedWidth_px <= 0) then
+  Begin
+    ShortenedString := '';
+    Result := True;  // Ellipsis needed, since non-empty string replaced.
+                     // But likely will get clipped if AllowedWidth is really zero
+  End else
+  begin
+      // Do a binary search for the optimal string length which fits into the given width.
+      LoLen := 0;
+      TestLen := 0;
+      TestWidth_px := AllowedWidth_px;
+      HiLen := StrInLen;
+
+      while LoLen < HiLen do
+      begin
+        TestLen := (LoLen + HiLen + 1) shr 1;  // Test average of Lo and Hi
+
+        GetTextExtentPoint32W(TargetCanvasDC, PWideChar(StrIn), TestLen, Size_px_x_px);
+        TestWidth_px := Size_px_x_px.cx + EllipsisWidth_px;
+
+        if TestWidth_px <= AllowedWidth_px then
+        Begin
+          LoLen := TestLen      // Low bound must be at least as much as TestLen
+        End else
+        Begin
+          HiLen := TestLen - 1; // Continue until Hi bound string produces width below AllowedWidth_px
+        End;
+      end;
+
+      if TestWidth_px <= AllowedWidth_px then
+      Begin
+        LoLen := TestLen;
+      End;
+      if LoLen >= StrInLen then
+      Begin
+        ShortenedString := StrIn;
+        Result := False;
+      End else if AllowedWidth_px <= EllipsisWidth_px then
+      Begin
+        ShortenedString := '';
+        Result      := True; // Even though Ellipsis won't fit in AllowedWidth,
+                             // let clipping decide how much of ellipsis to show
+      End else
+      Begin
+        ShortenedString := Copy(StrIn, 1, LoLen);
+        Result := True;
+      End;
+    end;
+end;
+{$ENDIF}
+
 //----------------------------------------------------------------------------------------------------------------------
 
 
 function WrapString(DC: HDC; const S: string; const Bounds: TRect; RTL: Boolean; DrawFormat: Cardinal): string;
-
-
-// Wrap the given string S so that it fits into a space of given width.
-// RTL determines if right-to-left reading is active.
 
 var
   Width,
@@ -519,9 +649,6 @@ end;
 
 procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
 
-// Fills the given rectangles with values which can be used while dragging around an image
-// (used in DragMove of the drag manager and DragTo of the header columns).
-
 begin
   // ScrollDC limits
   RClip := Rect(0, 0, DragWidth, DragHeight);
@@ -609,6 +736,18 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$IFDEF DelphiSupport}
+type
+  TCustomImageListCast = class(TCustomImageList);
+
+procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas; X, Y: Integer; Style: Cardinal; Enabled: Boolean);
+begin
+  TCustomImageListCast(ImageList).DoDraw(Index, Canvas, X, Y, Style, Enabled)
+end;
+{$ENDIF}
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function IsMouseCursorVisible(): Boolean;
 {$IFDEF DelphiSupport}
 var
@@ -627,6 +766,93 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
+
+{$IFDEF DelphiSupport}
+procedure ScaleImageList(const ImgList: TImageList; M, D: Integer);
+var
+  ii : integer;
+  mb, ib, sib, smb : TBitmap;
+  TmpImgList : TImageList;
+begin
+  if M <= D then Exit;
+
+  //clear images
+  TmpImgList := TImageList.Create(nil);
+  try
+    TmpImgList.Assign(ImgList);
+
+    ImgList.Clear;
+    ImgList.SetSize(MulDiv(ImgList.Width, M, D), MulDiv(ImgList.Height, M, D));
+
+    //add images back to original ImageList stretched (if DPI scaling > 150%) or centered (if DPI scaling <= 150%)
+    for ii := 0 to -1 + TmpImgList.Count do
+    begin
+      ib := TBitmap.Create;
+      mb := TBitmap.Create;
+      try
+        ib.SetSize(TmpImgList.Width, TmpImgList.Height);
+        ib.Canvas.FillRect(ib.Canvas.ClipRect);
+
+        mb.SetSize(TmpImgList.Width, TmpImgList.Height);
+        mb.Canvas.FillRect(mb.Canvas.ClipRect);
+
+        ImageList_DrawEx(TmpImgList.Handle, ii, ib.Canvas.Handle, 0, 0, ib.Width, ib.Height, CLR_NONE, CLR_NONE, ILD_NORMAL);
+        ImageList_DrawEx(TmpImgList.Handle, ii, mb.Canvas.Handle, 0, 0, mb.Width, mb.Height, CLR_NONE, CLR_NONE, ILD_MASK);
+
+        sib := TBitmap.Create; //stretched (or centered) image
+        smb := TBitmap.Create; //stretched (or centered) mask
+        try
+          sib.SetSize(ImgList.Width, ImgList.Height);
+          sib.Canvas.FillRect(sib.Canvas.ClipRect);
+          smb.SetSize(ImgList.Width, ImgList.Height);
+          smb.Canvas.FillRect(smb.Canvas.ClipRect);
+
+          if M * 100 / D >= 150 then //stretch if >= 150%
+          begin
+            sib.Canvas.StretchDraw(Rect(0, 0, sib.Width, sib.Width), ib);
+            smb.Canvas.StretchDraw(Rect(0, 0, smb.Width, smb.Width), mb);
+          end
+          else //center if < 150%
+          begin
+            sib.Canvas.Draw((sib.Width - ib.Width) DIV 2, (sib.Height - ib.Height) DIV 2, ib);
+            smb.Canvas.Draw((smb.Width - mb.Width) DIV 2, (smb.Height - mb.Height) DIV 2, mb);
+          end;
+          ImgList.Add(sib, smb);
+        finally
+          sib.Free;
+          smb.Free;
+        end;
+    finally
+        ib.Free;
+        mb.Free;
+      end;
+    end;
+  finally
+    TmpImgList.Free;
+  end;
+end;
+{$ENDIF}
+
+function IsHighContrastEnabled(): Boolean;
+{$IFDEF DelphiSupport}
+var
+  l: HIGHCONTRAST;
+{$ENDIF}
+begin
+  {$IFDEF DelphiSupport}
+  l.cbSize := SizeOf(l);
+  Result := SystemParametersInfo(SPI_GETHIGHCONTRAST, 0, @l, 0) and ((l.dwFlags and HCF_HIGHCONTRASTON) <> 0);
+  {$ENDIF}
+  //lcl: for now always false
+  Result := False;
+end;
+
+{$IFDEF OnlyDelphiSupport}
+function Divide(const Dimension: Single; const DivideBy: Integer): Single;
+begin
+  Result:= Dimension / DivideBy;
+end;
+{$ENDIF}
 
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer;
 begin
