@@ -13,6 +13,7 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
+  shlobj,
   {$endif}
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
@@ -478,7 +479,9 @@ type
 implementation
 
 uses
-  VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil;
+  Generics.Defaults, Generics.Collections,
+  VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil,
+  VirtualTrees.DataObject, virtualdragmanager;
 
 type
   TVirtualTreeColumnsCracker = class(TVirtualTreeColumns);
@@ -1615,7 +1618,7 @@ begin
     LM_RBUTTONDBLCLK:
       begin
         fWasDoubleClick := True;
-        if Message.Msg <> LBUTTONDBLCLK then
+        if Message.Msg <> LM_LBUTTONDBLCLK then
           with TLMLButtonDblClk(Message) do
             P := FOwner.ScreenToClient(Point(XPos, YPos))
         else
@@ -1782,6 +1785,11 @@ begin
             with TLMLButtonUp(Message) do
               P := Tree.ClientToScreen(Point(XPos, YPos));
             ColumnDropped(P);
+            {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / R',R);{$endif}
+              {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropTarget: %d FDragIndex : %d FDragIndexPosition : %d',
+                [FDropTarget, FDragIndex, FColumns[FDragIndex].Position]);{$endif}
+              {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropBefore', FColumns.FDropBefore);{$endif}
+                {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropTargetPosition', FColumns[FDropTarget].Position);{$endif}
           end;
           Result := True;
           Message.Result := 0;
@@ -2074,7 +2082,9 @@ begin
 
       lDataObject := TVTDataObject.Create(Self, TreeView);
       FDragImage.PrepareDrag(Image, HotSpot, lDataObject);
-      SHDoDragDrop(fOwner.Handle, lDataObject, nil, DROPEFFECT_MOVE, lDragEffect); // SHDoDragDrop() supports drag hints and drag images on Windows Vista and later
+      {$IFDEF EnableWinDataObject}
+      SHDoDragDrop(fOwner.Handle, lDataObject, nil, DROPEFFECT_MOVE, @lDragEffect); // SHDoDragDrop() supports drag hints and drag images on Windows Vista and later
+      {$ENDIF}
     finally
       Image.Free;
     end;
@@ -4602,7 +4612,14 @@ begin
   end;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------- 
+
+function TVirtualTreeColumnCompare(constref A, B: TVirtualTreeColumn): Integer;
+begin
+  Result := CompareValue(A.Position, B.Position);
+  if Result = 0 then
+    Result := CompareValue(A.Index, B.Index);
+end;
 
 procedure TVirtualTreeColumns.FixPositions;
 // Fixes column positions after loading from DFM or Bidi mode change.
@@ -4617,14 +4634,7 @@ begin
       LColumnsByPos.Add(Items[I]);
 
     LColumnsByPos.Sort(
-      TComparer<TVirtualTreeColumn>.Construct(
-        function(const A, B: TVirtualTreeColumn): Integer
-        begin
-          Result := CompareValue(A.Position, B.Position);
-          if Result = 0 then
-            Result := CompareValue(A.Index, B.Index);
-        end)
-    );
+      TComparer<TVirtualTreeColumn>.Construct(TVirtualTreeColumnCompare));
 
     for I := 0 to LColumnsByPos.Count-1 do
     begin
@@ -4913,7 +4923,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVirtualTreeColumns.Notify(Item : TCollectionItem; Action : TCollectionNotification);
+procedure TVirtualTreeColumns.Notify(Item : TCollectionItem; Action : Classes.TCollectionNotification);
 var
   I : Integer;
   lRemovedPosition: TColumnPosition;

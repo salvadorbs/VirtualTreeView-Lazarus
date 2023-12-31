@@ -7,20 +7,19 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, Controls, Graphics, DelphiCompat, Forms, Types, StrUtils,
+  Classes, Controls, Graphics, DelphiCompat, Forms, Types, StrUtils, LMessages,
   OleUtils, Themes,
   {$ifdef Windows}
   Windows,
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}
   {$ifdef EnableAccessible}
   oleacc, // for MSAA IAccessible support
   {$endif}
   VirtualTrees.BaseTree,
+  virtualdragmanager,
   VirtualTrees.Types, LCLType, LCLIntf;
 
 type
@@ -46,7 +45,7 @@ type
     FHintData: TVTHintData;
     FTextHeight: TDimension;
     procedure CMTextChanged(var Message: TMessage); message CM_TEXTCHANGED;
-    procedure WMEraseBkgnd(var Message: TWMEraseBkgnd); message WM_ERASEBKGND;
+    procedure WMEraseBkgnd(var Message: TLMEraseBkgnd); message LM_ERASEBKGND;
   strict protected
     procedure CreateParams(var Params: TCreateParams); override;
     procedure Paint; override;
@@ -167,7 +166,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVirtualTreeHintWindow.WMEraseBkgnd(var Message: TWMEraseBkgnd);
+procedure TVirtualTreeHintWindow.WMEraseBkgnd(var Message: TLMEraseBkgnd);
 
 // The control is fully painted by own code so don't erase its background as this causes flickering.
 
@@ -486,7 +485,7 @@ function TVirtualTreeHintWindow.IsHintMsg(Msg: TMsg): Boolean;
 begin
   Result := inherited IsHintMsg(Msg) and HandleAllocated and IsWindowVisible(Handle);
   // Avoid that mouse moves over the non-client area or cursor key presses cancel the current hint.
-  if Result and ((Msg.Message = WM_NCMOUSEMOVE) or ((Msg.Message >= WM_KEYFIRST) and (Msg.Message <= WM_KEYLAST) and (Msg.wparam in [VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT]))) then
+  if Result and ((Msg.Message = LM_NCMOUSEMOVE) or ((Msg.Message >= LM_KEYFIRST) and (Msg.Message <= LM_KEYLAST) and (Msg.wparam in [VK_UP, VK_DOWN, VK_LEFT, VK_RIGHT]))) then
     Result := False;
 end;
 

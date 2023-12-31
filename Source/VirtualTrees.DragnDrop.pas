@@ -11,13 +11,12 @@ uses
   {$ifdef Windows}
   Windows,
   ActiveX,
-  {$else}
-  FakeActiveX,
   {$endif}
   DelphiCompat
   , VirtualTrees.Types
   , VirtualTrees.BaseTree
-  , virtualdragmanager;
+  , virtualdragmanager
+  , VirtualTrees.Header;
 
 type
   TEnumFormatEtc = class(TInterfacedObject, IEnumFormatEtc)
@@ -285,12 +284,15 @@ class function TVTDragManager.GetTreeFromDataObject(const DataObject: TVTDragDat
 // Returns the owner/sender of the given data object by means of a special clipboard format
 // or nil if the sender is in another process or no virtual tree at all.
 
+{$ifdef Windows}
 var
   Medium: TStgMedium;
   Data: PVTReference;
+{$endif}
 
 begin
   Result := nil;
+  {$ifdef Windows}
   if Assigned(DataObject) then
   begin
     StandardOLEFormat.cfFormat := CF_VTREFERENCE;
@@ -303,9 +305,10 @@ begin
           Result := Data.Tree;
         GlobalUnlock(Medium.hGlobal);
       end;
-      ReleaseStgMedium(Medium);
+      ReleaseStgMedium(@Medium);
     end;
   end;
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

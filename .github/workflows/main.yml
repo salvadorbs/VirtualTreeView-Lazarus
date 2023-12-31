@@ -11,7 +11,7 @@ env:
   FPC_URL: 'gitlab'
   FPC_BRANCH: 'release_3_2_2'
   LAZ_URL: 'gitlab'
-  LAZ_REVISION_2_4: '5719672f10190551b9af7dd7f1761aae1c280297'
+  LAZ_BRANCH: 'lazarus_3_6'
   LAZ_DIR: 'fpcLaz'
   FPCUP_OPT: '' #'--lazopt="-g -gl" --fpcopt="-g -gl"'
   VTV_SOURCE: '${{ github.workspace }}/vtv_src'
@@ -32,15 +32,15 @@ jobs:
         build-widgetset: [win32, gtk2, gtk3, qt5, qt6]
         include:
           - os: windows-latest
-            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.2.0nf/fpclazup-x86_64-win64.exe'
+            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0f/fpclazup-x86_64-win64.exe'
             lazbuild: 'fpcLaz/lazarus/lazbuild.exe'
             
           - os: ubuntu-20.04
-            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.2.0nf/fpclazup-x86_64-linux'
+            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0f/fpclazup-x86_64-linux'
             lazbuild: 'fpcLaz/lazarus/lazbuild'
             
           - os: ubuntu-22.04
-            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.2.0nf/fpclazup-x86_64-linux'
+            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0f/fpclazup-x86_64-linux'
             lazbuild: 'fpcLaz/lazarus/lazbuild'
             
         exclude:
@@ -48,6 +48,8 @@ jobs:
             build-widgetset: win32
           - os: ubuntu-20.04
             build-widgetset: qt6
+          - os: ubuntu-20.04
+            build-widgetset: gtk3
             
           - os: windows-latest
             build-widgetset: gtk2
@@ -59,19 +61,17 @@ jobs:
           - os: ubuntu-22.04
             build-widgetset: gtk2
           - os: ubuntu-22.04
-            build-widgetset: gtk3
-          - os: ubuntu-22.04
             build-widgetset: qt5
         
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.2.2
       with:
         submodules: true
         path: '${{ env.VTV_SOURCE }}'
         
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4.2.2
       with:
         repository: 'blikblum/luipack'
         submodules: true
@@ -93,31 +93,31 @@ jobs:
     - name: Install Dependencies (Ubuntu - only QT5)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt5'
       run: |
-        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas1_2.12-3_amd64.deb
-        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.12/libqt5pas-dev_2.12-3_amd64.deb
+        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.16/libqt5pas1_2.16-4_amd64.deb
+        wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.16/libqt5pas-dev_2.16-4_amd64.deb
         sudo apt-get update
         sudo apt-get -m -y install qt5-qmake qtbase5-dev qt5-default libqt5x11extras5-dev libxcb-keysyms1-dev
-        sudo apt-get -m -y install ./libqt5pas1_2.12-3_amd64.deb
-        sudo apt-get -m -y install ./libqt5pas-dev_2.12-3_amd64.deb
+        sudo apt-get -m -y install ./libqt5pas1_2.16-4_amd64.deb
+        sudo apt-get -m -y install ./libqt5pas-dev_2.16-4_amd64.deb
         
     - name: Install Dependencies (Ubuntu - only QT6)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt6'
       run: |
-        wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.5/libqt6pas6_6.2.5-1_amd64.deb
-        wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.5/libqt6pas6-dev_6.2.5-1_amd64.deb
+        wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.10/libqt6pas6_6.2.10-1_amd64.deb
+        wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.10/libqt6pas6-dev_6.2.10-1_amd64.deb
         sudo apt-get update
         sudo apt-get -m -y install qt6-base-dev libxcb-keysyms1-dev libgl-dev qt6-base-private-dev
-        sudo apt-get -m -y install ./libqt6pas6_6.2.5-1_amd64.deb
-        sudo apt-get -m -y install ./libqt6pas6-dev_6.2.5-1_amd64.deb
+        sudo apt-get -m -y install ./libqt6pas6_6.2.10-1_amd64.deb
+        sudo apt-get -m -y install ./libqt6pas6-dev_6.2.10-1_amd64.deb
 
     - name: Generate Cache Hash
-      run: echo "${{ matrix.fpcup-url }}${{ env.FPCUP_OPT }}${{ env.FPC_URL }}${{ env.FPC_BRANCH }}${{ env.LAZ_URL }}${{ env.LAZ_REVISION_2_4 }}" > .cache
+      run: echo "${{ matrix.fpcup-url }}${{ env.FPCUP_OPT }}${{ env.FPC_URL }}${{ env.FPC_BRANCH }}${{ env.LAZ_URL }}${{ env.LAZ_REVISION }}" > .cache
 
     - name: Cache
       id: cache
-      uses: actions/cache@v3.0.11
+      uses: actions/cache@v4.2.0
       env:
-        cache-name: cache-laz-v0.1.1
+        cache-name: cache-laz-v0.2.0
       with:
         path: |
           ${{ env.LAZ_DIR }}
@@ -129,7 +129,7 @@ jobs:
         curl --retry 5 -L -o fpcup ${{ matrix.fpcup-url }}
         chmod +x fpcup
         mkdir ${{ env.LAZ_DIR }}
-        ./fpcup --installdir=${{ env.LAZ_DIR }} --fpcURL=${{ env.FPC_URL }} --fpcBranch=${{ env.FPC_BRANCH }} --lazURL=${{ env.LAZ_URL }} --lazRevision=${{ env.LAZ_REVISION_2_4 }} ${{ env.FPCUP_OPT }} --only=docker --noconfirm --verbose
+        ./fpcup --installdir=${{ env.LAZ_DIR }} --fpcURL=${{ env.FPC_URL }} --fpcBranch=${{ env.FPC_BRANCH }} --lazURL=${{ env.LAZ_URL }} --lazRevision=${{ env.LAZ_REVISION }} ${{ env.FPCUP_OPT }} --only=docker --noconfirm --verbose
         
     - name: Install packages
       run: |
@@ -159,3 +159,10 @@ jobs:
     - name: Validate Cache
       if: steps.cache.outputs.cache-hit == 'true'
       run: ${{ matrix.lazbuild }} --version && echo "success=true" >> $GITHUB_OUTPUT || echo "success=false" >> $GITHUB_OUTPUT
+
+    - name: Upload the Build Artifact
+      uses: actions/upload-artifact@v4.5.0
+      with:
+        name: demos_${{ matrix.os }}_${{ matrix.build-widgetset }}
+        path: |
+          ${{ env.VTV_SOURCE }}/Demos/**/*

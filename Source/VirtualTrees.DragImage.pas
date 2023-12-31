@@ -13,15 +13,14 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}   
   LCLType
   , Math
   , DelphiCompat
   , Types
   , LCLIntf
-  , SysUtils;
+  , SysUtils
+  , virtualdragmanager;
 
 type
   TBitmap = Graphics.TBitmap;
@@ -64,8 +63,7 @@ type
 implementation
 
 uses
-  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop,
-  virtualdragmanager;
+  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 
@@ -132,6 +130,9 @@ begin
       DragInfo.sizeDragImage.cx := Width;
       DragInfo.sizeDragImage.cy := Height;
       DragInfo.ptOffset := HotSpot;
+      //lcl
+      //todo: replace CopyImage. Alternatively reimplement Drag support
+      {$ifndef INCOMPLETE_WINAPI}
       DragInfo.hbmpDragImage := CopyImage(DragImage.Handle, IMAGE_BITMAP, Width, Height, LR_COPYRETURNORG);
       {$else}
       DragInfo.hbmpDragImage := 0;

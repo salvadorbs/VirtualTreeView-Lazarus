@@ -9,7 +9,7 @@ unit Main;
 interface
 
 uses 
-  Windows, LCLIntf, {$ifdef lclwin32}ActiveX{$else}FakeActiveX{$endif}, SysUtils, Forms, Dialogs, Graphics, VirtualTrees.BaseTree,
+  Windows, LCLIntf, {$ifdef lclwin32}ActiveX,{$endif} virtualdragmanager, SysUtils, Forms, Dialogs, Graphics, VirtualTrees.BaseTree,
   VirtualTrees, ActnList, ComCtrls, ExtCtrls, StdCtrls, Controls, Classes, Buttons,
   LResources, VirtualTrees.Types, VirtualTrees.Header, VirtualTrees.ClipBoard;
 

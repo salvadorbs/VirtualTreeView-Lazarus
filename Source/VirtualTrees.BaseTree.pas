@@ -18,8 +18,6 @@ uses
   UxTheme,
   Win32Int,
   JwaWinAble,
-  {$else}
-  FakeActiveX,
   {$endif}
   OleUtils,
   LCLIntf,
@@ -45,6 +43,7 @@ uses
   , VirtualTrees.Classes
   , VirtualTrees.Utils
   , VirtualTrees.BaseAncestorLcl
+  , virtualdragmanager
   ;
 
 var
@@ -2423,7 +2422,7 @@ begin
   FOptions.InternalSetMiscOptions(FOptions.MiscOptions - [toReadOnly]); //SetMiscOptions has side effects
   {$ifdef EnableThreadSupport}
   // Make sure there is no reference remaining to the releasing tree.
-  TWorkerThread.ReleaseThreadReference();
+  TWorkerThread.ReleaseThreadReference(IsLibrary); // see issue #1245
   {$endif}
   StopWheelPanning;
   CancelEditNode;
@@ -4499,7 +4498,7 @@ begin
                   FillBitmap(FSelectedHotMinusBM);
                   // Weil die selbstgezeichneten Bitmaps sehen im Vcl Style scheiße aus
                   // Because the self-drawn bitmaps view Vcl Style shit
-                  if Theme = 0 then
+                  if (not VclStyleEnabled) {or (Theme = 0)} then
                   begin
                     if not(tsUseExplorerTheme in FStates) then
                     begin
@@ -4544,7 +4543,7 @@ begin
                   FillBitmap(FPlusBM);
                   FillBitmap(FHotPlusBM);
                   FillBitmap(FSelectedHotPlusBM);
-                  if (not VclStyleEnabled) or (Theme = 0) then
+                  if (not VclStyleEnabled) {or (Theme = 0)} then
                   begin
                     if not(tsUseExplorerTheme in FStates) then
                     begin
@@ -7080,6 +7079,7 @@ procedure TBaseVirtualTree.WMContextMenu(var Message: TLMContextMenu);
 //lcl: handle mouse up here because MouseUp is not called when popup is show
 var
   HitInfo: THitInfo;
+  MessageButtonUp: TLMLButtonUp;
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMContextMenu');{$endif}
@@ -7099,9 +7099,10 @@ begin
       inherited WMContextMenu(Message);
       if (toRightClickSelect in FOptions.SelectionOptions) then
       begin
+        MessageButtonUp.Keys := 0;
         // get information about the hit
         GetHitTestInfoAt(Message.XPos, Message.YPos, True, HitInfo);
-        HandleMouseUp(0, HitInfo);
+        HandleMouseUp(MessageButtonUp, HitInfo);
       end;
     end;
   end
@@ -8363,6 +8364,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$endif}
+
 procedure TBaseVirtualTree.WMRButtonDblClk(var Message: TLMRButtonDblClk);
 
 var
@@ -8508,7 +8511,7 @@ begin
           end
           else
             NewCursor := Cursor;
-          Windows.SetCursor(Screen.Cursors[NewCursor]);
+          LCLIntf.SetCursor(Screen.Cursors[NewCursor]);
           Message.Result := 1;
         end
         else
@@ -10118,8 +10121,10 @@ begin
         if ((Int64(timeGetTime) - FDragScrollStart) < FAutoScrollDelay) then
           Result := [];
       end
+{$ifdef DEBUG_VTV}
       else
-        OutputDebugString('Ooops');
+		Logger.DebugLn([lcDrag],'Ooops');
+{$endif}
     end;
   end;
 end;
@@ -10383,8 +10388,10 @@ procedure TBaseVirtualTree.DoChecked(Node: PVirtualNode);
 begin
   if Assigned(FOnChecked) then
     FOnChecked(Self, Node);
+  {$ifdef EnableAccessible}
   if (Self.UpdateCount = 0) then // See issue #1174
     NotifyAccessibleEvent();
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -10802,8 +10809,10 @@ procedure TBaseVirtualTree.DoExpanded(Node: PVirtualNode);
 begin
   if Assigned(FOnExpanded) then
     FOnExpanded(Self, Node);
+  {$ifdef EnableAccessible}
   if (Self.UpdateCount = 0) then // See issue #1174
     NotifyAccessibleEvent();
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -10823,12 +10832,14 @@ procedure TBaseVirtualTree.DoFocusChange(Node: PVirtualNode; Column: TColumnInde
 begin
   if Assigned(FOnFocusChanged) then
     FOnFocusChanged(Self, Node, Column);
+  {$ifdef EnableAccessible}
   NotifyAccessibleEvent(EVENT_OBJECT_LOCATIONCHANGE);
   NotifyAccessibleEvent(EVENT_OBJECT_NAMECHANGE);
   NotifyAccessibleEvent(EVENT_OBJECT_VALUECHANGE);
   NotifyAccessibleEvent(EVENT_OBJECT_STATECHANGE);
   NotifyAccessibleEvent(EVENT_OBJECT_SELECTION);
   NotifyAccessibleEvent(EVENT_OBJECT_FOCUS);
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -12401,7 +12412,7 @@ begin
     if StyleServices.IsSystemStyle then // This approach does not work well for many VCL styles, so we added an else case
     begin
       DrawGridLine(PaintInfo.Canvas, R)
-      //StyleServices.DrawElement(PaintInfo.Canvas.Handle, StyleServices.GetElementDetails(tlGroupHeaderLineOpenSelectedNotFocused), R {$IF CompilerVersion  >= 34}, @R, CurrentPPI{$IFEND})
+      //StyleServices.DrawElement(PaintInfo.Canvas.Handle, StyleServices.GetElementDetails(tlGroupHeaderLineOpenSelectedNotFocused), R, @R, CurrentPPI)
     end
     else begin
     }
@@ -13108,7 +13119,7 @@ var
   //---------------------------------------------------------------------------
   //todo: reimplement
   {$ifndef INCOMPLETE_WINAPI}
-  function CodePageFromLocale(Language: LCID): Integer;
+  function CodePageFromLocale(Language: DWord): Integer;
 
   // Determines the code page for a given locale.
   // Unfortunately there is no easier way than this, currently.
@@ -14551,7 +14562,9 @@ procedure TBaseVirtualTree.MainColumnChanged;
 
 begin
   DoCancelEdit;
+  {$ifdef EnableAccessible}
   NotifyAccessibleEvent();
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -17727,7 +17740,9 @@ begin
           Invalidate;
         UpdateDesigner;
       end;
+      {$ifdef EnableAccessible}
       NotifyAccessibleEvent(); // See issue #1174
+      {$endif}
 
       DoUpdating(usEnd);
       EnsureNodeSelected(False);

@@ -9,14 +9,12 @@ interface
 uses
   Classes, Controls, Graphics, LCLType, SysUtils, Types,
   {$ifdef Windows}
-  Windows,
   ActiveX,
   JwaWinBase,
-  {$else}
-  FakeActiveX,
   {$endif}
   DelphiCompat
-  , VirtualTrees.Types;
+  , VirtualTrees.Types
+  , virtualdragmanager;
 
 type
   // IDataObject.SetData support
@@ -118,7 +116,7 @@ begin
   begin
     StgMedium := FindInternalStgMedium(FormatEtcArray[I].cfFormat);
     if Assigned(StgMedium) then
-      ReleaseStgMedium(StgMedium^);
+      ReleaseStgMedium(StgMedium);
   end;
 
   FormatEtcArray := nil;
@@ -400,6 +398,7 @@ var
   Data : PVTReference;
 {$ENDIF}
 begin
+  {$IFDEF EnableWinDataObject}
   // See if this is a header column drag and drop
   if (FormatEtcIn.cfFormat = CF_VTHEADERREFERENCE) and Assigned(FHeader) then
   begin
@@ -409,12 +408,11 @@ begin
     Data.Tree := TBaseVirtualTree(FOwner);
     GlobalUnLock(Medium.HGlobal);
     Medium.tymed := TYMED_HGLOBAL;
-    Medium.unkForRelease := nil;
+    Medium.PunkForRelease := nil;
     Exit(S_OK);
   end; // if CF_VTHEADERREFERENCE
 
 
-  {$IFDEF EnableWinDataObject}
   // The tree reference format is always supported and returned from here.
   if (FormatEtcIn.cfFormat = CF_VTREFERENCE) and Assigned(FOWner) then
   begin
@@ -522,7 +520,7 @@ begin
     LocalStgMedium := FindInternalStgMedium(FormatEtcArray[Index].cfFormat);
     if Assigned(LocalStgMedium) then
     begin
-      ReleaseStgMedium(LocalStgMedium^);
+      ReleaseStgMedium(LocalStgMedium);
       FillChar(LocalStgMedium^, SizeOf(LocalStgMedium^), #0);
     end;
   end
