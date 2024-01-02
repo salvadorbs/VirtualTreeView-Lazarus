@@ -22034,7 +22034,7 @@ begin
 
                           CalculateVerticalAlignments(PaintInfo, ButtonY);
                           // Take the space for the tree lines into account.
-                          PaintInfo.AdjustImageCoordinates(GetRealImageListHeight(Images));
+                          PaintInfo.AdjustImageCoordinates(ImagesWidth, Font.PixelsPerInch, GetCanvasScaleFactor);
                           if UseColumns then
                           begin
                             ClipRect := CellRect;

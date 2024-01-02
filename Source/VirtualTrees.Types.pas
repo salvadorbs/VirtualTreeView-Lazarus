@@ -1129,7 +1129,8 @@ type
     ImageInfo: array[TVTImageInfoIndex] of TVTImageInfo; // info about each possible node image
     Offsets: TVTOffsets;          // The offsets of the various elements of a tree node
     VAlign: TDimension;
-    procedure AdjustImageCoordinates(RealImagesHeight: Integer);
+    procedure AdjustImageCoordinates(ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double);
+    function GetRealImageListHeight(ImageList: TCustomImageList; ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double): Integer;
   end;
 
   TElementEdge = (
@@ -1272,7 +1273,7 @@ end;
 
 { TVTPaintInfo }
 
-procedure TVTPaintInfo.AdjustImageCoordinates(RealImagesHeight: Integer);
+procedure TVTPaintInfo.AdjustImageCoordinates(ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double);
 // During painting of the main column some coordinates must be adjusted due to the tree lines.
 begin
   ContentRect := CellRect;
@@ -1292,11 +1293,23 @@ begin
     ContentRect.Right := CellRect.Right - Offsets[TVTElement.ofsLabel];
   end;
   if ImageInfo[iiNormal].Index > -1 then
-    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
+    ImageInfo[iiNormal].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiNormal].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
   if ImageInfo[iiState].Index > -1 then
-    ImageInfo[iiState].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
+    ImageInfo[iiState].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiState].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
   if ImageInfo[iiCheck].Index > -1 then
-    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - RealImagesHeight div 2;
+    ImageInfo[iiCheck].YPos := CellRect.Top + VAlign - GetRealImageListHeight(ImageInfo[iiCheck].Images, ImagesWidth, PPI, CanvasScaleFactor) div 2;
+end;
+
+function TVTPaintInfo.GetRealImageListHeight(ImageList: TCustomImageList; ImagesWidth: Integer; PPI: Integer; CanvasScaleFactor: Double): Integer;
+begin
+  if ImageList = nil then
+    Result := 0
+  else
+    {$IF LCL_FullVersion >= 2000000}
+    Result := ImageList.ResolutionForPPI[ImagesWidth, PPI, CanvasScaleFactor].Height;
+    {$ELSE}
+    Result := ImageList.Height;
+    {$IFEND}
 end;
 
 
