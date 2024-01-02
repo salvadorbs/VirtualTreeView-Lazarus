@@ -442,6 +442,12 @@ type
     emSelected                       // export selected nodes only
     );
 
+  // Describes the type of text to return in the text and draw info retrival events.
+  TVSTTextType = (
+    ttNormal,      // normal label of the node, this is also the text which can be edited
+    ttStatic       // static (non-editable) text after the normal text
+  );
+
   // Options regarding strings (useful only for the string tree and descendants):
   TVTStringOption = (
     toSaveCaptions,                  // If set then the caption is automatically saved with the tree node, regardless of what is
@@ -671,14 +677,14 @@ type
     dtVCL
   );
 
-  // Determines the look of a tree's lines.
+  // Determines the look of a tree's lines that show the hierarchy
   TVTLineStyle = (
     lsCustomStyle,           // application provides a line pattern
     lsDotted,                // usual dotted lines (default)
     lsSolid                  // simple solid lines
   );
 
-  // TVTLineType is used during painting a tree
+  // TVTLineType is used during painting a tree for its tree lines that show the hierarchy
   TVTLineType = (
     ltNone,          // no line at all
     ltBottomRight,   // a line from bottom to the center and from there to the right
@@ -804,7 +810,7 @@ type
 const
   DefaultPaintOptions     = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
   DefaultAnimationOptions = [];
-  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
+  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoHideButtons];
   DefaultSelectionOptions = [toSelectNextNodeOnRemoval];
   DefaultMiscOptions      = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick];
 
@@ -943,16 +949,18 @@ type
     //       located at the end of the node! Hence if you want to add new member fields (except pointers to internal
     //       data) then put them before field Parent.
   private
-    fParent:  PVirtualNode; // link to the node's last child...
+    fParent:  PVirtualNode;     // link to the node's last child...
+    fPrevSibling: PVirtualNode; // link to the node's previous sibling or nil if it is the first node
   public                  // reference to the node's parent (for the root this contains the treeview)
-    PrevSibling,             // link to the node's previous sibling or nil if it is the first node
     NextSibling,             // link to the node's next sibling or nil if it is the last node
     FirstChild,              // link to the node's first child...
     LastChild: PVirtualNode; // link to the node's last child...
     procedure SetParent(const pParent: PVirtualNode); inline; //internal method, do not call directly but use Parent[Node] := x on tree control.
+    procedure SetPrevSibling(const pPrevSibling: PVirtualNode); inline; //internal method, do not call directly
     procedure SetIndex(const pIndex: Cardinal); inline;       //internal method, do not call directly.
     property Index: Cardinal read fIndex;
     property Parent: PVirtualNode read fParent;
+    property PrevSibling: PVirtualNode read fPrevSibling;
   private
     Data: record end;        // this is a placeholder, each node gets extra data determined by NodeDataSize
   public
@@ -1256,6 +1264,11 @@ begin
   fParent := pParent;
 end;
 
+procedure TVirtualNode.SetPrevSibling(const pPrevSibling: PVirtualNode);
+begin
+  fPrevSibling := pPrevSibling;
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
 
@@ -1458,7 +1471,7 @@ begin
 
       if HandleAllocated then
       begin
-        if IsWinVistaOrAbove and ((tsUseThemes in TreeStates) or ((toThemeAware in ToBeSet) and StyleServices.Enabled)) and (toUseExplorerTheme in (ToBeSet + ToBeCleared)) and
+        if ((tsUseThemes in TreeStates) or ((toThemeAware in ToBeSet) and StyleServices.Enabled)) and (toUseExplorerTheme in (ToBeSet + ToBeCleared)) and
           not VclStyleEnabled then
         begin
           if (toUseExplorerTheme in ToBeSet) then

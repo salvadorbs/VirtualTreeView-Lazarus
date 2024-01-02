@@ -169,12 +169,6 @@ type
 
   TVTAncestor = TVTAncestorLcl;
 
-  // Describes the type of text to return in the text and draw info retrival events.
-  TVSTTextType = (
-    ttNormal,      // normal label of the node, this is also the text which can be edited
-    ttStatic       // static (non-editable) text after the normal text
-  );
-
   // Describes the source to use when converting a string tree into a string for clipboard etc.
   TVSTTextSourceType = (
     tstAll,             // All nodes are rendered. Initialization is done on the fly.
@@ -285,7 +279,7 @@ type
     procedure DoNewText(Node: PVirtualNode; Column: TColumnIndex; const Text: string); virtual;
     procedure DoPaintNode(var PaintInfo: TVTPaintInfo); override;
     procedure DoPaintText(Node: PVirtualNode; const Canvas: TCanvas; Column: TColumnIndex;
-      TextType: TVSTTextType); virtual;
+      TextType: TVSTTextType); override;
     function DoShortenString(Canvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex; const S: string; Width: TDimension;
       EllipsisWidth: TDimension = 0): string; virtual;
     procedure DoTextDrawing(var PaintInfo: TVTPaintInfo; const Text: string; CellRect: TRect; DrawFormat: Cardinal); virtual;
@@ -644,6 +638,25 @@ const
   cDefaultText = 'Node';
   RTLFlag: array[Boolean] of Integer = (0, ETO_RTLREADING);
   AlignmentToDrawFlag: array[TAlignment] of Cardinal = (DT_LEFT, DT_RIGHT, DT_CENTER);
+  gInitialized: Integer = 0;           // >0 if global structures have been initialized; otherwise 0
+
+//// initialization of stuff global to the unit
+procedure InitializeGlobalStructures();
+begin
+  if (gInitialized > 0) or (AtomicIncrement(gInitialized) <> 1) then // Ensure threadsafe that this code is executed only once
+    exit;
+
+  // Clipboard format registration.
+  // Specialized string tree formats.
+  CF_HTML := RegisterVTClipboardFormat(CFSTR_HTML, TCustomVirtualStringTree, 80);
+  CF_VRTFNOOBJS := RegisterVTClipboardFormat(CFSTR_RTFNOOBJS, TCustomVirtualStringTree, 84);
+  CF_VRTF := RegisterVTClipboardFormat(CFSTR_RTF, TCustomVirtualStringTree, 85);
+  CF_CSV := RegisterVTClipboardFormat(CFSTR_CSV, TCustomVirtualStringTree, 90);
+  // Predefined clipboard formats. Just add them to the internal list.
+  RegisterVTClipboardFormat(CF_TEXT, TCustomVirtualStringTree, 100);
+  RegisterVTClipboardFormat(CF_UNICODETEXT, TCustomVirtualStringTree, 95);
+end;
+
 
   {$ifndef COMPILER_11_UP}
       TVP_HOTGLYPH = 4;
@@ -2099,11 +2112,10 @@ begin
   Self.ExportType := pExportType;
 end;
 
-
 initialization
+  TCustomStyleEngine.RegisterStyleHook(TVirtualStringTree, TVclStyleScrollBarsHook);
 
 finalization
+  TCustomStyleEngine.UnRegisterStyleHook(TVirtualStringTree, TVclStyleScrollBarsHook);
 
 end.
-
-

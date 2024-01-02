@@ -122,7 +122,7 @@ type
 
   protected
     FLeft : TDimension;
-    procedure ChangeScale(M, D : TDimension; isDpiChange : Boolean); virtual;
+    procedure ChangeScale(M, D : TDimension); virtual;
     procedure ComputeHeaderLayout(var PaintInfo : THeaderPaintInfo; DrawFormat : Cardinal; CalculateTextRect : Boolean = False);
     procedure DefineProperties(Filer : TFiler); override;
     procedure GetAbsoluteBounds(var Left, Right : TDimension);
@@ -380,10 +380,10 @@ type
     FDoingAutoFitColumns : Boolean;       //Flag to avoid using the stored width for Main column
 
     procedure FontChanged(Sender : TObject); virtual;
-    procedure AutoScale(isDpiChange: Boolean); virtual;
+    procedure AutoScale(); virtual;
     function CanSplitterResize(P : TPoint) : Boolean;
     function CanWriteColumns : Boolean; virtual;
-    procedure ChangeScale(M, D : TDimension; isDpiChange : Boolean); virtual;
+    procedure ChangeScale(M, D : TDimension); virtual;
     function DetermineSplitterIndex(P : TPoint) : Boolean; virtual;
     procedure DoAfterAutoFitColumn(Column : TColumnIndex); virtual;
     procedure DoAfterColumnWidthTracking(Column : TColumnIndex); virtual;
@@ -642,19 +642,17 @@ end;
 procedure TVTHeader.FontChanged(Sender : TObject);
 begin
   inherited;
-  {$IF CompilerVersion < 31}
-  AutoScale(false);
-  {$IFEND}
+  AutoScale();
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTHeader.AutoScale(isDpiChange: Boolean);
+procedure TVTHeader.AutoScale();
 var
   I          : Integer;
   lMaxHeight : TDimension;
 begin
-  if (toAutoChangeScale in TBaseVirtualTreeCracker(Tree).TreeOptions.AutoOptions) and not isDpiChange then
+  if (toAutoChangeScale in TBaseVirtualTreeCracker(Tree).TreeOptions.AutoOptions) then
   begin
     //Ensure a minimum header size based on the font, so that all text is visible.
     //First find the largest Columns[].Spacing
@@ -999,9 +997,7 @@ end;
 
 procedure TVTHeader.StyleChanged();
 begin
-  {$IF CompilerVersion < 31}
-  AutoScale(False); //Elements may have changed in size
-  {$IFEND}
+  AutoScale(); //Elements may have changed in size
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1016,7 +1012,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVTHeader.ChangeScale(M, D : TDimension; isDpiChange : Boolean);
+procedure TVTHeader.ChangeScale(M, D : TDimension);
 var
   I : Integer;
 begin
@@ -1024,13 +1020,11 @@ begin
   FMinHeight := MulDiv(FMinHeight, M, D);
   FMaxHeight := MulDiv(FMaxHeight, M, D);
   Self.Height := MulDiv(FHeight, M, D);
-  if not ParentFont then
-    Font.Height := MulDiv(Font.Height, M, D);
   //Scale the columns widths too
   for I := 0 to FColumns.Count - 1 do
-    TVirtualTreeColumnCracker(Self.FColumns[I]).ChangeScale(M, D, isDpiChange);
-  if not isDpiChange then
-    AutoScale(isDpiChange);
+    TVirtualTreeColumnCracker(Self.FColumns[I]).ChangeScale(M, D);
+  if not ParentFont then
+    Font.Height := MulDiv(Font.Height, M, D);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -3638,7 +3632,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVirtualTreeColumn.ChangeScale(M, D : TDimension; isDpiChange : Boolean);
+procedure TVirtualTreeColumn.ChangeScale(M, D : TDimension);
 begin
   FMinWidth := MulDiv(FMinWidth, M, D);
   FMaxWidth := MulDiv(FMaxWidth, M, D);
