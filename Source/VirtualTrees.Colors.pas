@@ -53,7 +53,7 @@ type
       clHighlight,            //SelectionRectangleBorderColor
       clBtnShadow,            //HeaderHotColor
       clHighlightText,        //SelectionTextColor
-      clInactiveCaptionText //UnfocusedColor  [IPK]
+      clInactiveCaptionText   //UnfocusedColor  [IPK]
     );
   private
     FOwner  : TCustomControl;
@@ -85,6 +85,7 @@ type
     property FocusedSelectionColor         : TColor index cFocusedSelectionColor read GetColor write SetColor default clHighlight;
     ///The border color of selected nodes when the tree has the focus.
     property FocusedSelectionBorderColor   : TColor index cFocusedSelectionBorderColor read GetColor write SetColor default clHighlight;
+    ///The color of the grid lines
     property GridLineColor                 : TColor index cGridLineColor read GetColor write SetColor default clBtnFace;
     property HeaderHotColor                : TColor index cHeaderHotColor read GetColor write SetColor default clBtnShadow;
     property HotColor                      : TColor index cHotColor read GetColor write SetColor default clWindowText;

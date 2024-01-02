@@ -130,10 +130,15 @@ type
   THitInfo                 = VirtualTrees.Types.THitInfo;
   THitPosition             = VirtualTrees.Types.THitPosition;
   TVTPaintOption           = VirtualTrees.Types.TVTPaintOption;
+  TVTAutoOption            = VirtualTrees.Types.TVTAutoOption;
+  TVTAutoOptions           = VirtualTrees.Types.TVTAutoOptions;
   TVTSelectionOption       = VirtualTrees.Types.TVTSelectionOption;
+  TVstTextType             = VirtualTrees.Types.TVstTextType;
+  TVTHintMode              = VirtualTrees.Types.TVTHintMode;
   TBaseVirtualTree         = VirtualTrees.BaseTree.TBaseVirtualTree;
   IVTEditLink              = VirtualTrees.BaseTree.IVTEditLink;
   TVTHeaderNotifyEvent     = VirtualTrees.BaseTree.TVTHeaderNotifyEvent;
+  TVTCompareEvent          = VirtualTrees.BaseTree.TVTCompareEvent;
   TVirtualTreeColumn       = VirtualTrees.Header.TVirtualTreeColumn;
   TVirtualTreeColumns      = VirtualTrees.Header.TVirtualTreeColumns;
   TVTHeader                = VirtualTrees.Header.TVTHeader;
@@ -143,12 +148,15 @@ type
   TVTFixedAreaConstraints  = VirtualTrees.Header.TVTFixedAreaConstraints;
   TColumnsArray            = VirtualTrees.Header.TColumnsArray;
 const
-  //Aliases
+  // Aliases for increased compatibility with V7, feel free to extend by pull requests
   NoColumn                 = VirtualTrees.Types.NoColumn;
   InvalidColumn            = VirtualTrees.Types.InvalidColumn;
   sdAscending              = VirtualTrees.Types.TSortDirection.sdAscending;
   sdDescending             = VirtualTrees.Types.TSortDirection.sdDescending;
-
+  toAutoSort               = VirtualTrees.Types.TVTAutoOption.toAutoSort;
+  toCheckSupport           = VirtualTrees.Types.TVTMiscOption.toCheckSupport;
+  toEditable               = VirtualTrees.Types.TVTMiscOption.toEditable;
+  toShowRoot               = VirtualTrees.Types.TVTPaintOption.toShowRoot;
   ctNone                   = VirtualTrees.Types.TCheckType.ctNone;
   ctTriStateCheckBox       = VirtualTrees.Types.TCheckType.ctTriStateCheckBox;
   ctCheckBox               = VirtualTrees.Types.TCheckType.ctCheckBox;
@@ -164,6 +172,15 @@ const
   csUncheckedDisabled      = VirtualTrees.Types.TCheckState.csUncheckedDisabled;
   csCheckedDisabled        = VirtualTrees.Types.TCheckState.csCheckedDisabled;
   csMixedDisable           = VirtualTrees.Types.TCheckState.csMixedDisabled;
+
+  coVisible                = VirtualTrees.Types.TVTColumnOption.coVisible;
+  vsDisabled               = VirtualTrees.Types.TVirtualNodeState.vsDisabled;
+  etHTML                   = VirtualTrees.Types.TVTExportType.etHTML;
+  hiOnItemButton           = VirtualTrees.Types.THitPosition.hiOnItemButton;
+  dmOnNode                 = VirtualTrees.Types.TDropMode.dmOnNode;
+  hlbForceMultiLine        = VirtualTrees.Types.TVTTooltipLineBreakStyle.hlbForceMultiLine;
+  hmHintAndDefault         = VirtualTrees.Types.TVTHintMode.hmHintAndDefault;
+  hmTooltip                = VirtualTrees.Types.TVTHintMode.hmTooltip;
 
 type
   TCustomVirtualStringTree = class;
@@ -705,6 +722,7 @@ end;
 constructor TCustomVirtualStringTree.Create(AOwner: TComponent);
 
 begin
+  InitializeGlobalStructures();
   inherited;
   FPreviouslySelected := nil;
   FDefaultText := cDefaultText;
@@ -858,7 +876,7 @@ begin
   with PaintInfo do
   begin
     // Set default font values first.
-    Canvas.Font := Font;
+    Canvas.Font.Assign(Font);
     if Enabled then // Otherwise only those colors are used, which are passed from Font to Canvas.Font.
       Canvas.Font.Color := Colors.NodeFontColor
     else
@@ -943,7 +961,7 @@ begin
 
       // Center the text vertically if it fits entirely into the content rect.
       if R.Bottom - R.Top > Height then
-        InflateRect(R, 0, (Height - R.Bottom - R.Top) div 2);
+        InflateRect(R, 0, Divide(Height - R.Bottom - R.Top, 2));
     end
     else
     begin
@@ -1003,7 +1021,7 @@ begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaintDetails],'PaintStaticText');{$endif}
   with PaintInfo do
   begin
-    Canvas.Font := Font;
+    Canvas.Font.Assign(Font);
     if toFullRowSelect in TreeOptions.SelectionOptions then
     begin
       if Node = DropTargetNode then
@@ -1185,6 +1203,7 @@ begin
   end;
 end;
 
+//----------------------------------------------------------------------------------------------------------------------
 
 procedure TCustomVirtualStringTree.AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; var NextNonEmpty: TColumnIndex);
 
@@ -1239,7 +1258,7 @@ begin
   Result := 2 * TextMargin;
   if Length(Text) > 0 then
   begin
-    Canvas.Font := Font;
+    Canvas.Font.Assign(Font);
     DoPaintText(Node, Canvas, Column, ttNormal);
 
     Inc(Result, DoTextMeasuring(Canvas, Node, Column, Text).cx);
@@ -1962,7 +1981,7 @@ begin
   // Get default font and initialize the other parameters.
   //inherited GetTextInfo(Node, Column, AFont, R, Text);
 
-  Canvas.Font := AFont;
+  Canvas.Font.Assign(AFont);
 
   FFontChanged := False;
   RedirectFontChangeEvent(Canvas);
@@ -1982,7 +2001,7 @@ begin
   R := GetDisplayRect(Node, Column, True, not (vsMultiline in Node.States));
   if toShowHorzGridLines in TreeOptions.PaintOptions then
     Dec(R.Bottom);
-  InflateRect(R, 0, -(R.Bottom - R.Top - NewHeight) div 2);
+  InflateRect(R, 0, -Divide(R.Bottom - R.Top - NewHeight, 2));
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

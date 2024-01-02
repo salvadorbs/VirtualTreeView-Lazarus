@@ -808,7 +808,7 @@ type
   end;
 
 const
-  DefaultPaintOptions     = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
+  DefaultPaintOptions     = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages, toFullVertGridLines];
   DefaultAnimationOptions = [];
   DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
   DefaultSelectionOptions = [toSelectNextNodeOnRemoval];
@@ -934,8 +934,8 @@ type
   private
     fIndex: Cardinal;         // index of node with regard to its parent
     fChildCount: Cardinal;    // number of child nodes
+    fNodeHeight: TDimension;  // height in pixels
   public
-    NodeHeight: TDimension;  // height in pixels
     States: TVirtualNodeStates; // states describing various properties of the node (expanded, initialized etc.)
     Align: Byte;             // line/button alignment
     CheckState: TCheckState; // indicates the current check state (e.g. checked, pressed etc.)
@@ -964,12 +964,14 @@ type
     procedure SetLastChild(const pLastChild: PVirtualNode); inline; //internal method, do not call directly
     procedure SetIndex(const pIndex: Cardinal); inline;       //internal method, do not call directly.
     procedure SetChildCount(const pCount: Cardinal); inline; //internal method, do not call directly.
+    procedure SetNodeHeight(const pNodeHeight: TDimension); inline; //internal method, do not call directly.
     property Index: Cardinal read fIndex;
     property ChildCount: Cardinal read fChildCount;
     property Parent: PVirtualNode read fParent;
     property PrevSibling: PVirtualNode read fPrevSibling;
     property NextSibling: PVirtualNode read fNextSibling;
     property LastChild: PVirtualNode read fLastChild;
+    property NodeHeight: TDimension read fNodeHeight;
   private
     Data: record end;        // this is a placeholder, each node gets extra data determined by NodeDataSize
   public
@@ -1221,6 +1223,11 @@ function TVirtualNode.IsAssigned: Boolean;
 
 begin
   Exit(@Self <> nil);
+end;
+
+procedure TVirtualNode.SetNodeHeight(const pNodeHeight: TDimension);
+begin
+  fNodeHeight := pNodeHeight;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1720,49 +1727,65 @@ begin
     inherited;
 end;
 
-
+//----------------------------------------------------------------------------------------------------------------------
 
 { TCheckStateHelper }
 
-function TCheckStateHelper.IsDisabled : Boolean;
+function TCheckStateHelper.IsDisabled: Boolean;
 begin
   Result := Self >= TCheckState.csUncheckedDisabled;
 end;
 
-function TCheckStateHelper.IsChecked : Boolean;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.IsChecked: Boolean;
 begin
   Result := Self in [csCheckedNormal, csCheckedPressed, csCheckedDisabled];
 end;
 
-function TCheckStateHelper.IsUnChecked : Boolean;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.IsUnChecked: Boolean;
 begin
   Result := Self in [csUncheckedNormal, csUncheckedPressed, csUncheckedDisabled];
 end;
 
-function TCheckStateHelper.IsMixed : Boolean;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.IsMixed: Boolean;
 begin
   Result := Self in [csMixedNormal, csMixedPressed, csMixedDisabled];
 end;
 
-function TCheckStateHelper.GetEnabled : TCheckState;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.GetEnabled: TCheckState;
 begin
   Result := cEnabledState[Self];
 end;
 
-function TCheckStateHelper.GetPressed() : TCheckState;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.GetPressed(): TCheckState;
 begin
   Result := cPressedState[Self];
 end;
 
-function TCheckStateHelper.GetUnpressed() : TCheckState;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.GetUnpressed(): TCheckState;
 begin
   Result := cUnpressedState[Self];
 end;
 
-function TCheckStateHelper.GetToggled() : TCheckState;
+//----------------------------------------------------------------------------------------------------------------------
+
+function TCheckStateHelper.GetToggled(): TCheckState;
 begin
   Result := cToggledState[Self];
 end;
+
+//----------------------------------------------------------------------------------------------------------------------
 
 { TSortDirectionHelper }
 

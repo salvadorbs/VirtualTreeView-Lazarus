@@ -833,6 +833,8 @@ begin
 end;
 {$ENDIF}
 
+//----------------------------------------------------------------------------------------------------------------------
+
 function IsHighContrastEnabled(): Boolean;
 {$IFDEF DelphiSupport}
 var
@@ -853,6 +855,8 @@ begin
   Result:= Dimension / DivideBy;
 end;
 {$ENDIF}
+
+//----------------------------------------------------------------------------------------------------------------------
 
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer;
 begin

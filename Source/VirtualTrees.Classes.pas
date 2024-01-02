@@ -108,8 +108,8 @@ begin
     FPosition := FStart + LastOffset;
     FEnd := FStart + NewLen;
   end;
-  Move(PAnsiChar(S)^, FPosition^, Len);
-  Inc(FPosition, Len);
+  System.Move(PAnsiChar(S)^, FPosition^, Len);
+  System.Inc(FPosition, Len);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -133,9 +133,9 @@ begin
     FEnd := FStart + NewLen;
   end;
   FPosition^ := #13;
-  Inc(FPosition);
+  System.Inc(FPosition);
   FPosition^ := #10;
-  Inc(FPosition);
+  System.Inc(FPosition);
 end;
 
 //----------------- TBufferedString --------------------------------------------------------------------------------
@@ -205,9 +205,9 @@ begin
     FEnd := FStart + NewLen;
   end;
   FPosition^ := #13;
-  Inc(FPosition);
+  System.Inc(FPosition);
   FPosition^ := #10;
-  Inc(FPosition);
+  System.Inc(FPosition);
 end;
 
 

@@ -38,7 +38,7 @@ type
   protected
     function CanonicalIUnknown(const TestUnknown : IUnknown) : IUnknown;
     function EqualFormatEtc(FormatEtc1, FormatEtc2 : TFormatEtc) : Boolean;
-    function FindFormatEtc(TestFormatEtc : TFormatEtc; const FormatEtcArray : TFormatEtcArray) : integer;
+    function FindFormatEtc(TestFormatEtc : TFormatEtc; const FormatEtcArray : TFormatEtcArray) : Integer;
     function FindInternalStgMedium(Format : TClipFormat) : PStgMedium;
     function HGlobalClone(HGlobal : THandle) : THandle;
     function RenderInternalOLEData(const FormatEtcIn : TFormatEtc; var Medium : TStgMedium; var OLEResult : HResult) : Boolean;
@@ -93,7 +93,7 @@ end;
 
 destructor TVTDataObject.Destroy;
 var
-  I         : integer;
+  I         : Integer;
   StgMedium : PStgMedium;
 begin
   {$IFDEF EnableWinDataObject}
@@ -146,9 +146,9 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTDataObject.FindFormatEtc(TestFormatEtc : TFormatEtc; const FormatEtcArray : TFormatEtcArray) : integer;
+function TVTDataObject.FindFormatEtc(TestFormatEtc : TFormatEtc; const FormatEtcArray : TFormatEtcArray) : Integer;
 var
-  I : integer;
+  I : Integer;
 begin
   {$IFDEF EnableWinDataObject}
   Result := - 1;
@@ -385,7 +385,7 @@ function TVTDataObject.GetData(const FormatEtcIn : TFormatEtc; out Medium : TStg
 // depending on the data being requested.
 {$IFDEF EnableWinDataObject}
 var
-  I    : integer;
+  I    : Integer;
   Data : PVTReference;
 {$ENDIF}
 begin
@@ -486,7 +486,7 @@ function TVTDataObject.SetData(const FormatEtc : TFormatEtc; var Medium : TStgMe
 // IDropSourceHelper and allows to set a special format for optimized moves during a shell transfer.
 {$IFDEF EnableWinDataObject}
 var
-  Index          : integer;
+  Index          : Integer;
   LocalStgMedium : PStgMedium;
 {$ENDIF}
 begin
