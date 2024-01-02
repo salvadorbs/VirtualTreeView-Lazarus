@@ -368,7 +368,7 @@ type
     toAutoHideButtons,               // Node buttons are hidden when there are child nodes, but all are invisible.
     toAutoDeleteMovedNodes,          // Delete nodes which where moved in a drag operation (if not directed otherwise).
     toDisableAutoscrollOnFocus,      // Disable scrolling a node or column into view if it gets focused.
-    toAutoChangeScale,               // Change default node height automatically if the system's font scale is set to big fonts.
+    toAutoChangeScale,               // Change default node height and header height automatically according to the used font.
     toAutoFreeOnCollapse,            // Frees any child node after a node has been collapsed (HasChildren flag stays there).
     toDisableAutoscrollOnEdit,       // Do not center a node horizontally when it is edited.
     toAutoBidiColumnOrdering         // When set then columns (if any exist) will be reordered from lowest index to highest index
@@ -810,7 +810,7 @@ type
 const
   DefaultPaintOptions     = [toShowButtons, toShowDropmark, toShowTreeLines, toShowRoot, toThemeAware, toUseBlendedImages];
   DefaultAnimationOptions = [];
-  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoHideButtons];
+  DefaultAutoOptions      = [toAutoDropExpand, toAutoTristateTracking, toAutoScrollOnExpand, toAutoDeleteMovedNodes, toAutoChangeScale, toAutoSort, toAutoHideButtons];
   DefaultSelectionOptions = [toSelectNextNodeOnRemoval];
   DefaultMiscOptions      = [toAcceptOLEDrop, toFullRepaintOnResize, toInitOnSave, toToggleOnDblClick, toWheelPanning, toEditOnClick];
 
@@ -933,8 +933,8 @@ type
   TVirtualNode = packed record
   private
     fIndex: Cardinal;         // index of node with regard to its parent
+    fChildCount: Cardinal;    // number of child nodes
   public
-    ChildCount: Cardinal;    // number of child nodes
     NodeHeight: TDimension;  // height in pixels
     States: TVirtualNodeStates; // states describing various properties of the node (expanded, initialized etc.)
     Align: Byte;             // line/button alignment
@@ -949,18 +949,27 @@ type
     //       located at the end of the node! Hence if you want to add new member fields (except pointers to internal
     //       data) then put them before field Parent.
   private
-    fParent:  PVirtualNode;     // link to the node's last child...
+    fParent:  PVirtualNode;     // reference to the node's parent (for the root this contains the treeview)
     fPrevSibling: PVirtualNode; // link to the node's previous sibling or nil if it is the first node
-  public                  // reference to the node's parent (for the root this contains the treeview)
-    NextSibling,             // link to the node's next sibling or nil if it is the last node
-    FirstChild,              // link to the node's first child...
-    LastChild: PVirtualNode; // link to the node's last child...
+    fNextSibling: PVirtualNode; // link to the node's next sibling or nil if it is the last node
+  public // still public as it is used as var parameter in MergeSortAscending()
+    FirstChild: PVirtualNode;  // link to the node's first child...
+  private
+    fLastChild: PVirtualNode;   // link to the node's last child...
+  public
     procedure SetParent(const pParent: PVirtualNode); inline; //internal method, do not call directly but use Parent[Node] := x on tree control.
     procedure SetPrevSibling(const pPrevSibling: PVirtualNode); inline; //internal method, do not call directly
+    procedure SetNextSibling(const pNextSibling: PVirtualNode); inline; //internal method, do not call directly
+    procedure SetFirstChild(const pFirstChild: PVirtualNode); inline; //internal method, do not call directly
+    procedure SetLastChild(const pLastChild: PVirtualNode); inline; //internal method, do not call directly
     procedure SetIndex(const pIndex: Cardinal); inline;       //internal method, do not call directly.
+    procedure SetChildCount(const pCount: Cardinal); inline; //internal method, do not call directly.
     property Index: Cardinal read fIndex;
+    property ChildCount: Cardinal read fChildCount;
     property Parent: PVirtualNode read fParent;
     property PrevSibling: PVirtualNode read fPrevSibling;
+    property NextSibling: PVirtualNode read fNextSibling;
+    property LastChild: PVirtualNode read fLastChild;
   private
     Data: record end;        // this is a placeholder, each node gets extra data determined by NodeDataSize
   public
@@ -1231,6 +1240,11 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TVirtualNode.SetChildCount(const pCount: Cardinal);
+begin
+  fChildCount := pCount;
+end;
+
 procedure TVirtualNode.SetData(const pUserData: IInterface);
 
 
@@ -1254,6 +1268,16 @@ begin
   Include(Self.States, vsOnFreeNodeCallRequired);
 end;
 
+procedure TVirtualNode.SetFirstChild(const pFirstChild: PVirtualNode);
+begin
+  FirstChild := pFirstChild;
+end;
+
+procedure TVirtualNode.SetLastChild(const pLastChild: PVirtualNode);
+begin
+  fLastChild := pLastChild;
+end;
+
 procedure TVirtualNode.SetIndex(const pIndex: Cardinal);
 begin
   fIndex := pIndex;
@@ -1267,6 +1291,11 @@ end;
 procedure TVirtualNode.SetPrevSibling(const pPrevSibling: PVirtualNode);
 begin
   fPrevSibling := pPrevSibling;
+end;
+
+procedure TVirtualNode.SetNextSibling(const pNextSibling: PVirtualNode);
+begin
+  fNextSibling := pNextSibling;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

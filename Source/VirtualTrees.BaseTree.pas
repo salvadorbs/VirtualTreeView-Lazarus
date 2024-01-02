@@ -958,7 +958,6 @@ type
     function IsStored_Indent: Boolean;
     function IsStored_Margin: Boolean;
     function IsStored_TextMargin: Boolean;
-    procedure SetOnCompareNodes(const Value: TVTCompareEvent);
   protected
     FFontChanged: Boolean;                       // flag for keeping informed about font changes in the off screen buffer   // [IPK] - private to protected
     procedure AutoScale(); virtual;
@@ -1374,7 +1373,7 @@ type
     property OnColumnWidthDblClickResize: TVTColumnWidthDblClickResizeEvent read FOnColumnWidthDblClickResize
       write FOnColumnWidthDblClickResize;
     property OnColumnWidthTracking: TVTColumnWidthTrackingEvent read FOnColumnWidthTracking write FOnColumnWidthTracking;
-    property OnCompareNodes: TVTCompareEvent read FOnCompareNodes write SetOnCompareNodes;
+    property OnCompareNodes: TVTCompareEvent read FOnCompareNodes write FOnCompareNodes;
     property OnCreateDataObject: TVTCreateDataObjectEvent read FOnCreateDataObject write FOnCreateDataObject;
     property OnCreateDragManager: TVTCreateDragManagerEvent read FOnCreateDragManager write FOnCreateDragManager;
     property OnCreateEditor: TVTCreateEditorEvent read FOnCreateEditor write FOnCreateEditor;
@@ -4424,7 +4423,7 @@ begin
   begin
     // Indication that this node is the root node.
     SetPrevSibling(FRoot);
-    NextSibling := FRoot;
+    SetNextSibling(FRoot);
     SetParent(Pointer(Self));
     States := [vsInitialized, vsExpanded, vsHasChildren, vsVisible];
     TotalHeight := FDefaultNodeHeight;
@@ -5254,11 +5253,11 @@ begin
             Child.SetIndex(Index);
             Child.SetPrevSibling(Node.LastChild);
             if Assigned(Node.LastChild) then
-              Node.LastChild.NextSibling := Child;
+              Node.LastChild.SetNextSibling(Child);
             Child.SetParent(Node);
-            Node.LastChild := Child;
+            Node.SetLastChild(Child);
             if Node.FirstChild = nil then
-              Node.FirstChild := Child;
+              Node.SetFirstChild(Child);
             System.Dec(Remaining);
             System.Inc(Index);
 
@@ -5271,7 +5270,7 @@ begin
             AdjustTotalHeight(Node, NewHeight, False);
 
           AdjustTotalCount(Node, Count, True);
-          Node.ChildCount := NewChildCount;
+          Node.SetChildCount(NewChildCount);
           if (FUpdateCount = 0) and (toAutoSort in FOptions.AutoOptions) and (FHeader.SortColumn > InvalidColumn) then
             Sort(Node, FHeader.SortColumn, FHeader.SortDirection, True);
 
@@ -5902,13 +5901,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.SetOnCompareNodes(const Value: TVTCompareEvent);
-begin
-  if Assigned(Value) and not Assigned(FOnCompareNodes) then
-    Self.TreeOptions.AutoOptions := TreeOptions.AutoOptions + [TVTAutoOption.toAutoSort]; // Turn on toAutoSort as soon as there is a compare function. See issue #1146
-  FOnCompareNodes := Value;
-end;
-
 procedure TBaseVirtualTree.SetOnPrepareButtonImages(const Value: TVTPrepareButtonImagesEvent);
 begin
   FOnPrepareButtonImages := Value;
@@ -5938,7 +5930,7 @@ begin
   // Don't set the root node count until all other properties (in particular the OnInitNode event) have been set.
   if csLoading in ComponentState then
   begin
-    FRoot.ChildCount := Value;
+    FRoot.SetChildCount(Value);
     DoStateChange([tsNeedRootCountUpdate]);
   end
   else
@@ -14665,13 +14657,13 @@ begin
         begin
           Node.SetPrevSibling(Destination.PrevSibling);
           Destination.SetPrevSibling(Node);
-          Node.NextSibling := Destination;
+          Node.SetNextSibling(Destination);
           Node.SetParent(Destination.Parent);
           Node.SetIndex(Destination.Index);
           if Node.PrevSibling = nil then
-            Node.Parent.FirstChild := Node
+            Node.Parent.SetFirstChild(Node)
           else
-            Node.PrevSibling.NextSibling := Node;
+            Node.PrevSibling.SetNextSibling(Node);
 
           // reindex all following nodes
           Run := Destination;
@@ -14683,12 +14675,12 @@ begin
         end;
       amInsertAfter:
         begin
-          Node.NextSibling := Destination.NextSibling;
-          Destination.NextSibling := Node;
+          Node.SetNextSibling(Destination.NextSibling);
+          Destination.SetNextSibling(Node);
           Node.SetPrevSibling(Destination);
           Node.SetParent(Destination.Parent);
           if Node.NextSibling = nil then
-            Node.Parent.LastChild := Node
+            Node.Parent.SetLastChild(Node)
           else
             Node.NextSibling.SetPrevSibling(Node);
           Node.SetIndex(Destination.Index);
@@ -14707,15 +14699,15 @@ begin
           begin
             // If there's a first child then there must also be a last child.
             Destination.FirstChild.SetPrevSibling(Node);
-            Node.NextSibling := Destination.FirstChild;
-            Destination.FirstChild := Node;
+            Node.SetNextSibling(Destination.FirstChild);
+            Destination.SetFirstChild(Node);
           end
           else
           begin
             // First child node at this location.
-            Destination.FirstChild := Node;
-            Destination.LastChild := Node;
-            Node.NextSibling := nil;
+            Destination.SetFirstChild(Node);
+            Destination.SetLastChild(Node);
+            Node.SetNextSibling(nil);
           end;
           Node.SetPrevSibling(nil);
           Node.SetParent(Destination);
@@ -14733,18 +14725,18 @@ begin
           if Assigned(Destination.LastChild) then
           begin
             // If there's a last child then there must also be a first child.
-            Destination.LastChild.NextSibling := Node;
+            Destination.LastChild.SetNextSibling(Node);
             Node.SetPrevSibling(Destination.LastChild);
-            Destination.LastChild := Node;
+            Destination.SetLastChild(Node);
           end
           else
           begin
             // first child node at this location
-            Destination.FirstChild := Node;
-            Destination.LastChild := Node;
+            Destination.SetFirstChild(Node);
+            Destination.SetLastChild(Node);
             Node.SetPrevSibling(nil);
           end;
-          Node.NextSibling := nil;
+          Node.SetNextSibling(nil);
           Node.SetParent(Destination);
           if Assigned(Node.PrevSibling) then
             Node.SetIndex(Node.PrevSibling.Index + 1)
@@ -14758,7 +14750,7 @@ begin
     Node.States := Node.States - [vsChecking, vsCutOrCopy, vsDeleting];
 
     if (Mode <> amNoWhere) then begin
-      System.Inc(Node.Parent.ChildCount);
+      Node.Parent.SetChildCount(Node.Parent.ChildCount + 1);
       Include(Node.Parent.States, vsHasChildren);
       AdjustTotalCount(Node.Parent, Node.TotalCount, True);
 
@@ -14834,7 +14826,7 @@ begin
     // Some states are only temporary so take them out.
     Node.States := Node.States - [vsChecking];
     Parent := Node.Parent;
-    System.Dec(Parent.ChildCount);
+    Parent.SetChildCount(Parent.ChildCount - 1);
     AdjustHeight := (vsExpanded in Parent.States) and (vsVisible in Node.States);
     if Parent.ChildCount = 0 then
     begin
@@ -14849,9 +14841,9 @@ begin
       System.Dec(FVisibleCount, CountVisibleChildren(Node) + Cardinal(IfThen(IsEffectivelyVisible[Node], 1)));
 
     if Assigned(Node.PrevSibling) then
-      Node.PrevSibling.NextSibling := Node.NextSibling
+      Node.PrevSibling.SetNextSibling(Node.NextSibling)
     else
-      Parent.FirstChild := Node.NextSibling;
+      Parent.SetFirstChild(Node.NextSibling);
 
     if Assigned(Node.NextSibling) then
     begin
@@ -14870,7 +14862,7 @@ begin
       end;
     end
     else
-      Parent.LastChild := Node.PrevSibling;
+      Parent.SetLastChild(Node.PrevSibling);
   end;
 end;
 
@@ -14967,7 +14959,7 @@ begin
     IsReadOnly := toReadOnly in FOptions.MiscOptions;
     FOptions.InternalSetMiscOptions(FOptions.MiscOptions - [toReadOnly]);
     LastRootCount := FRoot.ChildCount;
-    FRoot.ChildCount := 0;
+    FRoot.SetChildCount(0);
     BeginUpdate;
     SetChildCount(FRoot, LastRootCount);
     EndUpdate;
@@ -16151,7 +16143,7 @@ begin
           Align := ChunkBody.Align;
           CheckState := ChunkBody.CheckState;
           CheckType := ChunkBody.CheckType;
-          ChildCount := ChunkBody.ChildCount;
+          SetChildCount(ChunkBody.ChildCount);
 
           // Create and read child nodes.
           while ChunkBody.ChildCount > 0 do
@@ -16162,10 +16154,10 @@ begin
             if Assigned(Run.PrevSibling) then
               Run.SetIndex(Run.PrevSibling.Index + 1);
             if Assigned(Node.LastChild) then
-              Node.LastChild.NextSibling := Run
+              Node.LastChild.SetNextSibling(Run)
             else
-              Node.FirstChild := Run;
-            Node.LastChild := Run;
+              Node.SetFirstChild(Run);
+            Node.SetLastChild(Run);
             Run.SetParent(Node);
 
             ReadNode(Stream, Version, Run);
@@ -17497,7 +17489,7 @@ begin
     lTextHeight := Canvas.TextHeight('Tg') + {$if CompilerVersion > 31} MulDiv(2, CurrentPPI, 96) {$else} 2 {$ifend}; // See issue #1205, ScaledPixels(2) may return wrong value here
     // By default, we only ensure that DefaultNodeHeight is large enough.
     // If the form's dpi has changed, we scale up and down the DefaultNodeHeight, See issue #677.
-    if (lTextHeight > Self.DefaultNodeHeight) then begin
+    if (lTextHeight <> Self.DefaultNodeHeight) then begin
       ScaleNodeHeights(lTextHeight, DefaultNodeHeight);
       Self.DefaultNodeHeight := lTextHeight;
     end;// if
@@ -17941,14 +17933,14 @@ begin
         Run := Run.PrevSibling;
         // Important, to avoid exchange of invalid pointers while disconnecting the node.
         if Assigned(Run) then
-          Run.NextSibling := nil;
+          Run.SetNextSibling(nil);
         DeleteNode(Mark, False, True);
       end;
       if ResetHasChildren then
         Exclude(Node.States, vsHasChildren);
       if Node <> FRoot then
         Exclude(Node.States, vsExpanded);
-      Node.ChildCount := 0;
+      Node.SetChildCount(0);
       if (Node = FRoot) or (vsDeleting in Node.States) then
       begin
         Node.TotalHeight := FDefaultNodeHeight + NodeHeight[Node];
@@ -17959,8 +17951,8 @@ begin
         AdjustTotalHeight(Node, NodeHeight[Node]);
         AdjustTotalCount(Node, 1);
       end;
-      Node.FirstChild := nil;
-      Node.LastChild := nil;
+      Node.SetFirstChild(nil);
+      Node.SetLastChild(nil);
     finally
       System.Dec(FUpdateCount);
     end;
@@ -18274,7 +18266,7 @@ begin
         if tsChangePending in FStates then
           DoChange(FLastChangedNode);
       finally
-        if toAutoSort in FOptions.AutoOptions then
+        if (toAutoSort in FOptions.AutoOptions) then
           SortTree(FHeader.SortColumn, FHeader.SortDirection, True);
 
         SetUpdateState(False);
@@ -23578,13 +23570,13 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
 
       if CompareResult <= 0 then
       begin
-        Result.NextSibling := A;
+        Result.SetNextSibling(A);
         Result := A;
         A := A.NextSibling;
       end
       else
       begin
-        Result.NextSibling := B;
+        Result.SetNextSibling(B);
         Result := B;
         B := B.NextSibling;
       end;
@@ -23592,9 +23584,9 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
 
     // Just append the list which is not nil (or set end of result list to nil if both lists are nil).
     if Assigned(A) then
-      Result.NextSibling := A
+      Result.SetNextSibling(A)
     else
-      Result.NextSibling := B;
+      Result.SetNextSibling(B);
     // return start of the new merged list
     Result := Dummy.NextSibling;
   end;
@@ -23621,13 +23613,13 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
 
       if CompareResult >= 0 then
       begin
-        Result.NextSibling := A;
+        Result.SetNextSibling(A);
         Result := A;
         A := A.NextSibling;
       end
       else
       begin
-        Result.NextSibling := B;
+        Result.SetNextSibling(B);
         Result := B;
         B := B.NextSibling;
       end;
@@ -23635,9 +23627,9 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
 
     // Just append the list which is not nil (or set end of result list to nil if both lists are nil).
     if Assigned(A) then
-      Result.NextSibling := A
+      Result.SetNextSibling(A)
     else
-      Result.NextSibling := B;
+      Result.SetNextSibling(B);
     // Return start of the newly merged list.
     Result := Dummy.NextSibling;
   end;
@@ -23662,7 +23654,7 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
     begin
       Result := Node;
       Node := Node.NextSibling;
-      Result.NextSibling := nil;
+      Result.SetNextSibling(nil);
     end;
   end;
 
@@ -23686,7 +23678,7 @@ procedure TBaseVirtualTree.Sort(Node: PVirtualNode; Column: TColumnIndex; Direct
     begin
       Result := Node;
       Node := Node.NextSibling;
-      Result.NextSibling := nil;
+      Result.SetNextSibling(nil);
     end;
   end;
 
@@ -23722,9 +23714,9 @@ begin
         try
           // Sort the linked list, check direction flag only once.
           if Direction = sdAscending then
-            Node.FirstChild := MergeSortAscending(Node.FirstChild, Node.ChildCount)
+            Node.SetFirstChild(MergeSortAscending(Node.FirstChild, Node.ChildCount))
           else
-            Node.FirstChild := MergeSortDescending(Node.FirstChild, Node.ChildCount);
+            Node.SetFirstChild(MergeSortDescending(Node.FirstChild, Node.ChildCount));
         finally
           EndOperation(okSortNode);
         end;
@@ -23740,7 +23732,7 @@ begin
           Run.NextSibling.SetPrevSibling(Run);
           Run := Run.NextSibling;
         until False;
-        Node.LastChild := Run;
+        Node.SetLastChild(Run);
 
         InvalidateCache;
       end;
@@ -23785,6 +23777,9 @@ procedure TBaseVirtualTree.SortTree(Column: TColumnIndex; Direction: TSortDirect
 begin
   if RootNode.TotalCount <= 2 then
     Exit;//Nothing to do if there are one or zero nodes. RootNode.TotalCount is 1 if there are no nodes in the treee as the root node counts too here.
+
+  if not Assigned(FRoot.FirstChild) then
+    Exit; // Sorting should not initialize the root nodes
 
   // Instead of wrapping the sort using BeginUpdate/EndUpdate simply the update counter
   // is modified. Otherwise the EndUpdate call will recurse here.

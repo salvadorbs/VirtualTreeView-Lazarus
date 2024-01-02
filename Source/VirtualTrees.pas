@@ -91,6 +91,7 @@ uses
   , VirtualTrees.AncestorLcl
   , VirtualTrees.Utils;
 
+  {$MinEnumSize 1, make enumerations as small as possible}
 
 type
   // Some aliases for backward compatiblity
