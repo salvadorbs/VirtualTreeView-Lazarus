@@ -47,7 +47,7 @@ type
     property CharCase;
     property HideSelection;
     property MaxLength;
-    {$IFDEF DelphiProps}
+    {$IFDEF DelphiSupport}
     property OEMConvert;
     {$ENDIF}
     property PasswordChar;

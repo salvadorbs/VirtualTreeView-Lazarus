@@ -59,7 +59,7 @@ procedure SetCanvasOrigin(Canvas: TCanvas; X, Y: Integer); inline;
 /// </summary>
 procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas; X, Y: Integer; Style: Cardinal; Enabled: Boolean);
 {$ENDIF}
 
@@ -70,7 +70,7 @@ procedure DrawImage(ImageList: TCustomImageList; Index: Integer; Canvas: TCanvas
 /// </summary>
 function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string; overload;
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 //--------------------------
 // ShortenString similar to VTV's version, except:
 // -- Does not assume using three dots or any particular character for ellipsis
@@ -106,7 +106,7 @@ function OrderRect(const R: TRect): TRect;
 /// </remarks>
 procedure FillDragRectangles(DragWidth, DragHeight, DeltaX, DeltaY: Integer; var RClip, RScroll, RSamp1, RSamp2, RDraw1, RDraw2: TRect);
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 /// <summary>
 /// Attaches a bitmap as drag image to an IDataObject, see issue #405
 /// <code>
@@ -123,7 +123,7 @@ procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
 /// </summary>
 function IsMouseCursorVisible(): Boolean;
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 procedure ScaleImageList(const ImgList: TImageList; M, D: Integer);
 
 /// <summary>
@@ -140,7 +140,7 @@ function IsHighContrastEnabled(): Boolean;
 /// </summary>
 function Divide(const Dimension: Integer; const DivideBy: Integer): Integer; overload; inline;
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 /// <summary>
 /// Divide depend of parameter type uses different division operator:
 /// <code>Integer uses div</code>
@@ -155,7 +155,7 @@ function GetBitmapBitsFromBitmap(Bitmap: HBITMAP): Pointer;
 
 implementation
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 procedure ApplyDragImage(const pDataObject: IDataObject; pBitmap: TBitmap);
 var
   DragSourceHelper: IDragSourceHelper;
@@ -380,7 +380,7 @@ begin
 end;
 {$endif}
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 //--------------------------
 function ShortenString(TargetCanvasDC: HDC; const StrIn: string; const AllowedWidth_px: Integer; const EllipsisWidth_px: Integer; var ShortenedString: string): boolean;
 //--------------------------
@@ -847,7 +847,7 @@ begin
   Result := False;
 end;
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 function Divide(const Dimension: Single; const DivideBy: Integer): Single;
 begin
   Result:= Dimension / DivideBy;

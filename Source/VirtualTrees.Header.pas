@@ -412,7 +412,7 @@ type
     procedure RescaleHeader;
     procedure UpdateMainColumn;
     procedure UpdateSpringColumns;
-    {$IFDEF OnlyDelphiSupport}
+    {$IFDEF DelphiSupport}
     procedure WriteColumns(Writer : TWriter);
     {$ENDIF}
     procedure InternalSetMainColumn(const Index : TColumnIndex);
@@ -2273,7 +2273,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 type
   //--- HACK WARNING!
   //This type cast is a partial rewrite of the private section of TWriter. The purpose is to have access to
@@ -2458,12 +2458,12 @@ end;
 function TVTHeader.InHeader(P : TPoint) : Boolean;
 
 //Determines whether the given point (client coordinates!) is within the header rectangle (non-client coordinates).
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 var
   R, RW : TRect;
 {$IFEND}
 begin
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
   R := Tree.HeaderRect;
 
   //Current position of the owner in screen coordinates.

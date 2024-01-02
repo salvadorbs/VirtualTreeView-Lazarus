@@ -749,7 +749,7 @@ type
 
     FVclStyleEnabled: Boolean;
 
-    {$IFDEF VCLStyleSupport}
+    {$IFDEF DelphiStyleServices}
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
     procedure CMParentDoubleBufferedChange(var Message: TMessage); message CM_PARENTDOUBLEBUFFEREDCHANGED;
 	{$ENDIF}
@@ -873,27 +873,27 @@ type
     function ToggleCallback(Step, StepSize: Integer; Data: Pointer): Boolean;
 
     procedure CMColorChange(var Message: TLMessage); message CM_COLORCHANGED;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure CMCtl3DChanged(var Message: TMessage); message CM_CTL3DCHANGED;
 {$ENDIF}
     procedure CMBiDiModeChanged(var Message: TLMessage); message CM_BIDIMODECHANGED;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure CMBorderChanged(var Message: TMessage); message CM_BORDERCHANGED;
 {$ENDIF}
     procedure CMDenySubclassing(var Message: TLMessage); message CM_DENYSUBCLASSING;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure CMDrag(var Message: TCMDrag); message CM_DRAG;
     procedure CMEnabledChanged(var Message: TMessage); message CM_ENABLEDCHANGED;
 {$ENDIF}
     procedure CMFontChanged(var Message: TLMessage); message CM_FONTCHANGED;
     procedure CMHintShow(var Message: TCMHintShow); message CM_HINTSHOW;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure CMHintShowPause(var Message: TCMHintShowPause); message CM_HINTSHOWPAUSE;
 {$ENDIF}
     procedure CMMouseEnter(var Message: TLMessage); message CM_MOUSEENTER;
     procedure CMMouseLeave(var Message: TLMessage); message CM_MOUSELEAVE;
     procedure CMMouseWheel(var Message: TLMMouseEvent); message LM_MOUSEWHEEL;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure CMSysColorChange(var Message: TMessage); message CM_SYSCOLORCHANGE;
 {$ENDIF}
     {$ifdef EnableNativeTVM}
@@ -921,7 +921,7 @@ type
     procedure WMMButtonUp(var Message: TLMMButtonUp); message LM_MBUTTONUP;
     {$ifdef EnableNCFunctions}
     procedure WMNCCalcSize(var Message: TWMNCCalcSize); message WM_NCCALCSIZE;
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
     procedure WMNCDestroy(var Message: TWMNCDestroy); message WM_NCDESTROY;
 {$ENDIF}
     procedure WMNCHitTest(var Message: TWMNCHitTest); message WM_NCHITTEST;
@@ -990,7 +990,7 @@ type
     procedure CreateParams(var Params: TCreateParams); override;
     procedure CreateWnd; override;
     procedure DecVisibleCount;
-    {$IFDEF OnlyDelphiSupport}
+    {$IFDEF DelphiSupport}
     procedure DefineProperties(Filer: TFiler); override;
     {$ENDIF}
     procedure DeleteNode(Node: PVirtualNode; Reindex: Boolean; ParentClearing: Boolean); overload;
@@ -1230,7 +1230,7 @@ type
     procedure UpdateDesigner; virtual;
     procedure UpdateEditBounds; virtual;
     procedure UpdateHeaderRect; virtual;
-    {$ifdef VCLStyleSupport}
+    {$ifdef DelphiStyleServices}
     procedure UpdateStyleElements; override;
     {$ifend}
     procedure UpdateWindowAndDragImage(const Tree: TBaseVirtualTree; TreeRect: TRect; UpdateNCArea,
@@ -1242,13 +1242,13 @@ type
     procedure WriteNode(Stream: TStream; Node: PVirtualNode); virtual;
     class procedure RaiseVTError(const Msg: string; HelpContext: Integer); static;
 
-    {$ifdef VCLStyleSupport}
+    {$ifdef DelphiStyleServices}
     procedure VclStyleChanged; virtual;
     {$ifend}
     property VclStyleEnabled: Boolean read GetVclStyleEnabled;
     property TotalInternalDataSize: Cardinal read FTotalInternalDataSize;
     // Mitigator function to use the correct style service for this context (either the style assigned to the control for Delphi > 10.4 or the application style)
-    {$ifdef VCLStyleSupport}
+    {$ifdef DelphiStyleServices}
     function StyleServices(AControl: TControl = nil): TCustomStyleServices;
     {$ifend}
     property Alignment: TAlignment read FAlignment write SetAlignment default taLeftJustify;
@@ -6296,7 +6296,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMCtl3DChanged(var Message: TMessage);
 
 begin
@@ -6326,7 +6326,7 @@ begin
   {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'FEffectiveOffsetX after CMBidiModeChanged',FEffectiveOffsetX);{$endif}
 end;
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMBorderChanged(var Message: TMessage);
 begin
   inherited;
@@ -6359,7 +6359,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMDrag(var Message: TCMDrag);
 
 var
@@ -6552,7 +6552,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMEnabledChanged(var Message: TMessage);
 
 begin
@@ -6889,7 +6889,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMHintShowPause(var Message: TCMHintShowPause);
 
 // Tells the application that the tree (and only the tree) does not want a delayed tool tip.
@@ -7019,7 +7019,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiWinEvents}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.CMSysColorChange(var Message: TMessage);
 
 begin
@@ -8438,7 +8438,7 @@ begin
   finally
     ReleaseDC(Handle, DC);
   end;
-  {$IFDEF VCLStyleSupport}
+  {$IFDEF DelphiStyleServices}
   if (((tsUseThemes in FStates) and not VclStyleEnabled) or (VclStyleEnabled and (seBorder in StyleElements))) then
       StyleServices.PaintBorder(Self, False)
   else
@@ -9718,7 +9718,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF OnlyDelphiSupport}
+{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.DefineProperties(Filer: TFiler);
 
 // There were heavy changes in some properties during development of VT. This method helps to make migration easier
@@ -16321,7 +16321,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF VCLStyleSupport}
+{$IFDEF DelphiStyleServices}
 function TBaseVirtualTree.StyleServices(AControl: TControl): TCustomStyleServices;
 begin
   if AControl = nil then
@@ -16849,7 +16849,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$ifdef VCLStyleSupport}
+{$ifdef DelphiStyleServices}
 procedure TBaseVirtualTree.VclStyleChanged();
 
   // Updates the member FVclStyleEnabled, should be called initially and when the VCL style changes
@@ -17159,7 +17159,7 @@ begin
       Self.Color := Color;
       Self.Colors.Assign(Colors);
       Self.Constraints.Assign(Constraints);
-      {$IFDEF DelphiWinEvents}
+      {$IFDEF DelphiSupport}
       Self.Ctl3D := Ctl3D;
       {$ENDIF}
       Self.DefaultNodeHeight := DefaultNodeHeight;
@@ -17174,7 +17174,7 @@ begin
       Self.HintMode := HintMode;
       Self.HotCursor := HotCursor;
       Self.Images := Images;
-      {$IFDEF DelphiWinEvents}
+      {$IFDEF DelphiSupport}
       Self.ImeMode := ImeMode;
       Self.ImeName := ImeName;
       {$ENDIF}
@@ -17183,11 +17183,11 @@ begin
       Self.NodeAlignment := NodeAlignment;
       Self.NodeDataSize := NodeDataSize;
       Self.TreeOptions := TreeOptions;
-      {$IFDEF DelphiWinEvents}
+      {$IFDEF DelphiSupport}
       Self.ParentBiDiMode := ParentBiDiMode;
       {$ENDIF}
       Self.ParentColor := ParentColor;
-      {$IFDEF DelphiWinEvents}
+      {$IFDEF DelphiSupport}
       Self.ParentCtl3D := ParentCtl3D;
       {$ENDIF}
       Self.ParentFont := ParentFont;
@@ -17197,7 +17197,7 @@ begin
       Self.ScrollBarOptions := ScrollBarOptions;
       Self.ShowHint := ShowHint;
       Self.StateImages := StateImages;
-      {$IFDEF VCLStyleSupport}
+      {$IFDEF DelphiStyleServices}
       Self.StyleElements := StyleElements;
       {$ENDIF}
       Self.TabOrder := TabOrder;
@@ -24152,7 +24152,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$ifdef VCLStyleSupport}
+{$ifdef DelphiStyleServices}
 procedure TBaseVirtualTree.UpdateStyleElements;
 begin
   inherited;
