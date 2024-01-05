@@ -7,6 +7,10 @@ interface
 {$I VTConfig.inc}
 
 uses
+  {$ifdef LCLCocoa}
+  MacOSAll, // hack: low-level access to Cocoa drawins is going to be used
+            //       in order to support Cocoa HighDPI implementation
+  {$endif}
   LMessages, LCLIntf, LCLType, Controls, Classes, StdCtrls, Themes, Graphics,
   {$ifdef Windows}
   Windows,
@@ -25,7 +29,13 @@ uses
   , ImgList
   , Menus
   , LCLVersion
-  , Types;
+  , Types
+  {$ifdef LCLCocoa}
+  ,CocoaGDIObjects // hack: while using buffered drawing, multiply the context
+                   //       by the retina scale to achieve the needed scale for Retina
+                   //       Ideally - not to use Buffered. but Unbuffered drawing
+                   //       seems to need a fix
+  {$endif};
 
 const
   DefaultColumnOptions = [coAllowClick, coDraggable, coEnabled, coParentColor, coParentBidiMode, coResizable,
@@ -411,9 +421,7 @@ type
     procedure RescaleHeader;
     procedure UpdateMainColumn;
     procedure UpdateSpringColumns;
-    {$IFDEF DelphiSupport}
     procedure WriteColumns(Writer : TWriter);
-    {$ENDIF}
     procedure InternalSetMainColumn(const Index : TColumnIndex);
     procedure InternalSetAutoSizeIndex(const Index : TColumnIndex);
     procedure InternalSetSortColumn(const Index : TColumnIndex);
@@ -1536,7 +1544,7 @@ var
   P                                          : TPoint;
   I                                          : TColumnIndex;
   HitIndex                                   : TColumnIndex;
-  NewCursor                                  : TVTCursor;
+  NewCursor                                  : TCursor;
   Button                                     : TMouseButton;
   IsInHeader, IsHSplitterHit, IsVSplitterHit : Boolean;
 
@@ -1904,13 +1912,14 @@ begin
         else
           IsVSplitterHit := InHeaderSplitterArea(P) and Self.CanSplitterResize(P);
 
+        //lcl: in lazarus we must use TCursor
         if IsVSplitterHit or IsHSplitterHit then
         begin
-          NewCursor := Screen.Cursors[Tree.Cursor];
+          NewCursor := Tree.Cursor;
           if IsVSplitterHit and ((hoHeightResize in FOptions) or (csDesigning in Tree.ComponentState)) then
-            NewCursor := Screen.Cursors[crVSplit]
+            NewCursor := crVSplit
           else if IsHSplitterHit then
-            NewCursor := Screen.Cursors[crHSplit];
+            NewCursor := crHSplit;
 
           if not (csDesigning in Tree.ComponentState) then
             Tree.DoGetHeaderCursor(NewCursor);
@@ -2261,7 +2270,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiSupport}
 type
   //--- HACK WARNING!
   //This type cast is a partial rewrite of the private section of TWriter. The purpose is to have access to
@@ -2300,7 +2308,6 @@ begin
     TWriterHack(Writer).FPropPath := LastPropPath;
   end;
 end;
-{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -2572,7 +2579,7 @@ procedure TVTHeader.LoadFromStream(const Stream : TStream);
 
 var
   Dummy, Version : Integer;
-  S              : AnsiString;
+  S              : AnsiString = '';
   OldOptions     : TVTHeaderOptions;
 
 begin
@@ -2677,7 +2684,8 @@ var
   ColCount,
   Sign: Integer;
   ToGo, MaxDelta, Difference, Rest: TDimension;
-  Constraints, Widths                              : array of TDimension;
+  Constraints                                      : array of TDimension = nil;
+  Widths                                           : array of TDimension = nil;
   BonusPixel                                       : Boolean;
 
   //--------------- local functions -------------------------------------------
@@ -4147,7 +4155,7 @@ end;
 procedure TVirtualTreeColumn.LoadFromStream(const Stream : TStream; Version : Integer);
 var
   Dummy : Integer;
-  S     : string;
+  S     : string = '';
 
 begin
   with Stream do
@@ -5519,6 +5527,7 @@ var
   I, Counter : Integer;
 
 begin
+  Result := nil;
   SetLength(Result, Count);
   Counter := 0;
 
@@ -5600,6 +5609,9 @@ procedure TVirtualTreeColumns.PaintHeader(DC : HDC; R : TRect; HOffset : TDimens
 var
   VisibleFixedWidth : TDimension;
   RTLOffset         : TDimension;
+  {$ifdef LCLCocoa}
+  sc : Double;
+  {$endif}
 
   procedure PaintFixedArea;
 
@@ -5613,6 +5625,15 @@ var
 begin
   // Adjust size of the header bitmap
   FHeaderBitmap.SetSize(Max(TreeViewControl.HeaderRect.Right, R.Right - R.Left), TreeViewControl.HeaderRect.Bottom);
+  {$ifdef LCLCocoa}
+  if Assigned(Header) and Assigned(Header.TreeView) then
+    sc := Header.Treeview.GetCanvasScaleFactor
+  else
+    sc := 1.0;
+  FHeaderBitmap.Width := Round(FHeaderBitmap.Width * sc);
+  FHeaderBitmap.Height := Round(FHeaderBitmap.Height * sc);
+  CGContextScaleCTM(TCocoaBitmapContext(FHeaderBitmap.Canvas.Handle).CGContext, sc, sc);
+  {$endif}
 
   VisibleFixedWidth := GetVisibleFixedWidth;
 
@@ -5635,7 +5656,15 @@ begin
     PaintFixedArea;
 
   // Blit the result to target.
+  {$ifdef LCLCocoa}
+  StretchBlt(DC, R.Left, R.Top, R.Right - R.Left, R.Bottom - R.Top,
+    FHeaderBitmap.Canvas.Handle,
+    R.Left, R.Top,
+    FHeaderBitmap.Width, FHeaderBitmap.Height,
+    SRCCOPY);
+  {$else}
   BitBlt(DC, R.Left, R.Top, R.Right - R.Left, R.Bottom - R.Top, FHeaderBitmap.Canvas.Handle, R.Left, R.Top, SRCCOPY);
+  {$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -5961,15 +5990,15 @@ var
 
         // caption
         if WrapCaption then
-          ColCaptionText := FCaptionText
+          ColCaptionText := UnicodeString(FCaptionText)
         else
-          ColCaptionText := Text;
+          ColCaptionText := UnicodeString(Text);
         if IsHoverIndex and TreeViewControl.VclStyleEnabled then
           DrawHot := True
         else
           DrawHot := (IsHoverIndex and (hoHotTrack in Header.Options) and not (tsUseThemes in TreeViewControl.TreeStates));
         if not (hpeText in ActualElements) and (Length(Text) > 0) then
-          DrawButtonText(TargetCanvas.Handle, ColCaptionText, TextRectangle, IsEnabled, DrawHot, DrawFormat, WrapCaption);
+          DrawButtonText(TargetCanvas.Handle, String(ColCaptionText), TextRectangle, IsEnabled, DrawHot, DrawFormat, WrapCaption);
 
         // sort glyph
         if not (hpeSortGlyph in ActualElements) and ShowSortGlyph then

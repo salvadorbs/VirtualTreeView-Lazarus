@@ -10,7 +10,7 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, Controls, StdCtrls, LMessages, VirtualTrees.Types, VirtualTrees.BaseTree, VirtualTrees,
+  Classes, Controls, StdCtrls, LMessages, VirtualTrees.Types, VirtualTrees.BaseTree, VirtualTrees, WSReferences,
   LCLType, LCLIntf, Types;
 
 type
@@ -503,7 +503,7 @@ end;
 function TVTEdit.GetTextSize : TSize;
 var
   DC : HDC;
-  LastFont : THandle;
+  LastFont : TLCLHandle;
 begin
   DC := GetDC(Handle);
   LastFont := SelectObject(DC, Font.Handle);

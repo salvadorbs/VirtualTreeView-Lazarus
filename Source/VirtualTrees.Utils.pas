@@ -43,7 +43,7 @@ type
     bmConstantAlphaAndColor  // blend the destination color with the given constant color und the constant alpha value
   );
 
-procedure AlphaBlend(Source, Destination: HDC; R: TRect; Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
+procedure AlphaBlend(Source, Destination: HDC; const R: TRect; const Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
 function GetRGBColor(Value: TColor): DWORD;
 {$ifdef EnablePrint}
 procedure PrtStretchDrawDIB(Canvas: TCanvas; DestRect: TRect; ABitmap: TBitmap);
@@ -462,7 +462,7 @@ var
   I, W: Integer;
   Buffer,
   Line: string;
-  Words: array of string;
+  Words: array of string = nil;
   R: TRect;
 
 begin

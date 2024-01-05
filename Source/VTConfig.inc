@@ -58,7 +58,8 @@
 {$ifdef Windows}
   {$define EnableThreadSupport}
 {$endif}
-{$if defined(CPU64) or defined(LCLCarbon)}
+
+{$if not (defined(CPU386) or Defined(CPUX64))}
   {$define PACKARRAYPASCAL}
 {$endif}
 

@@ -11,6 +11,10 @@ interface
 {$I VTConfig.inc}
 
 uses
+  {$ifdef LCLCocoa}
+  MacOSAll, // hack: low-level access to Cocoa drawins is going to be used
+            //       in order to support Cocoa HighDPI implementation
+  {$endif}
   {$ifdef Windows}
   Windows,
   ActiveX,
@@ -28,10 +32,16 @@ uses
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
   {$endif}
-  LCLType, LMessages, LCLVersion, Types,
+  LCLType, LMessages, LCLVersion, Types, WSReferences,
   SysUtils, Classes, Graphics, Controls, Forms, ImgList, StdCtrls, Menus, Printers,
   SyncObjs,  // Thread support
   Clipbrd // Clipboard support
+  {$ifdef LCLCocoa}
+  ,CocoaGDIObjects // hack: while using buffered drawing, multiply the context
+                   //       by the retina scale to achieve the needed scale for Retina
+                   //       Ideally - not to use Buffered. but Unbuffered drawing
+                   //       seems to need a fix
+  {$endif}
   {$ifdef ThemeSupport}
   , Themes , TmSchema
   {$endif ThemeSupport}
@@ -273,7 +283,7 @@ type
   TVTAfterColumnWidthTrackingEvent = procedure(Sender: TVTHeader; Column: TColumnIndex) of object;
   TVTColumnWidthTrackingEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; Shift: TShiftState; var TrackPoint: TPoint; P: TPoint;
     var Allowed: Boolean) of object;
-  TVTGetHeaderCursorEvent = procedure(Sender: TVTHeader; var Cursor: TVTCursor) of object;
+  TVTGetHeaderCursorEvent = procedure(Sender: TVTHeader; var Cursor: TCursor) of object;
   TVTBeforeGetMaxColumnWidthEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; var UseSmartColumnWidth: Boolean) of object;
   TVTAfterGetMaxColumnWidthEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; var MaxWidth: TDimension) of object;
   TVTCanSplitterResizeColumnEvent = procedure(Sender: TVTHeader; P: TPoint; Column: TColumnIndex; var Allowed: Boolean) of object;
@@ -415,7 +425,7 @@ type
   TBaseVirtualTree = class abstract(TVTBaseAncestor)
   private
     FTotalInternalDataSize: Cardinal;            // Cache of the sum of the necessary internal data size for all tree
-    FBorderStyle: TBorderStyle;
+    //FBorderStyle: TBorderStyle;
     FHeader: TVTHeader;
     FRoot: PVirtualNode;
     FDefaultNodeHeight,
@@ -754,6 +764,8 @@ type
       NewRect: TRect): Boolean;
     procedure ClearNodeBackground(const PaintInfo: TVTPaintInfo; UseBackground, Floating: Boolean; R: TRect);
     function CompareNodePositions(Node1, Node2: PVirtualNode; ConsiderChildrenAbove: Boolean = False): Integer;
+    procedure DoPropertyNotFound(Reader: TReader; Instance: TPersistent;
+      var PropName: string; IsPath: boolean; var Handled, Skip: Boolean);
     procedure DrawLineImage(const PaintInfo: TVTPaintInfo; X, Y, H, VAlign: TDimension; Style: TVTLineType; Reverse: Boolean);
     function FindInPositionCache(Node: PVirtualNode; var CurrentPos: TNodeHeight): PVirtualNode; overload;
     function FindInPositionCache(Position: TDimension; var CurrentPos: TNodeHeight): PVirtualNode; overload;
@@ -809,7 +821,9 @@ type
     procedure SetBackground(const Value: TVTBackground);
     procedure SetBackGroundImageTransparent(const Value: Boolean);
     procedure SetBackgroundOffset(const Index: Integer; const Value: TDimension);
+    {
     procedure SetBorderStyle(Value: TBorderStyle);
+    }
     procedure SetBottomNode(Node: PVirtualNode);
     procedure SetBottomSpace(const Value: TDimension);
     procedure SetButtonFillMode(const Value: TVTButtonFillMode);
@@ -949,9 +963,9 @@ type
     FFontChanged: Boolean;                       // flag for keeping informed about font changes in the off screen buffer   // [IPK] - private to protected
     procedure AutoScale(); virtual;
     procedure AddToSelection(const NewItems: TNodeArray; NewLength: Integer; ForceInsert: Boolean = False); overload; virtual;
-    procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+    procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
       var ImageInfo: TVTImageInfo); virtual; overload;
-    procedure AdjustImageBorder(ImageWidth, ImageHeight: Integer; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+    procedure AdjustImageBorder(ImageWidth, ImageHeight: TDimension; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
       var ImageInfo: TVTImageInfo); overload;
     procedure AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; var NextNonEmpty: TColumnIndex); virtual;
     procedure AdjustPanningCursor(X, Y: TDimension); virtual;
@@ -977,9 +991,7 @@ type
     procedure CreateParams(var Params: TCreateParams); override;
     procedure CreateWnd; override;
     procedure DecVisibleCount;
-    {$IFDEF DelphiSupport}
     procedure DefineProperties(Filer: TFiler); override;
-    {$ENDIF}
     procedure DeleteNode(Node: PVirtualNode; Reindex: Boolean; ParentClearing: Boolean); overload;
     procedure DestroyHandle; override;
     function DetermineDropMode(const P: TPoint; var HitInfo: THitInfo; var NodeRect: TRect): TDropMode; virtual;
@@ -1050,7 +1062,7 @@ type
     function DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
       CellContentMarginType: TVTCellContentMarginType = ccmtAllSides; Canvas: TCanvas = nil): TPoint; virtual;
     procedure DoGetCursor(var Cursor: TCursor); virtual;
-    procedure DoGetHeaderCursor(var Cursor: TVTCursor); virtual;
+    procedure DoGetHeaderCursor(var Cursor: TCursor); virtual;
     procedure DoGetHintSize(Node: PVirtualNode; Column: TColumnIndex; var R:
         TRect); virtual;
     procedure DoGetHintKind(Node: PVirtualNode; Column: TColumnIndex; var Kind:
@@ -1251,7 +1263,11 @@ type
     property BackGroundImageTransparent: Boolean read FBackGroundImageTransparent write SetBackGroundImageTransparent default False;
     property BackgroundOffsetX: TDimension index 0 read FBackgroundOffsetX write SetBackgroundOffset stored IsStored_BackgroundOffsetXY; // default 0;
     property BackgroundOffsetY: TDimension index 1 read FBackgroundOffsetY write SetBackgroundOffset stored IsStored_BackgroundOffsetXY; // default 0;
+    //lcl: incompatible with lazarus' borderStyle
+    {
     property BorderStyle: TBorderStyle read FBorderStyle write SetBorderStyle default TFormBorderStyle.bsSingle;
+    }
+    property BorderStyle;
     property BottomSpace: TDimension read FBottomSpace write SetBottomSpace stored IsStored_BottomSpace; //default 0;
     property ButtonFillMode: TVTButtonFillMode read FButtonFillMode write SetButtonFillMode default fmTreeColor;
     property ButtonStyle: TVTButtonStyle read FButtonStyle write SetButtonStyle default bsRectangle;
@@ -1955,22 +1971,17 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
-
+{$ifdef CPU64}
 function HasMMX: Boolean;
-
-// Helper method to determine whether the current processor supports MMX.
-
-{$if not Defined(CPU386)}
 begin
-  Result := False;
-end;
-
-{$elseif Defined(CPU64)}
-begin
-  // We use SSE2 in the "MMX-functions"
   Result := True;
 end;
-
+{$else}
+function HasMMX: Boolean;
+// Helper method to determine whether the current processor supports MMX.
+{$if not (defined(CPU386) or Defined(CPUX64))}
+begin
+  result := false;
 {$else}
 asm
         PUSH    EBX
@@ -1999,6 +2010,7 @@ asm
         INC     EAX          // Result := True
 @1:
         POP     EBX
+{$endif}
 end;
 {$endif}
 
@@ -2193,7 +2205,7 @@ procedure InitializeGlobalStructures();
 // initialization of stuff global to the unit
 
 var
-  TheInstance: THandle;
+  TheInstance: TLCLHandle;
 
 begin
   if (gInitialized > 0) or (AtomicIncrement(gInitialized) <> 1) then // Ensure threadsafe that this code is executed only once
@@ -2214,15 +2226,15 @@ begin
   CF_VTREFERENCE := RegisterClipboardFormat(CFSTR_VTREFERENCE);
   CF_VTHEADERREFERENCE := RegisterClipboardFormat(CFSTR_VTHEADERREFERENCE);
 
-  UtilityImages := CreateBitmapFromResourceName(0, BuildResourceName('vt_utilities'));
+  UtilityImages := CreateBitmapFromResourceName(TheInstance, BuildResourceName('vt_utilities'));
   UtilityImageSize := UtilityImages.Height;
 
   SystemCheckImages := CreateCheckImageList(ckSystemDefault);
 
   // Delphi (at least version 6 and lower) does not provide a standard split cursor.
   // Hence we have to load our own.
-  Screen.Cursors[crHeaderSplit] := LoadCursor(TheInstance, 'VT_HEADERSPLIT');
-  Screen.Cursors[crVertSplit] := LoadCursor(TheInstance, 'VT_VERTSPLIT');
+  //Screen.Cursors[crHeaderSplit] := LoadCursor(TheInstance, 'VT_HEADERSPLIT');
+  //Screen.Cursors[crVertSplit] := LoadCursor(TheInstance, 'VT_VERTSPLIT');
   // Clipboard format registration.
   // Native clipboard format. Needs a new identifier and has an average priority to allow other formats to take over.
   // This format is supposed to use the IStream storage format but unfortunately this does not work when
@@ -2344,7 +2356,7 @@ begin
   FSelectedHotPlusBM := TBitmap.Create;
   FSelectedHotMinusBM := TBitmap.Create;
 
-  FBorderStyle := TFormBorderStyle.bsSingle;
+  BorderStyle := TFormBorderStyle.bsSingle;
   FButtonStyle := bsRectangle;
   FButtonFillMode := fmTreeColor;
 
@@ -3232,6 +3244,21 @@ begin
         end;
         Result := Integer(Run1.Index) - Integer(Run2.Index);
       end;
+  end;
+end;
+
+procedure TBaseVirtualTree.DoPropertyNotFound(Reader: TReader;
+  Instance: TPersistent; var PropName: string; IsPath: boolean; var Handled,
+  Skip: Boolean);
+begin
+  //lcl: skip delphi only properties or events
+  if (PropName = 'BevelEdges') or (PropName = 'BevelEdges') or (PropName = 'BevelInner') or (PropName = 'BevelKind') or
+     (PropName = 'BevelOuter') or (PropName = 'BevelWidth') or (PropName = 'Ctl3D') or (PropName = 'ParentCtl3D') or
+     (PropName = 'StyleElements') or (PropName = 'StyleName') or (PropName = 'OnCanResize') or (PropName = 'OnGesture') or
+     (PropName = 'Touch') then
+  begin
+    Handled := True;
+    Skip := True;
   end;
 end;
 
@@ -4192,7 +4219,7 @@ end;
 procedure TBaseVirtualTree.LoadPanningCursors;
 
 var
-  TheInstance: THandle;
+  TheInstance: TLCLHandle;
 
 begin
   TheInstance := HINSTANCE;
@@ -4456,7 +4483,7 @@ begin
         Size.cy := Size.cx;
 
     {$ifdef ThemeSupport}
-    {$ifdef Windows}
+    {$ifdef LCLWin}
         if tsUseThemes in FStates then
         begin
           R := Rect(0, 0, 100, 100);
@@ -4584,7 +4611,7 @@ begin
 
 
       {$ifdef ThemeSupport}
-      {$ifdef Windows}
+      {$ifdef LCLWin}
           // Overwrite glyph images if theme is active.
           if (tsUseThemes in FStates) and (Theme <> 0) then
           begin
@@ -4712,6 +4739,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{
 procedure TBaseVirtualTree.SetBorderStyle(Value: TBorderStyle);
 
 begin
@@ -4721,6 +4749,7 @@ begin
     RecreateWnd;
   end;
 end;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -7815,7 +7844,7 @@ begin
         GetKeyboardState(KeyState);
         // Avoid conversion to control characters. We have captured the control key state already in Shift.
         KeyState[VK_CONTROL] := 0;
-        if ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, @Buffer, 0) > 0 then
+        if ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, PWord(@Buffer), 0) > 0 then
         begin
           case Buffer[0] of
             '*':
@@ -7833,7 +7862,7 @@ begin
         // there is a problem with ToASCII when used in conjunction with dead chars.
         // The article recommends to call ToASCII twice to restore a deleted flag in the key message
         // structure under certain circumstances. It turned out it is best to always call ToASCII twice.
-        ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, @Buffer, 0);
+        ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, PWord(@Buffer), 0);
         {$endif}
         case CharCode of
           VK_F2:
@@ -9526,7 +9555,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.DefineProperties(Filer: TFiler);
 
 // There were heavy changes in some properties during development of VT. This method helps to make migration easier
@@ -9560,8 +9588,10 @@ begin
   Filer.DefineProperty('CheckImageKind', FakeReadIdent, nil, false);
   /// #730 removed property HintAnimation
   Filer.DefineProperty('HintAnimation', FakeReadIdent, nil, false);
+
+  //lcl: ignore delphi only properties or events
+  TReader(Filer).OnPropertyNotFound := DoPropertyNotFound;
 end;
-{$ENDIF}
 
 procedure TBaseVirtualTree.DestroyHandle;
 begin
@@ -10991,7 +11021,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.DoGetHeaderCursor(var Cursor: TVTCursor);
+procedure TBaseVirtualTree.DoGetHeaderCursor(var Cursor: TCursor);
 
 begin
   if Assigned(FOnGetHeaderCursor) then
@@ -11536,7 +11566,7 @@ function TBaseVirtualTree.DoSetOffsetXY(Value: TPoint; Options: TScrollUpdateOpt
 var
   DeltaX: TDimension;
   DeltaY: TDimension;
-  DWPStructure: THandle;//lcl: ex HDWP;
+  DWPStructure: TLCLHandle;//lcl: ex HDWP;
   I: Integer;
   P: TPoint;
   R: TRect;
@@ -12520,7 +12550,7 @@ var
 
 begin
   // seek back to the second entry in the chunk header
-  Stream.Position := StartPos + SizeOf(Size);
+  Stream.Position := Int64(StartPos) + SizeOf(Size);
   // determine size of chunk without the chunk header
   Size := EndPos - StartPos - SizeOf(TChunkHeader);
   // write the size...
@@ -13207,7 +13237,7 @@ begin
         SingleLetter := (Length(FSearchBuffer) = 1) and not PreviousSearch and (FSearchBuffer[1] = NewChar);
         // However if the current hit (if there is one) would fit also with a repeated character then
         // don't use single letter mode.
-        if SingleLetter and (DoIncrementalSearch(Run, FSearchBuffer + NewChar) = 0) then
+        if SingleLetter and (DoIncrementalSearch(Run, FSearchBuffer + String(NewChar)) = 0) then
           SingleLetter := False;
         SetupNavigation;
         FoundMatch := False;
@@ -13223,7 +13253,7 @@ begin
               NewSearchText := FSearchBuffer;
             end
             else
-              NewSearchText := FSearchBuffer + NewChar;
+              NewSearchText := FSearchBuffer + string(NewChar);
 
           repeat
             if DoIncrementalSearch(Run, NewSearchText) = 0 then
@@ -15008,7 +15038,7 @@ begin
       if UseThemes then
       begin
         Details := ThemeServices.GetElementDetails(tbCheckBoxCheckedNormal);
-        CheckSize := ThemeServices.GetDetailSize(Details).CX;
+        checkSize := ThemeServices.GetDetailSizeForPPI(Details, Font.PixelsPerInch).CX;
         R := Rect(XPos, YPos, XPos + CheckSize, YPos + CheckSize);
         Details.Element := teButton;
         case Index of
@@ -15742,8 +15772,8 @@ begin
         Result := Stream.Position > LastPosition;
         // Improve stability by advancing the stream to the chunk's real end if
         // the application did not read what has been written.
-        if not Result or (Stream.Position <> (LastPosition + ChunkSize)) then
-          Stream.Position := LastPosition + ChunkSize;
+        if not Result or (Stream.Position <> (Int64(LastPosition) + ChunkSize)) then
+          Stream.Position := Int64(LastPosition) + ChunkSize;
       end
       else
         Result := True;
@@ -16600,7 +16630,8 @@ begin
     if not (csDesigning in ComponentState) and
        ((Message.Msg = LM_LBUTTONDOWN) or (Message.Msg = LM_LBUTTONDBLCLK)) then
     begin
-      if (DragMode = dmAutomatic) and (DragKind = dkDrag) then
+      Handled := (DragMode = dmAutomatic) and (DragKind = dkDrag);
+      if Handled then
       begin
         if not IsControlMouseMsg(TLMMouse(Message)) then
         begin
@@ -20671,6 +20702,7 @@ var
   Counter: Cardinal;
 
 begin
+  Result := nil;
   SetLength(Result, FSelectionCount);
   if FSelectionCount > 0 then
   begin
@@ -21606,7 +21638,19 @@ var
   CellIsInLastColumn: Boolean;
   ColumnIsFixed: Boolean;
 
+  {$ifdef LCLCocoa}
+  sc: Double; // the retina scale. 1.0 for no-retina
+  cg: CGContextRef; // tracking the Context of Bitmap
+  cglast: CGContextRef; // the last Context of Bitmap.
+                        // The scale is applied only when the context changes
+  {$endif}
+
 begin
+  {$ifdef LCLCocoa}
+  cglast := nil;
+  sc := GetCanvasScaleFactor;
+  {$endif}
+
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaint],'PaintTree');{$endif}
   {$ifdef DEBUG_VTV}Logger.Send([lcPaint, lcHeaderOffset],'Window',Window);{$endif}
   {$ifdef DEBUG_VTV}Logger.Send([lcPaint, lcHeaderOffset],'Target',Target);{$endif}
@@ -21649,7 +21693,12 @@ begin
         else
           NodeBitmap.PixelFormat := PixelFormat;
 
+        {$ifdef LCLCocoa}
+        NodeBitmap.Width := Round(PaintWidth*sc);
+        cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
+        {$else}
         NodeBitmap.Width := PaintWidth;
+        {$endif}
 
         // Make sure the buffer bitmap and target bitmap use the same transformation mode.
         {$ifndef Gtk}
@@ -21763,11 +21812,22 @@ begin
                   if Height <> PaintInfo.Node.NodeHeight then
                   begin
                     // Avoid that the VCL copies the bitmap while changing its height.
+                    {$ifdef LCLCocoa}
+                    Height := Round(PaintInfo.Node.NodeHeight * sc);
+                    cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
+                    if cglast <> cg then
+                    begin
+                      CGContextScaleCTM(cg, sc, sc);
+                      cglast := cg;
+                    end;
+                    {$else}
                     //lcl - glitch during selection
                     {
                     Height := 0;
                     }
                     Height := PaintInfo.Node.NodeHeight;
+                    {$endif}
+
                     {$ifdef UseSetCanvasOrigin}
                     SetCanvasOrigin(Canvas, Window.Left, 0);
                     {$else}
@@ -22080,9 +22140,25 @@ begin
                 // Put the constructed node image onto the target canvas.
                 if not (poUnbuffered in PaintOptions) then
                   with NodeBitmap do
+                  begin
+                    {$ifdef LCLCocoa}
+                    StretchBlt(
+                      TargetCanvas.Handle,
+                      TargetRect.Left,
+                      TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif},
+                      PaintWidth, PaintInfo.Node.NodeHeight,
+                      Canvas.Handle,
+                      Window.Left,
+                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif},
+                      NodeBitmap.Width, NodeBitmap.Height,
+                      SRCCOPY
+                    );
+                    {$else}
                     BitBlt(TargetCanvas.Handle, TargetRect.Left,
                      TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif}, TargetRect.Width, TargetRect.Height, Canvas.Handle, Window.Left,
                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif}, SRCCOPY);
+                    {$endif}
+                  end;
               end;
             end;
 

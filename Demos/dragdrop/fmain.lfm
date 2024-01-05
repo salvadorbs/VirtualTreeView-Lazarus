@@ -17,9 +17,7 @@ object MainForm: TMainForm
     DragMode = dmAutomatic
     DragType = dtVCL
     Header.AutoSizeIndex = 0
-    Header.Columns = <>
     Header.DefaultHeight = 17
-    Header.MainColumn = -1
     RootNodeCount = 30
     TabOrder = 0
     TreeOptions.AutoOptions = [toAutoDropExpand, toAutoScroll, toAutoScrollOnExpand, toAutoTristateTracking, toAutoDeleteMovedNodes]
@@ -29,6 +27,19 @@ object MainForm: TMainForm
     OnGetText = VirtualStringTree1GetText
     OnGetNodeDataSize = VirtualStringTree1GetNodeDataSize
     OnInitNode = VirtualStringTree1InitNode
+    Columns = <    
+      item
+        Position = 0
+        Spacing = 4
+        Text = 'te1'
+        Width = 63
+      end    
+      item
+        Position = 1
+        Spacing = 4
+        Text = 'te2'
+        Width = 63
+      end>
   end
   object ListBox1: TListBox
     Left = 248
