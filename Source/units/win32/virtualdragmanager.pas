@@ -235,11 +235,9 @@ type
 function TOLEMemoryStream.Write(const Buffer; Count: Integer): Integer;
 
 begin
-  {$ifdef COMPILER_5_UP}
-    raise EStreamError.CreateRes(PResStringRec(@SCantWriteResourceStreamError));
-  {$else}
-    raise EStreamError.Create(SCantWriteResourceStreamError);
-  {$endif COMPILER_5_UP}
+  //raise EStreamError.CreateRes(PResStringRec(@SCantWriteResourceStreamError));
+  Result := 0;
+  raise EStreamError.Create(SCantWriteResourceStreamError);
 end;
 
 

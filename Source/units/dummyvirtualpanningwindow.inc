@@ -8,7 +8,7 @@ interface
 {$I VTConfig.inc}
 
 uses
-  LCLType, Graphics, Classes, SysUtils;
+  LCLType, Graphics, Classes, SysUtils, WSReferences;
   
 type
 
@@ -16,16 +16,16 @@ type
 
   TVirtualPanningWindow = class
   private
-    FHandle: THandle;
-    FOwnerHandle: THandle;
+    FHandle: TLCLHandle;
+    FOwnerHandle: TLCLHandle;
     FImage: TBitmap;
     procedure HandlePaintMessage;
   public
-    procedure Start(OwnerHandle: THandle; const Position: TPoint);
+    procedure Start(OwnerHandle: TLCLHandle; const Position: TPoint);
     procedure Stop;
     procedure Show(ClipRegion: HRGN);
     property Image: TBitmap read FImage;
-    property Handle: THandle read FHandle;
+    property Handle: TLCLHandle read FHandle;
   end;
 
 implementation
@@ -41,7 +41,7 @@ procedure TVirtualPanningWindow.HandlePaintMessage;
 begin
 end;
 
-procedure TVirtualPanningWindow.Start(OwnerHandle: THandle; const Position: TPoint);
+procedure TVirtualPanningWindow.Start(OwnerHandle: TLCLHandle; const Position: TPoint);
 begin  
   FImage := TBitmap.Create;
 end;

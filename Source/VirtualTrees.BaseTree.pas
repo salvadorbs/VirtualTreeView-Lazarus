@@ -11,6 +11,10 @@ interface
 {$I VTConfig.inc}
 
 uses
+  {$ifdef LCLCocoa}
+  MacOSAll, // hack: low-level access to Cocoa drawins is going to be used
+            //       in order to support Cocoa HighDPI implementation
+  {$endif}
   {$ifdef Windows}
   Windows,
   ActiveX,
@@ -29,10 +33,16 @@ uses
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,
   {$endif}
-  LCLType, LMessages, LCLVersion, Types,
+  LCLType, LMessages, LCLVersion, Types, WSReferences,
   SysUtils, Classes, Graphics, Controls, Forms, ImgList, StdCtrls, Menus, Printers,
   SyncObjs,  // Thread support
   Clipbrd // Clipboard support
+  {$ifdef LCLCocoa}
+  ,CocoaGDIObjects // hack: while using buffered drawing, multiply the context
+                   //       by the retina scale to achieve the needed scale for Retina
+                   //       Ideally - not to use Buffered. but Unbuffered drawing
+                   //       seems to need a fix
+  {$endif}
   {$ifdef ThemeSupport}
   , Themes , TmSchema
   {$endif ThemeSupport}
@@ -1949,22 +1959,17 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
-
+{$ifdef CPU64}
 function HasMMX: Boolean;
-
-// Helper method to determine whether the current processor supports MMX.
-
-{$if not Defined(CPU386)}
 begin
-  Result := False;
-end;
-
-{$elseif Defined(CPU64)}
-begin
-  // We use SSE2 in the "MMX-functions"
   Result := True;
 end;
-
+{$else}
+function HasMMX: Boolean;
+// Helper method to determine whether the current processor supports MMX.
+{$if not (defined(CPU386) or Defined(CPUX64))}
+begin
+  result := false;
 {$else}
 asm
         PUSH    EBX
@@ -1993,6 +1998,7 @@ asm
         INC     EAX          // Result := True
 @1:
         POP     EBX
+{$endif}
 end;
 {$endif}
 
@@ -2187,7 +2193,7 @@ procedure InitializeGlobalStructures();
 // initialization of stuff global to the unit
 
 var
-  TheInstance: THandle;
+  TheInstance: TLCLHandle;
 
 begin
   if (gInitialized > 0) or (AtomicIncrement(gInitialized) <> 1) then // Ensure threadsafe that this code is executed only once
@@ -2207,7 +2213,7 @@ begin
   // Register the tree reference clipboard format. Others will be handled in InternalClipboarFormats.
   CF_VTREFERENCE := RegisterClipboardFormat(CFSTR_VTREFERENCE);
 
-  UtilityImages := CreateBitmapFromResourceName(0, BuildResourceName('vt_utilities'));
+  UtilityImages := CreateBitmapFromResourceName(TheInstance, BuildResourceName('vt_utilities'));
   UtilityImageSize := UtilityImages.Height;
 
   SystemCheckImages := CreateCheckImageList(ckSystemDefault);
@@ -4186,7 +4192,7 @@ end;
 procedure TBaseVirtualTree.LoadPanningCursors;
 
 var
-  TheInstance: THandle;
+  TheInstance: TLCLHandle;
 
 begin
   TheInstance := HINSTANCE;
@@ -4450,7 +4456,7 @@ begin
         Size.cy := Size.cx;
 
     {$ifdef ThemeSupport}
-    {$ifdef Windows}
+    {$ifdef LCLWin}
         if tsUseThemes in FStates then
         begin
           R := Rect(0, 0, 100, 100);
@@ -4582,7 +4588,7 @@ begin
 
 
       {$ifdef ThemeSupport}
-      {$ifdef Windows}
+      {$ifdef LCLWin}
           // Overwrite glyph images if theme is active.
           if (tsUseThemes in FStates) and (Theme <> 0) then
           begin
@@ -7817,7 +7823,7 @@ begin
         GetKeyboardState(KeyState);
         // Avoid conversion to control characters. We have captured the control key state already in Shift.
         KeyState[VK_CONTROL] := 0;
-        if ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, @Buffer, 0) > 0 then
+        if ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, PWord(@Buffer), 0) > 0 then
         begin
           case Buffer[0] of
             '*':
@@ -7835,7 +7841,7 @@ begin
         // there is a problem with ToASCII when used in conjunction with dead chars.
         // The article recommends to call ToASCII twice to restore a deleted flag in the key message
         // structure under certain circumstances. It turned out it is best to always call ToASCII twice.
-        ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, @Buffer, 0);
+        ToASCII(Message.CharCode, (Message.KeyData shr 16) and 7, KeyState, PWord(@Buffer), 0);
         {$endif}
         case CharCode of
           VK_F2:
@@ -8940,7 +8946,7 @@ begin
       begin
         // Only horizontal movement allowed.
         if X < FLastClickPos.X then
-          Name := 'VT_MOVEW'
+          NewCursor := crVT_MOVEW
         else
           NewCursor := crVT_MOVEE;
       end
@@ -11562,7 +11568,7 @@ function TBaseVirtualTree.DoSetOffsetXY(Value: TPoint; Options: TScrollUpdateOpt
 var
   DeltaX: TDimension;
   DeltaY: TDimension;
-  DWPStructure: THandle;//lcl: ex HDWP;
+  DWPStructure: TLCLHandle;//lcl: ex HDWP;
   I: Integer;
   P: TPoint;
   R: TRect;
@@ -12546,7 +12552,7 @@ var
 
 begin
   // seek back to the second entry in the chunk header
-  Stream.Position := StartPos + SizeOf(Size);
+  Stream.Position := Int64(StartPos) + SizeOf(Size);
   // determine size of chunk without the chunk header
   Size := EndPos - StartPos - SizeOf(TChunkHeader);
   // write the size...
@@ -13240,7 +13246,7 @@ begin
         SingleLetter := (Length(FSearchBuffer) = 1) and not PreviousSearch and (FSearchBuffer[1] = NewChar);
         // However if the current hit (if there is one) would fit also with a repeated character then
         // don't use single letter mode.
-        if SingleLetter and (DoIncrementalSearch(Run, FSearchBuffer + NewChar) = 0) then
+        if SingleLetter and (DoIncrementalSearch(Run, FSearchBuffer + String(NewChar)) = 0) then
           SingleLetter := False;
         SetupNavigation;
         FoundMatch := False;
@@ -13256,7 +13262,7 @@ begin
               NewSearchText := FSearchBuffer;
             end
             else
-              NewSearchText := FSearchBuffer + NewChar;
+              NewSearchText := FSearchBuffer + string(NewChar);
 
           repeat
             if DoIncrementalSearch(Run, NewSearchText) = 0 then
@@ -15050,7 +15056,7 @@ begin
       if UseThemes then
       begin
         Details := ThemeServices.GetElementDetails(tbCheckBoxCheckedNormal);
-        CheckSize := ThemeServices.GetDetailSize(Details).CX;
+        checkSize := ThemeServices.GetDetailSizeForPPI(Details, Font.PixelsPerInch).CX;
         R := Rect(XPos, YPos, XPos + CheckSize, YPos + CheckSize);
         Details.Element := teButton;
         case Index of
@@ -15779,8 +15785,8 @@ begin
         Result := Stream.Position > LastPosition;
         // Improve stability by advancing the stream to the chunk's real end if
         // the application did not read what has been written.
-        if not Result or (Stream.Position <> (LastPosition + ChunkSize)) then
-          Stream.Position := LastPosition + ChunkSize;
+        if not Result or (Stream.Position <> (Int64(LastPosition) + ChunkSize)) then
+          Stream.Position := Int64(LastPosition) + ChunkSize;
       end
       else
         Result := True;
@@ -20717,6 +20723,7 @@ var
   Counter: Cardinal;
 
 begin
+  Result := nil;
   SetLength(Result, FSelectionCount);
   if FSelectionCount > 0 then
   begin
@@ -21628,7 +21635,19 @@ var
   CellIsInLastColumn: Boolean;
   ColumnIsFixed: Boolean;
 
+  {$ifdef LCLCocoa}
+  sc: Double; // the retina scale. 1.0 for no-retina
+  cg: CGContextRef; // tracking the Context of Bitmap
+  cglast: CGContextRef; // the last Context of Bitmap.
+                        // The scale is applied only when the context changes
+  {$endif}
+
 begin
+  {$ifdef LCLCocoa}
+  cglast := nil;
+  sc := GetCanvasScaleFactor;
+  {$endif}
+
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaint],'PaintTree');{$endif}
   {$ifdef DEBUG_VTV}Logger.Send([lcPaint, lcHeaderOffset],'Window',Window);{$endif}
   {$ifdef DEBUG_VTV}Logger.Send([lcPaint, lcHeaderOffset],'Target',Target);{$endif}
@@ -21671,7 +21690,12 @@ begin
         else
           NodeBitmap.PixelFormat := PixelFormat;
 
+        {$ifdef LCLCocoa}
+        NodeBitmap.Width := Round(PaintWidth*sc);
+        cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
+        {$else}
         NodeBitmap.Width := PaintWidth;
+        {$endif}
 
         // Make sure the buffer bitmap and target bitmap use the same transformation mode.
         {$ifndef Gtk}
@@ -21785,11 +21809,22 @@ begin
                   if Height <> PaintInfo.Node.NodeHeight then
                   begin
                     // Avoid that the VCL copies the bitmap while changing its height.
+                    {$ifdef LCLCocoa}
+                    Height := Round(PaintInfo.Node.NodeHeight * sc);
+                    cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
+                    if cglast <> cg then
+                    begin
+                      CGContextScaleCTM(cg, sc, sc);
+                      cglast := cg;
+                    end;
+                    {$else}
                     //lcl - glitch during selection
                     {
                     Height := 0;
                     }
                     Height := PaintInfo.Node.NodeHeight;
+                    {$endif}
+
                     {$ifdef UseSetCanvasOrigin}
                     SetCanvasOrigin(Canvas, Window.Left, 0);
                     {$else}
@@ -22100,9 +22135,25 @@ begin
                 // Put the constructed node image onto the target canvas.
                 if not (poUnbuffered in PaintOptions) then
                   with NodeBitmap do
+                  begin
+                    {$ifdef LCLCocoa}
+                    StretchBlt(
+                      TargetCanvas.Handle,
+                      TargetRect.Left,
+                      TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif},
+                      PaintWidth, PaintInfo.Node.NodeHeight,
+                      Canvas.Handle,
+                      Window.Left,
+                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif},
+                      NodeBitmap.Width, NodeBitmap.Height,
+                      SRCCOPY
+                    );
+                    {$else}
                     BitBlt(TargetCanvas.Handle, TargetRect.Left,
                      TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif}, TargetRect.Width, TargetRect.Height, Canvas.Handle, Window.Left,
                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif}, SRCCOPY);
+                    {$endif}
+                  end;
               end;
             end;
 

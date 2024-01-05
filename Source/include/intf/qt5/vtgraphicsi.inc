@@ -1,7 +1,7 @@
 uses
   qt5, qtobjects;
 
-{$if Defined(CPU386)}
+{$if (Defined(CPU386) or Defined(CPUX86_64))}
  {$ASMMODE INTEL}
 {$endif}
 
@@ -12,7 +12,7 @@ procedure AlphaBlendLineConstant(Source, Destination: Pointer; Count: Integer; C
 // ConstantAlpha must be in the range 0..255 where 0 means totally transparent (destination pixel only)
 // and 255 totally opaque (source pixel only).
 // Bias is an additional value which gets added to every component and must be in the range -128..127
-{$if not Defined(CPU386)}
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
 begin
 
 end;
@@ -183,7 +183,7 @@ procedure AlphaBlendLinePerPixel(Source, Destination: Pointer; Count, Bias: Inte
 // Blends a line of Count pixels from Source to Destination using the alpha value of the source pixels.
 // The layout of a pixel must be BGRA.
 // Bias is an additional value which gets added to every component and must be in the range -128..127
-{$if not Defined(CPU386)}
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
 begin
 
 end;
@@ -348,7 +348,7 @@ procedure AlphaBlendLineMaster(Source, Destination: Pointer; Count: Integer; Con
 // The layout of a pixel must be BGRA.
 // ConstantAlpha must be in the range 0..255.
 // Bias is an additional value which gets added to every component and must be in the range -128..127
-{$if not Defined(CPU386)}
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
 begin
 
 end;
@@ -535,7 +535,7 @@ procedure AlphaBlendLineMasterAndColor(Destination: Pointer; Count: Integer; Con
 // Blends a line of Count pixels in Destination against the given color using a constant alpha value.
 // The layout of a pixel must be BGRA and Color must be rrggbb00 (as stored by a COLORREF).
 // ConstantAlpha must be in the range 0..255.
-{$if not Defined(CPU386)}
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
 begin
 
 end;
@@ -674,7 +674,7 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure EMMS;
-{$if not Defined(CPU386)}
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
 begin
 
 end;
@@ -758,7 +758,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure AlphaBlend(Source, Destination: HDC; R: TRect; Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
+procedure AlphaBlend(Source, Destination: HDC; const R: TRect; const Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
 
 // Optimized alpha blend procedure using MMX instructions to perform as quick as possible.
 // For this procedure to work properly it is important that both source and target bitmap use the 32 bit color format.
@@ -785,6 +785,13 @@ var
   SourceHeight,
   DestWidth,
   DestHeight: Integer;
+  {$IFDEF CPU64}
+  ATransform: QTransformH;
+  DX, DY: QReal;
+  AColor: QColorH;
+  ADst: TQtDeviceContext absolute Destination;
+  AFillColor: TQColor;
+  {$ENDIF}
 
   //BlendColor: TQColor;
 begin
@@ -864,7 +871,21 @@ begin
             R.Right - R.Left, R.Bottom - R.Top, @BlendColor);
           }
           // Source is ignored since there is a constant color value.
-
+          {$IFDEF CPU64}
+          if ADst <> nil then
+          begin
+            ATransform := QPainter_transform(ADst.Widget);
+            DX := QTransform_dx(ATransform);
+            DY := QTransform_dy(ATransform);
+            ADst.translate(-DX, -DY);
+            AColor := QColor_create((Bias and $000000FF), ((Bias shr 8) and $000000FF), ((Bias shr 16) and $000000FF), ConstantAlpha);
+            QColor_convertTo(AColor, @AFillColor, QColorRgb);
+            QPainter_fillRect(ADst.Widget, R.Left + Target.x, R.Top + Target.y,
+              R.Right - R.Left, R.Bottom - R.Top, PQColor(@AFillColor));
+            ADst.translate(DX, DY);
+            QColor_destroy(AColor);
+          end;
+          {$ELSE}
           DestBits := GetBitmapBitsFromDeviceContext(Destination, DestWidth, DestHeight);
           if Assigned(DestBits) then
           begin
@@ -876,6 +897,7 @@ begin
             end;
           end;
           EMMS;
+          {$ENDIF}
         end;
     end;
   end;

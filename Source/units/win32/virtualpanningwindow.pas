@@ -93,8 +93,8 @@ begin
     FHandle := CreateWindowEx(WS_EX_TOOLWINDOW, PanningWindowClass.lpszClassName,
       nil, WS_POPUP, X - Size.CX div 2, Y - Size.CY div 2, Size.CX, Size.CY,
       OwnerHandle, 0, HInstance, nil);
-  //todo use SetWindowLongPtr later
-  SetWindowLong(FHandle,GWL_USERDATA,PtrInt(Self));
+
+  SetWindowLongPtrW(FHandle,GWL_USERDATA,PtrInt(Self));
   
   FImage := TBitmap.Create;
 end;
