@@ -7,24 +7,20 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, Controls, Graphics,
+  Classes, Controls, Graphics, LCLIntf, LCLType, Types,
   {$ifdef Windows}
   Windows,
   ActiveX,
   CommCtrl,
   UxTheme,
   JwaWinAble,
-  {$else}
-  FakeActiveX,
   {$endif}
   DelphiCompat,
   {$ifdef EnableAccessible}
   oleacc, // for MSAA IAccessible support
   {$endif}
   VirtualTrees.Types,
-  LCLIntf,
-  LCLType,
-  Types;
+  virtualdragmanager;
 
 type
 
@@ -46,7 +42,9 @@ type
   protected // methods
     function DoRenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean): HRESULT; virtual; abstract;
     function RenderOLEData(const FormatEtcIn: TFormatEtc; out Medium: TStgMedium; ForClipboard: Boolean): HResult; virtual;
+    {$ifdef EnableAccessible}
     procedure NotifyAccessibleEvent(pEvent: DWord = EVENT_OBJECT_STATECHANGE);
+    {$endif}
     function PrepareDottedBrush(CurrentDottedBrush: TBrush; Bits: Pointer; const BitsLinesCount: Word): TBrush; virtual;
     {$IFDEF DelphiStyleServices}
     function CreateSystemImageSet(): TImageList;
@@ -96,11 +94,11 @@ type
     /// <summary>
     /// Handle less alias for LCLIntf.SetScrollInfo
     /// </summary>
-    function SetScrollInfo(Bar: Integer; const ScrollInfo: TScrollInfo; Redraw: Boolean): TDimension;
+    function SetScrollInfo(Bar: Integer; const ScrollInfo: LCLType.TScrollInfo; Redraw: Boolean): TDimension;
     /// <summary>
     /// Handle less alias for LCLIntf.GetScrollInfo
     /// </summary>
-    function GetScrollInfo(Bar: Integer; var ScrollInfo: TScrollInfo): Boolean;
+    function GetScrollInfo(Bar: Integer; var ScrollInfo: LCLType.TScrollInfo): Boolean;
     /// <summary>
     /// Handle less alias for LCLIntf.GetScrollPos
     /// </summary>
@@ -448,13 +446,13 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{$ifdef EnableAccessible}
 procedure TVTBaseAncestorLcl.NotifyAccessibleEvent(pEvent: DWord = EVENT_OBJECT_STATECHANGE);
-begin  
-  {$ifdef EnableAccessible}
+begin
   if Assigned(AccessibleItem) then
     NotifyWinEvent(pEvent, Handle, OBJID_CLIENT, CHILDID_SELF);
-  {$endif}
 end;
+{$endif}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -501,7 +499,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTBaseAncestorLcl.SetScrollInfo(Bar: Integer; const ScrollInfo: TScrollInfo; Redraw: Boolean): TDimension;
+function TVTBaseAncestorLcl.SetScrollInfo(Bar: Integer; const ScrollInfo: LCLType.TScrollInfo; Redraw: Boolean): TDimension;
 begin
   Result:= LCLIntf.SetScrollInfo(Handle, Bar, ScrollInfo, Redraw);
 end;
@@ -517,7 +515,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TVTBaseAncestorLcl.GetScrollInfo(Bar: Integer; var ScrollInfo: TScrollInfo): Boolean;
+function TVTBaseAncestorLcl.GetScrollInfo(Bar: Integer; var ScrollInfo: LCLType.TScrollInfo): Boolean;
 begin
   Result:= LCLIntf.GetScrollInfo(Handle, Bar, ScrollInfo);
 end;

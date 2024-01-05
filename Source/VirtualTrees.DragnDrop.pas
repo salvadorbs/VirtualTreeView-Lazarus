@@ -11,8 +11,6 @@ uses
   {$ifdef Windows}
   Windows,
   ActiveX,
-  {$else}
-  FakeActiveX,
   {$endif}
   DelphiCompat
   , VirtualTrees.Types

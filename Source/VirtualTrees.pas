@@ -68,8 +68,6 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}
   LCLIntf,
   {$ifdef USE_DELPHICOMPAT}
@@ -89,7 +87,8 @@ uses
   , VirtualTrees.Header
   , VirtualTrees.BaseTree
   , VirtualTrees.AncestorLcl
-  , VirtualTrees.Utils;
+  , VirtualTrees.Utils
+  , virtualdragmanager;
 
   {$MinEnumSize 1, make enumerations as small as possible}
 

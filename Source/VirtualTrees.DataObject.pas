@@ -12,11 +12,10 @@ uses
   Windows,
   ActiveX,
   JwaWinBase,
-  {$else}
-  FakeActiveX,
   {$endif}
   DelphiCompat
-  , VirtualTrees.Types;
+  , VirtualTrees.Types
+  , virtualdragmanager;
 
 type
   // IDataObject.SetData support
@@ -107,7 +106,7 @@ begin
   begin
     StgMedium := FindInternalStgMedium(FormatEtcArray[I].cfFormat);
     if Assigned(StgMedium) then
-      ReleaseStgMedium(StgMedium^);
+      ReleaseStgMedium(StgMedium);
   end;
 
   FormatEtcArray := nil;
@@ -499,7 +498,7 @@ begin
     LocalStgMedium := FindInternalStgMedium(FormatEtcArray[Index].cfFormat);
     if Assigned(LocalStgMedium) then
     begin
-      ReleaseStgMedium(LocalStgMedium^);
+      ReleaseStgMedium(LocalStgMedium);
       FillChar(LocalStgMedium^, SizeOf(LocalStgMedium^), #0);
     end;
   end

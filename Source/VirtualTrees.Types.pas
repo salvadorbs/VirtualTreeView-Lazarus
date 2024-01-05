@@ -13,9 +13,8 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}
+  virtualdragmanager,
   SysUtils, Graphics, ImgList, LCLVersion;
 
 const

@@ -13,8 +13,6 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}
   {$ifdef DEBUG_VTV}
   VirtualTrees.Logger,

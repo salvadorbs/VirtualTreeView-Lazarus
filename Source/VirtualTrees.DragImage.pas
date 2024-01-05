@@ -13,15 +13,14 @@ uses
   ActiveX,
   CommCtrl,
   UxTheme,
-  {$else}
-  FakeActiveX,
   {$endif}   
   LCLType
   , Math
   , DelphiCompat
   , Types
   , LCLIntf
-  , SysUtils;
+  , SysUtils
+  , virtualdragmanager;
 
 type
   TBitmap = Graphics.TBitmap;
@@ -88,8 +87,7 @@ type
 implementation
 
 uses
-  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop,
-  virtualdragmanager;
+  VirtualTrees.BaseTree, VirtualTrees.Utils, VirtualTrees.Types, VirtualTrees.DragnDrop;
 
 //----------------- TVTDragImage ---------------------------------------------------------------------------------------
 
@@ -263,7 +261,6 @@ begin
           // If moved more than image size then just restore old screen and blit image to new position.
           BitBlt(ScreenDC, FImagePosition.X, FImagePosition.Y, FBackImage.Width, FBackImage.Height, FBackImage.Canvas.Handle, 0, 0, SRCCOPY);
 
-          GetPixel(ScreenDC, FImagePosition.X, FImagePosition.Y);
           if ForceRepaint then
             UpdateWindow(FOwner.Handle);
 

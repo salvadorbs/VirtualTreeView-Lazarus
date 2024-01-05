@@ -35,9 +35,8 @@ uses
   {$ifdef Windows}
   , ActiveX
   , JwaWinUser
-  {$else}
-  , FakeActiveX
   {$endif}
+  , virtualdragmanager
   ;
 
 type
@@ -47,7 +46,7 @@ type
   end;
 
 var
-  ClipboardDescriptions: array [1..CF_MAX - 1] of TClipboardFormatEntry = (
+  ClipboardDescriptions: array [1..VirtualTrees.Types.CF_MAX - 1] of TClipboardFormatEntry = (
     (ID: CF_TEXT; Description: 'Plain text'), // Do not localize
     (ID: CF_BITMAP; Description: 'Windows bitmap'), // Do not localize
     (ID: CF_METAFILEPICT; Description: 'Windows metafile'), // Do not localize
@@ -63,8 +62,10 @@ var
     (ID: CF_UNICODETEXT; Description: 'Unicode text'), // Do not localize
     (ID: CF_ENHMETAFILE; Description: 'Enhanced metafile image'), // Do not localize
     (ID: CF_HDROP; Description: 'File name(s)'), // Do not localize
-    (ID: CF_LOCALE; Description: 'Locale descriptor'), // Do not localize
-    (ID: CF_DIBV5; Description: 'DIB image V5') // Do not localize
+    (ID: CF_LOCALE; Description: 'Locale descriptor') // Do not localize
+    {
+    ,(ID: CF_DIBV5; Description: 'DIB image V5') // Do not localize
+    }
   );
 
 
@@ -176,8 +177,7 @@ begin
   end
   else
   begin
-    GetClipboardFormatName(AFormat, Buffer, Length(Buffer));
-    TClipboardFormatList.Add(Buffer, TreeClass, Priority, FormatEtc);
+    TClipboardFormatList.Add(ClipboardFormatToMimeType(AFormat), TreeClass, Priority, FormatEtc);
   end;
 end;
 
@@ -195,7 +195,7 @@ var
   FormatEtc: TFormatEtc;
 
 begin
-  Result := RegisterClipboardFormat(PChar(Description));
+  Result := ClipboardRegisterFormat(Description);
   FormatEtc.cfFormat := Result;
   FormatEtc.ptd := ptd;
   FormatEtc.dwAspect := dwAspect;
