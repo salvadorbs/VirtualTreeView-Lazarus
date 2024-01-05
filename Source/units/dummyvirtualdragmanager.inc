@@ -10,7 +10,7 @@ interface
 {$I VTConfig.inc}
 
 uses
-  Classes, SysUtils, Types;
+  Classes, SysUtils, Types, LCLType, WSReferences;
 
 const
   CLSID_DragDropHelper: TGUID = (D1: $4657278A; D2: $411B; D3: $11D2; D4: ($83, $9A, $00, $C0, $4F, $D9, $18, $D0));
@@ -68,14 +68,12 @@ type
   end;
   PULARGE_INTEGER = ^ULARGE_INTEGER;
   _ULARGE_INTEGER = ULARGE_INTEGER;
-     
-  
-  HANDLE = System.THandle;
-  HWND = HANDLE;
+
+  //HANDLE = System.THandle;
+  //HWND = HANDLE;
   //HRESULT = System.HResult;
-  
-  HBITMAP = HANDLE;
-  HENHMETAFILE = HANDLE;
+  //HBITMAP = THandle;
+  HENHMETAFILE = TLCLHandle;
   
   //activex types
   
