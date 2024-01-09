@@ -170,7 +170,7 @@ const
 type
   TDimension = Integer; 
   PDimension = ^Integer;
-  TVTCursor = LCLType.HCURSOR;
+  //TVTCursor = LCLType.HCURSOR;
   TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
   TVTPaintContext = HDC;

@@ -284,7 +284,7 @@ type
   TVTAfterColumnWidthTrackingEvent = procedure(Sender: TVTHeader; Column: TColumnIndex) of object;
   TVTColumnWidthTrackingEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; Shift: TShiftState; var TrackPoint: TPoint; P: TPoint;
     var Allowed: Boolean) of object;
-  TVTGetHeaderCursorEvent = procedure(Sender: TVTHeader; var Cursor: TVTCursor) of object;
+  TVTGetHeaderCursorEvent = procedure(Sender: TVTHeader; var Cursor: TCursor) of object;
   TVTBeforeGetMaxColumnWidthEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; var UseSmartColumnWidth: Boolean) of object;
   TVTAfterGetMaxColumnWidthEvent = procedure(Sender: TVTHeader; Column: TColumnIndex; var MaxWidth: TDimension) of object;
   TVTCanSplitterResizeColumnEvent = procedure(Sender: TVTHeader; P: TPoint; Column: TColumnIndex; var Allowed: Boolean) of object;
@@ -422,7 +422,7 @@ type
   TBaseVirtualTree = class abstract(TVTBaseAncestor)
   private
     FTotalInternalDataSize: Cardinal;            // Cache of the sum of the necessary internal data size for all tree
-    FBorderStyle: TBorderStyle;
+    //FBorderStyle: TBorderStyle;
     FHeader: TVTHeader;
     FRoot: PVirtualNode;
     FDefaultNodeHeight,
@@ -569,7 +569,7 @@ type
 
     // miscellanous
     FPanningWindow: TVirtualPanningWindow;       // Helper window for wheel panning
-    FPanningCursor: TVTCursor;                   // Current wheel panning cursor.
+    FPanningCursor: TCursor;                   // Current wheel panning cursor.
     FPanningImage: TBitmap;                      // A little 32x32 bitmap to indicate the panning reference point.
     FLastClickPos: TPoint;                       // Used for retained drag start and wheel mouse scrolling.
     FOperationCount: Cardinal;                   // Counts how many nested long-running operations are in progress.
@@ -760,6 +760,8 @@ type
       NewRect: TRect): Boolean;
     procedure ClearNodeBackground(const PaintInfo: TVTPaintInfo; UseBackground, Floating: Boolean; R: TRect);
     function CompareNodePositions(Node1, Node2: PVirtualNode; ConsiderChildrenAbove: Boolean = False): Integer;
+    procedure DoPropertyNotFound(Reader: TReader; Instance: TPersistent;
+      var PropName: string; IsPath: boolean; var Handled, Skip: Boolean);
     procedure DrawLineImage(const PaintInfo: TVTPaintInfo; X, Y, H, VAlign: TDimension; Style: TVTLineType; Reverse: Boolean);
     function FindInPositionCache(Node: PVirtualNode; var CurrentPos: TDimension): PVirtualNode; overload;
     function FindInPositionCache(Position: TDimension; var CurrentPos: TDimension): PVirtualNode; overload;
@@ -815,7 +817,9 @@ type
     procedure SetBackground(const Value: TVTBackground);
     procedure SetBackGroundImageTransparent(const Value: Boolean);
     procedure SetBackgroundOffset(const Index: Integer; const Value: TDimension);
+    {
     procedure SetBorderStyle(Value: TBorderStyle);
+    }
     procedure SetBottomNode(Node: PVirtualNode);
     procedure SetBottomSpace(const Value: TDimension);
     procedure SetButtonFillMode(const Value: TVTButtonFillMode);
@@ -956,9 +960,9 @@ type
     FFontChanged: Boolean;                       // flag for keeping informed about font changes in the off screen buffer   // [IPK] - private to protected
     procedure AutoScale(); virtual;
     procedure AddToSelection(const NewItems: TNodeArray; NewLength: Integer; ForceInsert: Boolean = False); overload; virtual;
-    procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+    procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
       var ImageInfo: TVTImageInfo); virtual; overload;
-    procedure AdjustImageBorder(ImageWidth, ImageHeight: Integer; BidiMode: TBidiMode; VAlign: Integer; var R: TRect;
+    procedure AdjustImageBorder(ImageWidth, ImageHeight: TDimension; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
       var ImageInfo: TVTImageInfo); overload;
     procedure AdjustPaintCellRect(var PaintInfo: TVTPaintInfo; var NextNonEmpty: TColumnIndex); virtual;
     procedure AdjustPanningCursor(X, Y: TDimension); virtual;
@@ -984,9 +988,7 @@ type
     procedure CreateParams(var Params: TCreateParams); override;
     procedure CreateWnd; override;
     procedure DecVisibleCount;
-    {$IFDEF DelphiSupport}
     procedure DefineProperties(Filer: TFiler); override;
-    {$ENDIF}
     procedure DeleteNode(Node: PVirtualNode; Reindex: Boolean; ParentClearing: Boolean); overload;
     procedure DestroyHandle; override;
     function DetermineDropMode(const P: TPoint; var HitInfo: THitInfo; var NodeRect: TRect): TDropMode; virtual;
@@ -1057,7 +1059,7 @@ type
     function DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
       CellContentMarginType: TVTCellContentMarginType = ccmtAllSides; Canvas: TCanvas = nil): TPoint; virtual;
     procedure DoGetCursor(var Cursor: TCursor); virtual;
-    procedure DoGetHeaderCursor(var Cursor: TVTCursor); virtual;
+    procedure DoGetHeaderCursor(var Cursor: TCursor); virtual;
     procedure DoGetHintSize(Node: PVirtualNode; Column: TColumnIndex; var R:
         TRect); virtual;
     procedure DoGetHintKind(Node: PVirtualNode; Column: TColumnIndex; var Kind:
@@ -1259,7 +1261,11 @@ type
     property BackGroundImageTransparent: Boolean read FBackGroundImageTransparent write SetBackGroundImageTransparent default False;
     property BackgroundOffsetX: TDimension index 0 read FBackgroundOffsetX write SetBackgroundOffset stored IsStored_BackgroundOffsetXY; // default 0;
     property BackgroundOffsetY: TDimension index 1 read FBackgroundOffsetY write SetBackgroundOffset stored IsStored_BackgroundOffsetXY; // default 0;
+    //lcl: incompatible with lazarus' borderStyle
+    {
     property BorderStyle: TBorderStyle read FBorderStyle write SetBorderStyle default TFormBorderStyle.bsSingle;
+    }
+    property BorderStyle;
     property BottomSpace: TDimension read FBottomSpace write SetBottomSpace stored IsStored_BottomSpace; //default 0;
     property ButtonFillMode: TVTButtonFillMode read FButtonFillMode write SetButtonFillMode default fmTreeColor;
     property ButtonStyle: TVTButtonStyle read FButtonStyle write SetButtonStyle default bsRectangle;
@@ -2220,8 +2226,8 @@ begin
 
   // Delphi (at least version 6 and lower) does not provide a standard split cursor.
   // Hence we have to load our own.
-  Screen.Cursors[crHeaderSplit] := LoadCursor(TheInstance, 'VT_HEADERSPLIT');
-  Screen.Cursors[crVertSplit] := LoadCursor(TheInstance, 'VT_VERTSPLIT');
+  //Screen.Cursors[crHeaderSplit] := LoadCursor(TheInstance, 'VT_HEADERSPLIT');
+  //Screen.Cursors[crVertSplit] := LoadCursor(TheInstance, 'VT_VERTSPLIT');
   // Clipboard format registration.
   // Native clipboard format. Needs a new identifier and has an average priority to allow other formats to take over.
   // This format is supposed to use the IStream storage format but unfortunately this does not work when
@@ -2343,7 +2349,7 @@ begin
   FSelectedHotPlusBM := TBitmap.Create;
   FSelectedHotMinusBM := TBitmap.Create;
 
-  FBorderStyle := TFormBorderStyle.bsSingle;
+  BorderStyle := TFormBorderStyle.bsSingle;
   FButtonStyle := bsRectangle;
   FButtonFillMode := fmTreeColor;
 
@@ -3232,6 +3238,21 @@ begin
         end;
         Result := Integer(Run1.Index) - Integer(Run2.Index);
       end;
+  end;
+end;
+
+procedure TBaseVirtualTree.DoPropertyNotFound(Reader: TReader;
+  Instance: TPersistent; var PropName: string; IsPath: boolean; var Handled,
+  Skip: Boolean);
+begin
+  //lcl: skip delphi only properties or events
+  if (PropName = 'BevelEdges') or (PropName = 'BevelEdges') or (PropName = 'BevelInner') or (PropName = 'BevelKind') or
+     (PropName = 'BevelOuter') or (PropName = 'BevelWidth') or (PropName = 'Ctl3D') or (PropName = 'ParentCtl3D') or
+     (PropName = 'StyleElements') or (PropName = 'StyleName') or (PropName = 'OnCanResize') or (PropName = 'OnGesture') or
+     (PropName = 'Touch') then
+  begin
+    Handled := True;
+    Skip := True;
   end;
 end;
 
@@ -4716,6 +4737,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+{
 procedure TBaseVirtualTree.SetBorderStyle(Value: TBorderStyle);
 
 begin
@@ -4725,6 +4747,7 @@ begin
     RecreateWnd;
   end;
 end;
+}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -9576,7 +9599,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiSupport}
 procedure TBaseVirtualTree.DefineProperties(Filer: TFiler);
 
 // There were heavy changes in some properties during development of VT. This method helps to make migration easier
@@ -9610,8 +9632,10 @@ begin
   Filer.DefineProperty('CheckImageKind', FakeReadIdent, nil, false);
   /// #730 removed property HintAnimation
   Filer.DefineProperty('HintAnimation', FakeReadIdent, nil, false);
+
+  //lcl: ignore delphi only properties or events
+  TReader(Filer).OnPropertyNotFound := DoPropertyNotFound;
 end;
-{$ENDIF}
 
 procedure TBaseVirtualTree.DestroyHandle;
 begin
@@ -11029,7 +11053,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TBaseVirtualTree.DoGetHeaderCursor(var Cursor: TVTCursor);
+procedure TBaseVirtualTree.DoGetHeaderCursor(var Cursor: TCursor);
 
 begin
   if Assigned(FOnGetHeaderCursor) then

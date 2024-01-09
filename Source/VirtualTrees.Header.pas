@@ -421,9 +421,7 @@ type
     procedure RescaleHeader;
     procedure UpdateMainColumn;
     procedure UpdateSpringColumns;
-    {$IFDEF DelphiSupport}
     procedure WriteColumns(Writer : TWriter);
-    {$ENDIF}
     procedure InternalSetMainColumn(const Index : TColumnIndex);
     procedure InternalSetAutoSizeIndex(const Index : TColumnIndex);
     procedure InternalSetSortColumn(const Index : TColumnIndex);
@@ -1568,7 +1566,7 @@ var
   I                                          : TColumnIndex;
   OldPosition                                : Integer;
   HitIndex                                   : TColumnIndex;
-  NewCursor                                  : TVTCursor;
+  NewCursor                                  : TCursor;
   Button                                     : TMouseButton;
   IsInHeader, IsHSplitterHit, IsVSplitterHit : Boolean;
 
@@ -1976,13 +1974,14 @@ begin
         else
           IsVSplitterHit := InHeaderSplitterArea(P) and Self.CanSplitterResize(P);
 
+        //lcl: in lazarus we must use TCursor
         if IsVSplitterHit or IsHSplitterHit then
         begin
-          NewCursor := Screen.Cursors[Tree.Cursor];
+          NewCursor := Tree.Cursor;
           if IsVSplitterHit and ((hoHeightResize in FOptions) or (csDesigning in Tree.ComponentState)) then
-            NewCursor := Screen.Cursors[crVSplit]
+            NewCursor := crVSplit
           else if IsHSplitterHit then
-            NewCursor := Screen.Cursors[crHSplit];
+            NewCursor := crHSplit;
 
           if not (csDesigning in Tree.ComponentState) then
             Tree.DoGetHeaderCursor(NewCursor);
@@ -2276,7 +2275,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$IFDEF DelphiSupport}
 type
   //--- HACK WARNING!
   //This type cast is a partial rewrite of the private section of TWriter. The purpose is to have access to
@@ -2315,7 +2313,6 @@ begin
     TWriterHack(Writer).FPropPath := LastPropPath;
   end;
 end;
-{$ENDIF}
 
 //----------------------------------------------------------------------------------------------------------------------
 
