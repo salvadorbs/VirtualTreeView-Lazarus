@@ -16771,7 +16771,8 @@ begin
     if not (csDesigning in ComponentState) and
        ((Message.Msg = LM_LBUTTONDOWN) or (Message.Msg = LM_LBUTTONDBLCLK)) then
     begin
-      if (DragMode = dmAutomatic) and (DragKind = dkDrag) then
+      Handled := (DragMode = dmAutomatic) and (DragKind = dkDrag);
+      if Handled then
       begin
         if not IsControlMouseMsg(TLMMouse(Message)) then
         begin
