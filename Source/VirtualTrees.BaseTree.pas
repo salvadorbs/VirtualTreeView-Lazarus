@@ -5254,8 +5254,34 @@ end;
 
 procedure TBaseVirtualTree.SetHotNode(Value: PVirtualNode);
 
+var
+  DoInvalidate: Boolean;
+const
+  MouseButtonDown = [tsLeftButtonDown, tsMiddleButtonDown, tsRightButtonDown];
 begin
-  FCurrentHotNode := Value;
+  with Self do begin
+    if FCurrentHotNode <> Value then
+    begin
+      DoInvalidate := (toHotTrack in FOptions.PaintOptions) or
+        (toCheckSupport in FOptions.MiscOptions);
+      DoHotChange(FCurrentHotNode, Value);
+      // Invalidate old FCurrentHotNode
+      if Assigned(FCurrentHotNode) and DoInvalidate then
+        InvalidateNode(FCurrentHotNode);
+      // Set new FCurrentHotNode and invalidate it
+      FCurrentHotNode := Value;
+      if Assigned(FCurrentHotNode) and DoInvalidate then
+        InvalidateNode(FCurrentHotNode);
+      // Scroll view
+      if (FUpdateCount = 0) and
+        not(toDisableAutoscrollOnFocus in FOptions.AutoOptions)
+      then
+        ScrollIntoView(FCurrentHotNode,
+          (toCenterScrollIntoView in FOptions.SelectionOptions)
+          and (MouseButtonDown * FStates = []),
+          not(toFullRowSelect in FOptions.SelectionOptions));
+    end;
+  end;
 end;
 
 
