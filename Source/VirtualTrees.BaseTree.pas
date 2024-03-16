@@ -1279,7 +1279,7 @@ type
     property Colors: TVTColors read FColors write SetColors;
     property CustomCheckImages: TCustomImageList read FCustomCheckImages write SetCustomCheckImages;
     property DefaultHintKind: TVTHintKind read GetDefaultHintKind;
-    property DefaultNodeHeight: TDimension read FDefaultNodeHeight write SetDefaultNodeHeight stored IsStored_DefaultNodeHeight; // default 18;
+    property DefaultNodeHeight: TDimension read FDefaultNodeHeight write SetDefaultNodeHeight stored IsStored_DefaultNodeHeight;
     property DefaultPasteMode: TVTNodeAttachMode read FDefaultPasteMode write FDefaultPasteMode default amAddChildLast;
     property DragHeight: Integer read FDragHeight write FDragHeight default 350;
     property DragImageKind: TVTDragImageKind read FDragImageKind write FDragImageKind default diComplete;
@@ -1324,7 +1324,7 @@ type
     property SelectionBlendFactor: Byte read FSelectionBlendFactor write FSelectionBlendFactor default 128;
     property SelectionCurveRadius: Cardinal read FSelectionCurveRadius write SetSelectionCurveRadius default 0;
     property StateImages: TCustomImageList read FStateImages write SetStateImages;
-    property TextMargin: TDimension read FTextMargin write SetTextMargin stored IsStored_TextMargin; // default 4;
+    property TextMargin: TDimension read FTextMargin write SetTextMargin stored IsStored_TextMargin;
     property TreeOptions: TCustomVirtualTreeOptions read FOptions write SetOptions;
     property WantTabs: Boolean read FWantTabs write FWantTabs default False;
     property SyncCheckstateWithSelection[Node: PVirtualNode]: Boolean read GetSyncCheckstateWithSelection;
@@ -2322,7 +2322,7 @@ begin
   Height := 100;
   TabStop := True;
   ParentColor := False;
-  FDefaultNodeHeight := 18;
+  FDefaultNodeHeight := cInitialDefaultNodeHeight;
   FDragOperations := [doCopy, doMove];
   FHotCursor := crDefault;
   FScrollBarOptions := TScrollBarOptions.Create(Self);
@@ -2383,7 +2383,7 @@ begin
 
   FDefaultPasteMode := amAddChildLast;
   FMargin := 4;
-  FTextMargin := 4;
+  FTextMargin := cDefaultTextMargin;
   FImagesMargin := 2;
   FLastDragEffect := DROPEFFECT_NONE;
   FDragType := dtOLE;
@@ -6484,14 +6484,7 @@ var
 
 begin
   inherited;
-
-  if not (csLoading in ComponentState) then
-  begin
-    if HandleAllocated then begin
-      AutoScale();
-      Invalidate;
-    end
-  end;
+  AutoScale();
 
   HeaderMessage.Msg := CM_PARENTFONTCHANGED;
   HeaderMessage.WParam := 0;
@@ -9566,6 +9559,7 @@ begin
   else
     DoStateChange([], [tsUseThemes, tsUseExplorerTheme]);
 
+  AutoScale();
   // Because of the special recursion and update stopper when creating the window (or resizing it)
   // we have to manually trigger the auto size calculation here.
   if hsNeedScaling in FHeader.States then
@@ -17131,7 +17125,7 @@ begin
   if HandleAllocated and (toAutoChangeScale in TreeOptions.AutoOptions) then
   begin
     Canvas.Font.Assign(Self.Font);
-    lTextHeight := Canvas.TextHeight('Tg') + {$if CompilerVersion > 31} MulDiv(2, CurrentPPI, 96) {$else} 2 {$ifend}; // See issue #1205, ScaledPixels(2) may return wrong value here
+    lTextHeight := Canvas.TextHeight('Tg') + TextMargin;
     // By default, we only ensure that DefaultNodeHeight is large enough.
     // If the form's dpi has changed, we scale up and down the DefaultNodeHeight, See issue #677.
     if (lTextHeight <> Self.DefaultNodeHeight) then begin
