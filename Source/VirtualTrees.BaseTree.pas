@@ -2432,7 +2432,7 @@ begin
   FOptions.InternalSetMiscOptions(FOptions.MiscOptions - [toReadOnly]); //SetMiscOptions has side effects
   {$ifdef EnableThreadSupport}
   // Make sure there is no reference remaining to the releasing tree.
-  TWorkerThread.ReleaseThreadReference();
+  TWorkerThread.ReleaseThreadReference(IsLibrary); // see issue #1245
   {$endif}
   StopWheelPanning;
   //lcl
