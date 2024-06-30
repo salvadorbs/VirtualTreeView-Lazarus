@@ -170,7 +170,9 @@ const
 
 type
   TDimension = Integer; 
+  TNodeHeight = Single;
   PDimension = ^Integer;
+  TNodeHeight = NativeInt;
   //TVTCursor = LCLType.HCURSOR;
   TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
@@ -934,7 +936,7 @@ type
   private
     fIndex: Cardinal;         // index of node with regard to its parent
     fChildCount: Cardinal;    // number of child nodes
-    fNodeHeight: TDimension;  // height in pixels
+    fNodeHeight: TNodeHeight;  // height in pixels
   public
     States: TVirtualNodeStates; // states describing various properties of the node (expanded, initialized etc.)
     Align: Byte;             // line/button alignment
@@ -942,8 +944,7 @@ type
     CheckType: TCheckType;   // indicates which check type shall be used for this node
     Dummy: Byte;             // dummy value to fill DWORD boundary
     TotalCount: Cardinal;    // sum of this node, all of its child nodes and their child nodes etc.
-    TotalHeight: TDimension; // height in pixels this node covers on screen including the height of all of its
-                             // children
+    TotalHeight: TNodeHeight;// height in pixels this node covers on screen including the height of all of its children.
     _Filler: TDWordFiller;   // Ensure 8 Byte alignment of following pointers for 64bit builds. Issue #1136
     // Note: Some copy routines require that all pointers (as well as the data area) in a node are
     //       located at the end of the node! Hence if you want to add new member fields (except pointers to internal
@@ -964,14 +965,14 @@ type
     procedure SetLastChild(const pLastChild: PVirtualNode); inline; //internal method, do not call directly
     procedure SetIndex(const pIndex: Cardinal); inline;       //internal method, do not call directly.
     procedure SetChildCount(const pCount: Cardinal); inline; //internal method, do not call directly.
-    procedure SetNodeHeight(const pNodeHeight: TDimension); inline; //internal method, do not call directly.
+    procedure SetNodeHeight(const pNodeHeight: TNodeHeight); inline; //internal method, do not call directly.
     property Index: Cardinal read fIndex;
     property ChildCount: Cardinal read fChildCount;
     property Parent: PVirtualNode read fParent;
     property PrevSibling: PVirtualNode read fPrevSibling;
     property NextSibling: PVirtualNode read fNextSibling;
     property LastChild: PVirtualNode read fLastChild;
-    property NodeHeight: TDimension read fNodeHeight;
+    property NodeHeight: TNodeHeight read fNodeHeight;
   private
     Data: record end;        // this is a placeholder, each node gets extra data determined by NodeDataSize
   public
@@ -1225,7 +1226,7 @@ begin
   Exit(@Self <> nil);
 end;
 
-procedure TVirtualNode.SetNodeHeight(const pNodeHeight: TDimension);
+procedure TVirtualNode.SetNodeHeight(const pNodeHeight: TNodeHeight);
 begin
   fNodeHeight := pNodeHeight;
 end;
