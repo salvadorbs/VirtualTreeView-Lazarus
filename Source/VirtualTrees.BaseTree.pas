@@ -22069,6 +22069,7 @@ begin
                             ((Column = FEditColumn) or not UseColumns)) then
                             DoPaintNode(PaintInfo);
                           {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'Brush.Color',PaintInfo.Canvas.Brush.Color);{$endif}
+                          Canvas.Brush.Color := FColors.BackGroundColor; // Set useful background color, see issue #1264
                           DoAfterCellPaint(Canvas, Node, Column, CellRect);
                         end;
                       end;
