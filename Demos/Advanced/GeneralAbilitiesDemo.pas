@@ -77,11 +77,6 @@ type
       var Ghosted: Boolean; var ImageIndex: TImageIndex;
       var ImageList: TCustomImageList);
     procedure VST2FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-    procedure VST2DragDrop(Sender: TBaseVirtualTree; Source: TObject;
-      DataObject: IDataObject; Formats: TFormatArray; Shift: TShiftState;
-      Pt: TPoint; var Effect: Integer; Mode: TDropMode);
-    procedure VST2CompareNodes(Sender: TBaseVirtualTree; Node1,
-      Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
   end;
 
 var
@@ -564,19 +559,6 @@ begin
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
-
-procedure TGeneralForm.VST2CompareNodes(Sender: TBaseVirtualTree; Node1,
-  Node2: PVirtualNode; Column: TColumnIndex; var Result: Integer);
-begin
-  Result := Sign(Int64(Node1) - Int64(Node2));
-end;
-
-procedure TGeneralForm.VST2DragDrop(Sender: TBaseVirtualTree; Source: TObject;
-  DataObject: IDataObject; Formats: TFormatArray; Shift: TShiftState;
-  Pt: TPoint; var Effect: Integer; Mode: TDropMode);
-begin
-  ShowMessage('ff');
-end;
 
 procedure TGeneralForm.VST2DragOver(Sender: TBaseVirtualTree; Source: TObject; Shift: TShiftState; State: TDragState;
   Pt: TPoint; Mode: TDropMode; var Effect: Integer; var Accept: Boolean);
