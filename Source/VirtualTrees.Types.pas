@@ -178,7 +178,7 @@ type
   TVTBackground = TPicture;
   TVTPaintContext = HDC;
   TVTBrush = HBRUSH;
-  TColumnIndex = type Integer;
+  TColumnIndex = Integer;
   TColumnPosition = type Cardinal;
   PCardinal = ^Cardinal;
 
