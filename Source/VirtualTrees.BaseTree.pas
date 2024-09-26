@@ -10161,8 +10161,10 @@ begin
         if ((Int64(timeGetTime) - FDragScrollStart) < FAutoScrollDelay) then
           Result := [];
       end
+{$ifdef DEBUG_VTV}
       else
-        OutputDebugString('Ooops');
+		Logger.DebugLn([lcDrag],'Ooops');
+{$endif}
     end;
   end;
 end;

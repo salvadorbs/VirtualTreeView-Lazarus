@@ -169,12 +169,10 @@ const
   {$EXTERNALSYM LIS_SELECTEDNOTFOCUS}
 
 type
-  TDimension = Integer; 
-  TNodeHeight = Single;
+  TDimension = Integer;
   PDimension = ^Integer;
   TNodeHeight = NativeInt;
   //TVTCursor = LCLType.HCURSOR;
-  IDataObject= WinApi.ActiveX.IDataObject;
   TVTDragDataObject = IDataObject;
   TVTBackground = TPicture;
   TVTPaintContext = HDC;

@@ -486,7 +486,7 @@ type
 implementation
 
 uses
-  System.Generics.Defaults,
+  Generics.Defaults, Generics.Collections,
   VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil;
 
 type
@@ -4634,7 +4634,14 @@ begin
   end;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------- 
+
+function TVirtualTreeColumnCompare(constref A, B: TVirtualTreeColumn): Integer;
+begin
+  Result := CompareValue(A.Position, B.Position);
+  if Result = 0 then
+    Result := CompareValue(A.Index, B.Index);
+end;
 
 procedure TVirtualTreeColumns.FixPositions;
 // Fixes column positions after loading from DFM or Bidi mode change.
@@ -4649,14 +4656,7 @@ begin
       LColumnsByPos.Add(Items[I]);
 
     LColumnsByPos.Sort(
-      TComparer<TVirtualTreeColumn>.Construct(
-        function(const A, B: TVirtualTreeColumn): Integer
-        begin
-          Result := CompareValue(A.Position, B.Position);
-          if Result = 0 then
-            Result := CompareValue(A.Index, B.Index);
-        end)
-    );
+      TComparer<TVirtualTreeColumn>.Construct(TVirtualTreeColumnCompare));
 
     for I := 0 to LColumnsByPos.Count-1 do
     begin
@@ -4945,7 +4945,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVirtualTreeColumns.Notify(Item : TCollectionItem; Action : TCollectionNotification);
+procedure TVirtualTreeColumns.Notify(Item : TCollectionItem; Action : Classes.TCollectionNotification);
 var
   I : Integer;
   lRemovedPosition: TColumnPosition;
