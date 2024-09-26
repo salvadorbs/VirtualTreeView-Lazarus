@@ -148,6 +148,8 @@ type
     FTextBounds : TRect;                      //Smallest rectangle around the text.
     function GetEdit: TVTEdit;                //Getter for the FEdit member;
     procedure SetEdit(const Value : TVTEdit); //Setter for the FEdit member;
+
+    procedure InitializeSelection; virtual;
   public
     constructor Create;
 
@@ -744,6 +746,13 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TStringEditLink.InitializeSelection;
+begin
+  Edit.SelectAll;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TStringEditLink.SetEdit(const Value : TVTEdit);
 begin
   inherited SetEdit(Value);
@@ -756,7 +765,7 @@ begin
   Result := inherited;
   if Result then
   begin
-    Edit.SelectAll;
+    InitializeSelection;
     Edit.AutoAdjustSize;
   end;
 end;

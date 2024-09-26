@@ -356,6 +356,7 @@ type
     FDragImage                   : TVTDragImage;            //drag image management during header drag
     FLastWidth                   : TDimension;              //Used to adjust spring columns. This is the width of all visible columns, not the header rectangle.
     FRestoreSelectionColumnIndex : Integer;                 //The column that is used to implement the coRestoreSelection option
+    FWasDoubleClick              : Boolean;                 // The previous mouse message was for a double click, that allows us to process mouse-up-messages differently
     function GetMainColumn : TColumnIndex;
     function GetUseColumns : Boolean;
     function IsDefaultHeightStored: Boolean;
@@ -485,6 +486,7 @@ type
 implementation
 
 uses
+  System.Generics.Defaults,
   VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil;
 
 type
@@ -1641,11 +1643,13 @@ begin
             CheckBoxHit := False;
           end;
         end;
+        fWasDoubleClick := False;
       end;
     LM_LBUTTONDBLCLK,
     LM_MBUTTONDBLCLK,
     LM_RBUTTONDBLCLK:
       begin
+        fWasDoubleClick := True;
         if Message.Msg <> LM_LBUTTONDBLCLK then
         with TLMLButtonDblClk(Message) do
             P := FOwner.ScreenToClient(Point(XPos, YPos))
@@ -1791,6 +1795,7 @@ begin
             HandleMessage := TVirtualTreeColumnsCracker(FColumns).HandleClick(P, TMouseButton.mbRight, True, False);
             TBaseVirtualTreeCracker(FOwner).DoHeaderMouseUp(TMouseButton.mbRight, GetShiftState, P.X, P.Y + FHeight);
           end;
+          fWasDoubleClick := False;
         end;
     //When the tree window has an active mouse capture then we only get "client-area" messages.
     LM_LBUTTONUP :
@@ -1867,6 +1872,7 @@ begin
           end;
           Result := True;
           Message.Result := 0;
+          fWasDoubleClick := False;
         end;
 
         case Message.Msg of
@@ -1880,6 +1886,7 @@ begin
               end;
               if FStates <> [] then
                 TBaseVirtualTreeCracker(FOwner).DoHeaderMouseUp(TMouseButton.mbLeft, KeysToShiftState(Keys), XPos, YPos);
+              fWasDoubleClick := False;
             end;
           //todo: there's a difference here
           {
@@ -1888,9 +1895,11 @@ begin
             begin
               with TWMNCLButtonUp(Message) do
                 P := FOwner.ScreenToClient(Point(XCursor, YCursor));
-              TVirtualTreeColumnsCracker(FColumns).HandleClick(P, TMouseButton.mbLeft, True, False);
+              if not fWasDoubleClick then
+                TVirtualTreeColumnsCracker(FColumns).HandleClick(P, TMouseButton.mbLeft, True, False);
               TBaseVirtualTreeCracker(FOwner).DoHeaderMouseUp(TMouseButton.mbLeft, GetShiftState, P.X, P.Y + FHeight);
               Result := True;
+              fWasDoubleClick := False;
             end;
           }
         end;
@@ -4628,38 +4637,36 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVirtualTreeColumns.FixPositions;
-
 // Fixes column positions after loading from DFM or Bidi mode change.
-
 var
-  I : Integer;
-  LoopAgain: Boolean;
+  LColumnsByPos: TList<TVirtualTreeColumn>;
+  I: Integer;
 begin
-  // Fix positions that too large, see #1179
-  // Fix duplicate positions, see #1228
-  repeat
-    LoopAgain := False;
-    for I := 0 to Count - 1 do
-    begin
-      if Integer(Items[I].FPosition) >= Count then
-      begin
-        Items[I].Position := Count -1;
-        LoopAgain := True;
-      end;
-      if (i < Count -1) and (Items[I].Position = Items[I+1].FPosition) then
-      begin
-        if Items[I].FPosition > 0 then
-          Dec(Items[I].FPosition)
-        else
-          Inc(Items[I].FPosition);
-        LoopAgain := True;
-      end;
-    end; // for
-  until not LoopAgain;
+  LColumnsByPos := TList<TVirtualTreeColumn>.Create;
+  try
+    LColumnsByPos.Capacity := Self.Count;
+    for I := 0 to Self.Count-1 do
+      LColumnsByPos.Add(Items[I]);
 
-  // Update position array
-  for I := 0 to Count - 1 do
-    FPositionToIndex[Items[I].Position] := I;
+    LColumnsByPos.Sort(
+      TComparer<TVirtualTreeColumn>.Construct(
+        function(const A, B: TVirtualTreeColumn): Integer
+        begin
+          Result := CompareValue(A.Position, B.Position);
+          if Result = 0 then
+            Result := CompareValue(A.Index, B.Index);
+        end)
+    );
+
+    for I := 0 to LColumnsByPos.Count-1 do
+    begin
+      LColumnsByPos[I].FPosition := I;
+      Self.FPositionToIndex[I] := LColumnsByPos[I].Index;
+    end;
+
+  finally
+	  LColumnsByPos.Free;
+  end;
 
   FNeedPositionsFix := False;
   UpdatePositions(True);
@@ -5501,7 +5508,7 @@ begin
       Result := FPositionToIndex[Position - 1]
     else
       Result := InvalidColumn;
-    Assert(Position <> Result, 'The previous column must not have the same position as the given column.');
+    Assert(Column <> Result, 'The previous column must not have the same position as the given column.');
   end;
 end;
 
