@@ -15,7 +15,8 @@ uses
   DelphiCompat
   , VirtualTrees.Types
   , VirtualTrees.BaseTree
-  , virtualdragmanager;
+  , virtualdragmanager
+  , VirtualTrees.Header;
 
 type
   TEnumFormatEtc = class(TInterfacedObject, IEnumFormatEtc)
@@ -61,6 +62,7 @@ type
   private
     FOwner,                                // The tree which is responsible for drag management.
     FDragSource       : TBaseVirtualTree;  // Reference to the source tree if the source was a VT, might be different than the owner tree.
+    FHeader           : TVTHeader;
     FIsDropTarget     : Boolean;           // True if the owner is currently the drop target.
     FDataObject       : IDataObject;       // A reference to the data object passed in by DragEnter (only used when the owner tree is the current drop target).
     FDropTargetHelper : IDropTargetHelper; // Win2k > Drag image support
@@ -86,6 +88,7 @@ type
     function GiveFeedback(Effect: LongWord): HResult; stdcall;
     function QueryContinueDrag(EscapePressed: BOOL; KeyState: LongWord): HResult; stdcall;
     {$ENDIF}
+    class function GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
   end;
 
 var
@@ -105,6 +108,7 @@ var
 implementation
 
 uses
+  VirtualTrees.Clipboard,
   VirtualTrees.DataObject;
 
 type
@@ -281,11 +285,43 @@ begin
   {$ENDIF}
 end;
 
+class function TVTDragManager.GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
+// Returns the owner/sender of the given data object by means of a special clipboard format
+// or nil if the sender is in another process or no virtual tree at all.
+
+var
+  Medium: TStgMedium;
+  Data: PVTReference;
+
+begin
+  Result := nil;
+  if Assigned(DataObject) then
+  begin
+    StandardOLEFormat.cfFormat := CF_VTREFERENCE;
+    if DataObject.GetData(StandardOLEFormat, Medium) = S_OK then
+    begin
+      Data := GlobalLock(Medium.hGlobal);
+      if Assigned(Data) then
+      begin
+        if Data.Process = GetCurrentProcessID then
+          Result := Data.Tree;
+        GlobalUnlock(Medium.hGlobal);
+      end;
+      ReleaseStgMedium(@Medium);
+    end;
+  end;
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
 function TVTDragManager.DragEnter(const DataObject : IDataObject; KeyState : LongWord; Pt : TPoint; var Effect : LongWord) : HResult;
+var
+  Medium: TStgMedium;
 begin
   {$IFDEF EnableWinDataObject}
+  if not Assigned(FDropTargetHelper) then
+    CoCreateInstance(CLSID_DragDropHelper, nil, CLSCTX_INPROC_SERVER, IID_IDropTargetHelper, FDropTargetHelper);
+
   FDataObject := DataObject;
   FIsDropTarget := True;
 
@@ -301,8 +337,13 @@ begin
     else
       FDropTargetHelper.DragEnter(0, DataObject, Pt, Effect); // Do not pass handle, otherwise the IDropTargetHelper will perform autoscroll. Issue #486
   end;
-  FDragSource := TreeView.GetTreeFromDataObject(DataObject);
+  FDragSource := GetTreeFromDataObject(DataObject);
   Result := TreeView.DragEnter(KeyState, Pt, Effect);
+  if (DataObject.GetData(StandardOLEFormat, Medium) = S_OK) and (FDragSource = FOWner) then
+  begin
+    FHeader := FDragSource.Header;
+    FDRagSource := nil;
+  end;
   {$ENDIF}
 end;
 
@@ -330,7 +371,13 @@ begin
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.DragOver(Pt, Effect);
 
-  Result := TreeView.DragOver(FDragSource, KeyState, dsDragMove, Pt, Effect);
+  if Assigned(fHeader) then
+  begin
+    TreeView.Header.DragTo(Pt);
+    Result := NOERROR;
+  end
+  else
+    Result := TreeView.DragOver(FDragSource, KeyState, dsDragMove, Pt, Effect);
   {$ENDIF}
 end;
 
@@ -342,7 +389,13 @@ begin
   if Assigned(FDropTargetHelper) and FFullDragging then
     FDropTargetHelper.Drop(DataObject, Pt, Effect);
 
-  Result := TreeView.DragDrop(DataObject, KeyState, Pt, Effect);
+  if Assigned(fHeader) then
+  begin
+   FHeader.ColumnDropped(Pt);
+   Result := NO_ERROR;
+  end
+  else
+    Result := TreeView.DragDrop(DataObject, KeyState, Pt, Effect);
   FIsDropTarget := False;
   FDataObject := nil;
   {$ENDIF}

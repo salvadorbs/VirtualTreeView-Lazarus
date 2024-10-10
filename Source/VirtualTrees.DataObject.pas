@@ -9,7 +9,6 @@ interface
 uses
   Classes, Controls, Graphics, LCLType, SysUtils, Types, WSReferences,
   {$ifdef Windows}
-  Windows,
   ActiveX,
   JwaWinBase,
   {$endif}
@@ -30,6 +29,7 @@ type
   TVTDataObject = class(TInterfacedObject, IDataObject)
   private
     FOwner                  : TCustomControl;          // The tree which provides clipboard or drag data.
+    FHeader                 : TPersistent;             // The tree which provides clipboard or drag data.
     FForClipboard           : Boolean;                 // Determines which data to render with GetData.
     FFormatEtcArray         : TFormatEtcArray;
     FInternalStgMediumArray : TInternalStgMediumArray; // The available formats in the DataObject
@@ -48,7 +48,8 @@ type
     property InternalStgMediumArray : TInternalStgMediumArray read FInternalStgMediumArray write FInternalStgMediumArray;
     property Owner : TCustomControl read FOwner;
   public
-    constructor Create(AOwner : TCustomControl; ForClipboard : Boolean); virtual;
+    constructor Create(AOwner : TCustomControl; ForClipboard : Boolean); overload;
+    constructor Create(AHeader : TPersistent; AOwner : TCustomControl); overload;
     destructor Destroy; override;
 
     function DAdvise(const FormatEtc : TFormatEtc; advf : DWord; const advSink : IAdviseSink; out dwConnection : DWord) : HResult; virtual; stdcall;
@@ -84,8 +85,16 @@ begin
 
   FOwner := AOwner;
   FForClipboard := ForClipboard;
-  TVTCracker(FOwner).GetNativeClipboardFormats(FFormatEtcArray);
+  if Assigned(FOWner) then
+    TVTCracker(FOwner).GetNativeClipboardFormats(FFormatEtcArray);
   {$ENDIF}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TVTDataObject.Create(AHeader: TPersistent; AOwner : TCustomControl);
+begin
+  FHeader := AHeader;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -389,8 +398,21 @@ var
 {$ENDIF}
 begin
   {$IFDEF EnableWinDataObject}
+  if (FormatEtcIn.cfFormat = CF_VTHEADERREFERENCE) and Assigned(FHeader) then
+  begin
+    Medium.HGlobal := GlobalAlloc(GHND or GMEM_SHARE, SizeOf(TVTReference));
+    Data := GlobalLock(Medium.HGlobal);
+    Data.Process := GetCurrentProcessID;
+    Data.Tree := TBaseVirtualTree(FOwner);
+    GlobalUnLock(Medium.HGlobal);
+    Medium.tymed := TYMED_HGLOBAL;
+    Medium.PunkForRelease := nil;
+    Exit(S_OK);
+  end; // if CF_VTHEADERREFERENCE
+
+
   // The tree reference format is always supported and returned from here.
-  if FormatEtcIn.cfFormat = CF_VTREFERENCE then
+  if (FormatEtcIn.cfFormat = CF_VTREFERENCE) and Assigned(FOWner) then
   begin
     // Note: this format is not used while flushing the clipboard to avoid a dangling reference
     //       when the owner tree is destroyed before the clipboard data is replaced with something else.
@@ -405,31 +427,30 @@ begin
       GlobalUnLock(Medium.HGlobal);
       Medium.tymed := TYMED_HGLOBAL;
       Medium.PunkForRelease := nil;
-      Result := S_OK;
+      Exit(S_OK);
     end;
-  end
-  else
-  begin
-    try
-      // See if we accept this type and if not get the correct return value.
-      Result := QueryGetData(FormatEtcIn);
-      if Result = S_OK then
+  end; // if CF_VTREFERENCE
+
+  try
+    // See if we accept this type and if not get the correct return value.
+    Result := QueryGetData(FormatEtcIn);
+    if Result = S_OK then
+    begin
+      for I := 0 to High(FormatEtcArray) do
       begin
-        for I := 0 to High(FormatEtcArray) do
+        if EqualFormatEtc(FormatEtcIn, FormatEtcArray[I]) then
         begin
-          if EqualFormatEtc(FormatEtcIn, FormatEtcArray[I]) then
-          begin
-            if not RenderInternalOLEData(FormatEtcIn, Medium, Result) then
-              Result := TVTCracker(FOwner).RenderOLEData(FormatEtcIn, Medium, FForClipboard);
-            Break;
-          end;
+          if not RenderInternalOLEData(FormatEtcIn, Medium, Result) then
+            Result := TVTCracker(FOwner).RenderOLEData(FormatEtcIn, Medium, FForClipboard);
+          Break;
         end;
       end;
-    except
-      FillChar(Medium, SizeOf(Medium), #0);
-      Result := E_FAIL;
+      ZeroMemory(@Medium, SizeOf(Medium));
     end;
-  end;
+  except
+    ZeroMemory(@Medium, SizeOf(Medium));
+    Result := E_FAIL;
+  end; // try..except
   {$ENDIF}
 end;
 

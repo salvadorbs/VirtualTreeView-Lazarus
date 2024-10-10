@@ -1163,7 +1163,6 @@ type
     function GetOperationCanceled: Boolean;
     function GetOptionsClass: TTreeOptionsClass; virtual;
     function GetSelectedCount(): Integer; override;
-    function GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree; virtual;
     procedure HandleHotTrack(X, Y: TDimension); virtual;
     procedure HandleIncrementalSearch(CharCode: Word); virtual;
     procedure HandleMouseDblClick(var Message: TLMMouse; const HitInfo: THitInfo); virtual;
@@ -1237,8 +1236,6 @@ type
     {$ifdef DelphiStyleServices}
     procedure UpdateStyleElements; override;
     {$ifend}
-    procedure UpdateWindowAndDragImage(const Tree: TBaseVirtualTree; TreeRect: TRect; UpdateNCArea,
-      ReshowDragImage: Boolean); virtual;
     procedure ValidateCache; virtual;
     procedure ValidateNodeDataSize(var Size: Integer); virtual;
     procedure WndProc(var Message: TLMessage); override;
@@ -2220,8 +2217,9 @@ begin
 
   TheInstance := HINSTANCE;
   
-  // Register the tree reference clipboard format. Others will be handled in InternalClipboarFormats.
+  // Register the tree reference clipboard format.
   CF_VTREFERENCE := RegisterClipboardFormat(CFSTR_VTREFERENCE);
+  CF_VTHEADERREFERENCE := RegisterClipboardFormat(CFSTR_VTHEADERREFERENCE);
 
   UtilityImages := CreateBitmapFromResourceName(TheInstance, BuildResourceName('vt_utilities'));
   UtilityImageSize := UtilityImages.Height;
@@ -12896,13 +12894,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TBaseVirtualTree.GetTreeFromDataObject(const DataObject: TVTDragDataObject): TBaseVirtualTree;
-begin
-  Result:= nil;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 function TBaseVirtualTree.GetRealImagesWidth: Integer;
 begin
   Result := GetRealImageListWidth(FImages);
@@ -16596,94 +16587,7 @@ const // Region identifiers for GetRandomRgn
   }
   SYSRGN = 4;
 
-procedure TBaseVirtualTree.UpdateWindowAndDragImage(const Tree: TBaseVirtualTree; TreeRect: TRect; UpdateNCArea,
-  ReshowDragImage: Boolean);
-
-// Method to repaint part of the window area which is not covered by the drag image and to initiate a recapture
-// of the drag image.
-// Note: This method must only be called during a drag operation and the tree passed in is the one managing the current
-// drag image (so it is the actual drag source).
-{$ifndef INCOMPLETE_WINAPI}
-var
-  DragRegion,          // the region representing the drag image
-  UpdateRegion,        // the unclipped region within the tree to be updated
-  NCRegion: HRGN;      // the region representing the non-client area of the tree
-  DragRect,
-  NCRect: TRect;
-  RedrawFlags: Cardinal;
-
-  VisibleTreeRegion: HRGN;
-
-  DC: HDC;
-{$endif}
-
-  //This function was originally designed only for tree's drag image. But we modified
-  //it for reusing it with header's drag image too for solving issue 248.
-  useDragImage: TVTDragImage;
-begin
-  //todo: reimplement
-  {$ifndef INCOMPLETE_WINAPI}
-  if IntersectRect(TreeRect, TreeRect, ClientRect) then
-  begin
-    // Retrieve the visible region of the window. This is important to avoid overpainting parts of other windows
-    // which overlap this one.
-    VisibleTreeRegion := CreateRectRgn(0, 0, 1, 1);
-    DC := GetDCEx(Handle, 0, DCX_CACHE or DCX_WINDOW or DCX_CLIPSIBLINGS or DCX_CLIPCHILDREN);
-    GetRandomRgn(DC, VisibleTreeRegion, SYSRGN);
-    ReleaseDC(Handle, DC);
-
-   //Take proper drag image depending on whether the drag is being done in the tree
-   //or in the header.
-    if (Tree.FHeader.DragImage <> nil) and (Tree.FHeader.DragImage.Visible) then
-    begin
-      useDragImage := Tree.FHeader.DragImage;
-
-      // The drag image will figure out itself what part of the rectangle can be recaptured.
-      // Recapturing is not done by taking a snapshot of the screen, but by letting the tree draw itself
-      // into the back bitmap of the drag image. So the order here is unimportant.
-      useDragImage.RecaptureBackground(Self, TreeRect, VisibleTreeRegion, UpdateNCArea, ReshowDragImage);
-
-      // Calculate the screen area not covered by the drag image and which needs an update.
-      DragRect := useDragImage.GetDragImageRect;
-      MapWindowPoints(0, Handle, DragRect, 2);
-      DragRegion := CreateRectRgnIndirect(DragRect);
-
-      // Start with non-client area if requested.
-      if UpdateNCArea then
-      begin
-        // Compute the part of the non-client area which must be updated.
-
-        // Determine the outer rectangle of the entire tree window.
-        GetWindowRect(Handle, NCRect);
-        // Express the tree window rectangle in client coordinates (because RedrawWindow wants them so).
-        MapWindowPoints(0, Handle, NCRect, 2);
-        NCRegion := CreateRectRgnIndirect(NCRect);
-        // Determine client rect in screen coordinates and create another region for it.
-        UpdateRegion := CreateRectRgnIndirect(ClientRect);
-        // Create a region which only contains the NC part by subtracting out the client area.
-        CombineRgn(NCRegion, NCRegion, UpdateRegion, RGN_DIFF);
-        // Subtract also out what is hidden by the drag image.
-        CombineRgn(NCRegion, NCRegion, DragRegion, RGN_DIFF);
-        RedrawWindow(nil, NCRegion, RDW_FRAME or RDW_NOERASE or RDW_NOCHILDREN or RDW_INVALIDATE or RDW_VALIDATE or
-          RDW_UPDATENOW);
-        DeleteObject(NCRegion);
-        DeleteObject(UpdateRegion);
-      end;
-
-      UpdateRegion := CreateRectRgnIndirect(TreeRect);
-      RedrawFlags := RDW_INVALIDATE or RDW_VALIDATE or RDW_UPDATENOW or RDW_NOERASE or RDW_NOCHILDREN;
-      // Remove the part of the update region which is covered by the drag image.
-      CombineRgn(UpdateRegion, UpdateRegion, DragRegion, RGN_DIFF);
-      RedrawWindow(nil, UpdateRegion, RedrawFlags);
-      DeleteObject(UpdateRegion);
-      DeleteObject(DragRegion);
-      DeleteObject(VisibleTreeRegion);
-    end;
-  end;
-  {$endif}
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
+function GetRandomRgn(DC: HDC; Rgn: HRGN; iNum: Integer): Integer; stdcall; external 'GDI32.DLL';
 
 procedure TBaseVirtualTree.ValidateCache();
 
@@ -22457,7 +22361,8 @@ begin
         // Once we have got the drag image we can convert all necessary coordinates into screen space.
         OffsetRect(TreeRect, -FEffectiveOffsetX, FOffsetY);
         ImagePos := ClientToScreen(TreeRect.TopLeft);
-        HotSpot := ClientToScreen(HotSpot);
+        HotSpot.X := Width div 2;
+        HotSpot.Y := Height div 2;
 
         lDragImage.ColorKey := FColors.BackGroundColor;
         lDragImage.PrepareDrag(Image, ImagePos, HotSpot, DataObject);
@@ -22643,7 +22548,7 @@ begin
   begin
     BeginUpdate;
     // try to get the source tree of the operation
-    Source := GetTreeFromDataObject(DataObject);
+    Source := TVTDragManager.GetTreeFromDataObject(DataObject);
     if Assigned(Source) then
       Source.BeginUpdate;
     try

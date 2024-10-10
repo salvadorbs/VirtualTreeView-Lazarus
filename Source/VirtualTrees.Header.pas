@@ -214,7 +214,6 @@ type
     FNeedPositionsFix : Boolean;      // True if FixPositions must still be called after DFM loading or Bidi mode change.
     FClearing         : Boolean;      // True if columns are being deleted entirely.
     FColumnPopupMenu  : TPopupMenu;   // Member for storing the TVTHeaderPopupMenu
-
     function GetCount : Integer;
     function GetItem(Index : TColumnIndex) : TVirtualTreeColumn;
     function GetNewIndex(P : TPoint; var OldIndex : TColumnIndex) : Boolean;
@@ -408,7 +407,6 @@ type
     function DoHeightTracking(var P : TPoint; Shift : TShiftState) : Boolean; virtual;
     function DoHeightDblClickResize(var P : TPoint; Shift : TShiftState) : Boolean; virtual;
     procedure DoSetSortColumn(Value : TColumnIndex; pSortDirection : TSortDirection); virtual;
-    procedure DragTo(P : TPoint); virtual;
     procedure FixedAreaConstraintsChanged(Sender : TObject);
     function GetColumnsClass : TVirtualTreeColumnsClass; virtual;
     function GetOwner : TPersistent; override;
@@ -440,6 +438,8 @@ type
     {$IF LCL_FullVersion >= 2010000}
     procedure FixDesignFontsPPI(const ADesignTimePPI: Integer); virtual;
     {$IFEND}
+    procedure ColumnDropped(const P: TPoint);
+    procedure DragTo(P : TPoint);
     function InHeader(P : TPoint) : Boolean; virtual;
     function InHeaderSplitterArea(P : TPoint) : Boolean; virtual;
     procedure Invalidate(Column : TVirtualTreeColumn; ExpandToBorder : Boolean = False; UpdateNowFlag : Boolean = False);
@@ -487,7 +487,8 @@ implementation
 
 uses
   Generics.Defaults, Generics.Collections,
-  VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil;
+  VirtualTrees, VirtualTrees.BaseTree, Math, Forms, VirtualTrees.Utils, VirtualTrees.HeaderPopup, GraphUtil,
+  VirtualTrees.DataObject;
 
 type
   TVirtualTreeColumnsCracker = class(TVirtualTreeColumns);
@@ -508,6 +509,9 @@ type
     function TreeViewControl : TBaseVirtualTreeCracker;
   end;
 
+const
+  cMargin = 2;                // the margin between text and the header rectangle
+  cDownOffset = 1;            // the offset of the column header text whit mouse button down
 
 
   //----------------- TVTFixedAreaConstraints ----------------------------------------------------------------------------
@@ -1358,27 +1362,9 @@ begin
   {$ifndef INCOMPLETE_WINAPI}
   //Fix for various problems mentioned in issue 248.
   if NeedRepaint then
-  begin
     TBaseVirtualTreeCracker(FOwner).UpdateWindow();
 
-    //The new routine recaptures the backup image after the updatewindow
-    //Note: We could have called this unconditionally but when called
-    //over the tree, doesn't capture the background image. Since our
-    //problems are in painting of the header, we call it only when the
-    //drag image is over the header.
-    if
-    //determine the case when the drag image is or was on the header area
-      (InHeader(FOwner.ScreenToClient(FDragImage.LastPosition)) or InHeader(FOwner.ScreenToClient(FDragImage.ImagePosition))) then
-    begin
-      GDIFlush;
-      TBaseVirtualTreeCracker(FOwner).UpdateWindowAndDragImage(TBaseVirtualTree(FOwner), TBaseVirtualTreeCracker(FOwner).HeaderRect, True, True);
-    end;
-    //since we took care of UpdateWindow above, there is no need to do an
-    //update window again by sending NeedRepaint. So switch off the second parameter.
-    NeedRepaint := False;
-  end;
   {$endif}
-
   FDragImage.DragTo(P, NeedRepaint);
 end;
 
@@ -1564,9 +1550,7 @@ function TVTHeader.HandleMessage(var Message: TLMessage): Boolean;
 
 var
   P                                          : TPoint;
-  R                                          : TRect;
   I                                          : TColumnIndex;
-  OldPosition                                : Integer;
   HitIndex                                   : TColumnIndex;
   NewCursor                                  : TCursor;
   Button                                     : TMouseButton;
@@ -1816,59 +1800,12 @@ begin
             //successfull dragging moves columns
             with TLMLButtonUp(Message) do
               P := Tree.ClientToScreen(Point(XPos, YPos));
-            GetWindowRect(Tree.Handle, R);
+            ColumnDropped(P);
             {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / R',R);{$endif}
-            with FColumns do
-            begin
               {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropTarget: %d FDragIndex : %d FDragIndexPosition : %d',
                 [FDropTarget, FDragIndex, FColumns[FDragIndex].Position]);{$endif}
               {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropBefore', FColumns.FDropBefore);{$endif}
-              FDragImage.EndDrag;
-
-              //Problem fixed:
-              //Column Header does not paint correctly after a drop in certain conditions
-              // ** The conditions are, drag is across header, mouse is not moved after
-              //the drop and the graphics hardware is slow in certain operations (encountered
-              //on Windows 10).
-              //Fix for the problem on certain systems where the dropped column header
-              //does not appear in the new position if the mouse is not moved after
-              //the drop. The reason is that the restore backup image operation (BitBlt)
-              //in the above EndDrag is slower than the header repaint in the code below
-              //and overlaps the new changed header with the older image.
-              //This happens because BitBlt seems to operate in its own thread in the
-              //graphics hardware and finishes later than the following code.
-              //
-              //To solve this problem, we introduce a small delay here so that the
-              //changed header in the following code is correctly repainted after
-              //the delayed BitBlt above has finished operation to restore the old
-              //backup image.
-              sleep(50);
-
-              if (DropTarget > - 1) and (DropTarget <> DragIndex) and PtInRect(R, P) then
-              begin
                 {$ifdef DEBUG_VTV}Logger.Send([lcDrag],'Header - EndDrag / FDropTargetPosition', FColumns[FDropTarget].Position);{$endif}
-                OldPosition := FColumns[DragIndex].Position;
-                if FColumns.DropBefore then
-                begin
-                  if FColumns[DragIndex].Position < FColumns[DropTarget].Position then
-                    FColumns[DragIndex].Position := Max(0, FColumns[DropTarget].Position - 1)
-                  else
-                    FColumns[DragIndex].Position := FColumns[DropTarget].Position;
-                end
-                else
-                begin
-                  if FColumns[DragIndex].Position < FColumns[DropTarget].Position then
-                    FColumns[DragIndex].Position := FColumns[DropTarget].Position
-                  else
-                    FColumns[DragIndex].Position := FColumns[DropTarget].Position + 1;
-                end;
-                Tree.DoHeaderDragged(DragIndex, OldPosition);
-              end
-              else
-                Tree.DoHeaderDraggedOut(DragIndex, P);
-              DropTarget := NoColumn;
-            end;
-            Invalidate(nil);
           end;
           Result := True;
           Message.Result := 0;
@@ -2041,6 +1978,61 @@ begin
   end;
 end;
 
+procedure TVTHeader.ColumnDropped(const P: TPoint);
+var
+  R: TRect;
+  OldPosition: Integer;
+begin
+  GetWindowRect(Tree.Handle, R);
+  with FColumns do
+  begin
+    FDragImage.EndDrag;
+
+    //Problem fixed:
+    //Column Header does not paint correctly after a drop in certain conditions
+    // ** The conditions are, drag is across header, mouse is not moved after
+    //the drop and the graphics hardware is slow in certain operations (encountered
+    //on Windows 10).
+    //Fix for the problem on certain systems where the dropped column header
+    //does not appear in the new position if the mouse is not moved after
+    //the drop. The reason is that the restore backup image operation (BitBlt)
+    //in the above EndDrag is slower than the header repaint in the code below
+    //and overlaps the new changed header with the older image.
+    //This happens because BitBlt seems to operate in its own thread in the
+    //graphics hardware and finishes later than the following code.
+    //
+    //To solve this problem, we introduce a small delay here so that the
+    //changed header in the following code is correctly repainted after
+    //the delayed BitBlt above has finished operation to restore the old
+    //backup image.
+    sleep(50);
+
+    if (DropTarget > - 1) and (DropTarget <> DragIndex) and PtInRect(R, P) then
+    begin
+      OldPosition := FColumns[DragIndex].Position;
+      if FColumns.DropBefore then
+      begin
+        if FColumns[DragIndex].Position < FColumns[DropTarget].Position then
+          FColumns[DragIndex].Position := Max(0, FColumns[DropTarget].Position - 1)
+        else
+          FColumns[DragIndex].Position := FColumns[DropTarget].Position;
+      end
+      else
+      begin
+        if FColumns[DragIndex].Position < FColumns[DropTarget].Position then
+          FColumns[DragIndex].Position := FColumns[DropTarget].Position
+        else
+          FColumns[DragIndex].Position := FColumns[DropTarget].Position + 1;
+      end;
+      Tree.DoHeaderDragged(DragIndex, OldPosition);
+    end
+    else
+      Tree.DoHeaderDraggedOut(DragIndex, P);
+    DropTarget := NoColumn;
+  end;
+  Invalidate(nil);
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TVTHeader.ImageListChange(Sender : TObject);
@@ -2058,9 +2050,12 @@ procedure TVTHeader.PrepareDrag(P, Start : TPoint);
 
 var
   Image      : TBitmap;
-  ImagePos   : TPoint;
+  HotSpot    : TPoint;
+  ImagePos   : TPoint deprecated;
   DragColumn : TVirtualTreeColumn;
   RTLOffset  : TDimension;
+  lDataObject: IDataObject;
+  lDragEffect: DWord; // The last executed drag effect, not needed here
 
 begin
   //Determine initial position of drag image (screen coordinates).
@@ -2101,12 +2096,15 @@ begin
       {
       Dec(ImagePos.Y, FHeight);
       }
+      HotSpot.X := HotSpot.X - DragColumn.Left - cMargin;
+      HotSpot.Y := HotSpot.Y + Height - cMargin; // header is in the non-client area and so the coordinates are negative
 
       if hoRestrictDrag in FOptions then
         FDragImage.MoveRestriction := dmrHorizontalOnly
       else
         FDragImage.MoveRestriction := dmrNone;
-      FDragImage.PrepareDrag(Image, ImagePos, P, nil);
+
+      FDragImage.PrepareDrag(Image, ImagePos, HotSpot, nil);
       FDragImage.ShowDragImage;
     finally
       Image.Free;
@@ -5921,7 +5919,7 @@ var
         PaintRectangle := ATargetRect;
 
         // calculate text and glyph position
-        InflateRect(PaintRectangle, - 2, - 2);
+        InflateRect(PaintRectangle, - cMargin, - cMargin);
         DrawFormat := DT_TOP or DT_NOPREFIX;
         case CaptionAlignment of
           taLeftJustify :
@@ -5938,7 +5936,7 @@ var
         // Move glyph and text one pixel to the right and down to simulate a pressed button.
         if IsDownIndex then
         begin
-          OffsetRect(TextRectangle, 1, 1);
+          OffsetRect(TextRectangle, cDownOffset, cDownOffset);
           Inc(GlyphPos.X);
           Inc(GlyphPos.Y);
           Inc(SortGlyphPos.X);
