@@ -75,7 +75,7 @@ type
     cDefaultColumnSpacing = 3;
   private
     FText,
-      FHint               : string;
+      FHint               : TTranslateString;
     FWidth                : TDimension;
     FPosition             : TColumnPosition;
     FMinWidth             : TDimension;
@@ -137,7 +137,7 @@ type
     procedure GetAbsoluteBounds(var Left, Right : TDimension);
     function GetDisplayName : string; override;
     function GetText : string; virtual;                   // [IPK]
-    procedure SetText(const Value : string); virtual;     // [IPK] private to protected & virtual
+    procedure SetText(const Value : TTranslateString); virtual;     // [IPK] private to protected & virtual
     function GetOwner : TVirtualTreeColumns; reintroduce;
     procedure InternalSetWidth(const Value : TDimension); //bypass side effects in SetWidth
     procedure ReadHint(Reader : TReader);
@@ -178,7 +178,7 @@ type
     property CheckBox             : Boolean read FCheckBox write SetCheckBox default False;
     property Color                : TColor read FColor write SetColor stored IsColorStored;
     property DefaultSortDirection : TSortDirection read FDefaultSortDirection write FDefaultSortDirection default sdAscending;
-    property Hint                 : string read FHint write FHint;
+    property Hint                 : TTranslateString read FHint write FHint;
     property ImageIndex           : TImageIndex read FImageIndex write SetImageIndex default - 1;
     property Layout               : TVTHeaderColumnLayout read FLayout write SetLayout default blGlyphLeft;
     property Margin               : TDimension read FMargin write SetMargin stored IsMarginStored;
@@ -191,7 +191,7 @@ type
     property Spacing              : TDimension read FSpacing write SetSpacing default cDefaultColumnSpacing;
     property Style                : TVirtualTreeColumnStyle read FStyle write SetStyle default vsText;
     property Tag                  : NativeInt read FTag write FTag default 0;
-    property Text                 : string read GetText write SetText;
+    property Text                 : TTranslateString read GetText write SetText;
     property Width                : TDimension read FWidth write SetWidth default 50;
   end;
 
@@ -3560,7 +3560,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TVirtualTreeColumn.SetText(const Value : string);
+procedure TVirtualTreeColumn.SetText(const Value : TTranslateString);
 
 begin
   if FText <> Value then
