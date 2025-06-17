@@ -36,12 +36,6 @@ uses
   SysUtils, Classes, Graphics, Controls, Forms, ImgList, StdCtrls, Menus, Printers,
   SyncObjs,  // Thread support
   Clipbrd // Clipboard support
-  {$ifdef LCLCocoa}
-  ,CocoaGDIObjects // hack: while using buffered drawing, multiply the context
-                   //       by the retina scale to achieve the needed scale for Retina
-                   //       Ideally - not to use Buffered. but Unbuffered drawing
-                   //       seems to need a fix
-  {$endif}
   {$ifdef ThemeSupport}
   , Themes , TmSchema
   {$endif ThemeSupport}
@@ -51,7 +45,6 @@ uses
   , VirtualTrees.DragImage
   , VirtualTrees.DataObject
   , VirtualTrees.Classes
-  , VirtualTrees.Utils
   , VirtualTrees.BaseAncestorLcl
   , virtualdragmanager
   ;
@@ -59,6 +52,12 @@ uses
 var
   IsWinVistaOrAbove: Boolean;
   UtilityImageSize: Integer = cUtilityImageSize;
+
+{$ifdef gtk}
+// Workaround LCL bug 8553
+var
+  pf32bit: TPixelFormat = pfDevice;
+{$endif}
 
 {$MinEnumSize 1, make enumerations as small as possible}
 
@@ -1781,6 +1780,7 @@ uses
   TypInfo,                 // for migration stuff
   ActnList,
   StdActns,                // for standard action support
+  FPImage, IntfGraphics, LazCanvas,  // for alpha-transparent bitmaps
   GraphType,
   LCLProc
   {$ifdef EnableAccessible}
@@ -1793,7 +1793,8 @@ uses
   , VirtualTrees.DragnDrop
   , VirtualTrees.Export
   , VirtualTrees.EditLink
-  , VirtualTrees.DrawTree;
+  , VirtualTrees.DrawTree
+  , VirtualTrees.Utils;
 
 resourcestring
   // Localizable strings.
@@ -1935,7 +1936,7 @@ begin
   Result.RegisterResolutions([16, 24, 32]);
   Result.Scaled := True;
   Resourcename := BuildResourceName(CheckImagesStrings[CheckKind]);
-  Bitmap := CreateBitmapFromResourceName(0, ResourceName);
+  Bitmap := CreateBitmapFromResourceName(HINSTANCE, ResourceName);
   try
     Bitmap.Transparent := True;
     Result.AddSliced(Bitmap, 25, 1);
@@ -1954,7 +1955,7 @@ procedure LoadBitmapFromResource(Bitmap: Graphics.TBitmap; const ResourceName: S
 var
   ResourceBitmap: TCustomBitmap;
 begin
-  ResourceBitmap := CreateBitmapFromResourceName(0, BuildResourceName(ResourceName));
+  ResourceBitmap := CreateBitmapFromResourceName(HINSTANCE, BuildResourceName(ResourceName));
   try
     ResourceBitmap.Transparent := True;
     Bitmap.Assign(ResourceBitmap);
@@ -2355,6 +2356,13 @@ begin
   FHotMinusBM := TBitmap.Create;
   FSelectedHotPlusBM := TBitmap.Create;
   FSelectedHotMinusBM := TBitmap.Create;
+
+  FPlusBM.PixelFormat := pf32Bit;
+  FHotPlusBM.PixelFormat := pf32Bit;
+  FMinusBM.PixelFormat := pf32Bit;
+  FHotMinusBM.PixelFormat := pf32Bit;
+  FSelectedHotPlusBM.PixelFormat := pf32Bit;
+  FSelectedHotMinusBM.PixelFormat := pf32Bit;
 
   BorderStyle := TFormBorderStyle.bsSingle;
   FButtonStyle := bsRectangle;
@@ -4327,12 +4335,7 @@ asm
         PUSH    EBX
         PUSH    EDI
         PUSH    ESI
-        {$if FPC_FULLVERSION >= 30100}
         MOV     ESI, EDX
-        {$else}
-        MOV     ECX, EDX               //fpc < 3.1: count is in EDX. Move to ECX
-        MOV     ESI, [EBP+8]           //fpc < 3.1: TheArray is in EBP+8
-        {$endif}
         MOV     EDX, -1
         JCXZ    @@Finish               // Empty list?
         INC     EDX                    // init remaining entries counter
@@ -4384,6 +4387,7 @@ const
   LineBitsSolid: array [0..7] of Word = (0, 0, 0, 0, 0, 0, 0, 0);
 
 var
+  p9, p8, p6, p4, p2, p1: Integer;
   Bits: Pointer;
   Size: TSize;
   {$ifdef ThemeSupport}
@@ -4394,7 +4398,7 @@ var
   R: TRect;
   BitsLinesCount: Word;
 
-  //--------------- local function --------------------------------------------
+  //--------------- local functions -------------------------------------------
 
   procedure FillBitmap (ABitmap: TBitmap);
   begin
@@ -4419,15 +4423,84 @@ var
     end;
   end;
 
+  procedure PaintButtonBitmap(ABitmap: TBitmap; BtnStyle: TVTButtonStyle; IsPlus: Boolean);
+  var
+    img: TLazIntfImage;
+    canv: TLazCanvas;
+    m, c: Integer;
+  begin
+    img := ABitmap.CreateIntfImage;
+    canv := TLazCanvas.Create(img);
+    try
+      img.FillPixels(colTransparent);
+      c := Img.Width div 2;
+      case BtnStyle of
+        bsRectangle:
+          begin
+            if FButtonFillMode in [fmTreeColor, fmWindowColor, fmTransparent] then
+            begin
+              case FButtonFillMode of
+                fmTreeColor:
+                  canv.Brush.FPColor := TColorToFPColor(ColorToRGB(FColors.BackGroundColor));
+                fmWindowColor:
+                  canv.Brush.FPColor := TColorToFPColor(ColorToRGB(clWindow));
+                fmTransparent:
+                  canv.Brush.Style := bsClear;
+              end;
+              canv.Pen.FPColor := TColorToFPColor(ColorToRGB(FColors.TreeLineColor)); //clWindowText));
+              m := c div 2;
+              if m = 0 then m := 1;
+              canv.Rectangle(0, 0, img.Width, img.Height);
+              canv.Pen.FPColor := TColorToFPColor(ColorToRGB(clWindowText));
+              canv.Line(c-m, c, c+m, c);
+              if IsPlus then
+                canv.Line(c, c-m, c, c+m);
+            end else
+            begin
+              if IsPlus then
+                LoadBitmapFromResource(FMinusBM, 'laz_vt_xpbuttonplus')
+              else
+                LoadBitmapFromResource(FMinusBM, 'laz_vt_xpbuttonminus');
+            end;
+          end;
+
+        bsTriangle:
+          begin
+            canv.Brush.FPColor := TColorToFPColor(ColorToRGB(clWindowText));
+            canv.Pen.FPColor := canv.Brush.FPColor;
+            if IsPlus then
+            begin
+              m := Img.Width * 7 div 10;
+              if BiDiMode = bdLeftToRight then
+                canv.Polygon([Point(0, 0), Point(0, Img.Height-1), Point(m, c)])
+              else
+                canv.Polygon([Point(Img.Width-1-m, c), Point(Img.Width-1, Img.Height-1), Point(Img.Width-1, 0)]);
+            end else
+            begin
+              m := Img.Width * 7 div 20;
+              if BiDiMode = bdLeftToRight then
+                canv.Polygon([Point(c-m, c+m), Point(c+m, c+m), Point(c+m, c-m)])
+              else
+                canv.Polygon([Point(c-m, c-m), Point(c-m, c+m), Point(c+m, c+m)]);
+            end;
+          end;
+      end;
+
+      ABitmap.LoadFromIntfImage(img);
+    finally
+      canv.Free;
+      img.Free;
+    end;
+  end;
+
   //--------------- end local function ----------------------------------------
 
 const
   cMinExpandoHeight = 11; // pixels @100%
+{$ifdef Windows}
 var
-  p9, p8, p6, p4, p2, p1: TDimension;
-  {$ifdef Windows}
   OSVersionInfo: TOSVersionInfo;
-  {$endif}
+{$endif}
 begin
   //ToDo upgrade: implement GetElementSize and tcbCategoryGlyphClosed & tcbCategoryGlyphOpened
   {
@@ -4463,24 +4536,9 @@ begin
     else
   }
       begin // No stlye
-    {$IF LCL_FullVersion >= 1080000}
-    p1 := Scale96ToFont(1);
-    p2 := Scale96ToFont(2);
-    p4 := p2 + p2;
-    p6 := p4 + p2;
-    p8 := p4 + p4;
-    p9 := p8 + p1;
-    if not odd(p9) then dec(p9);
-    {$ELSE}
-    p9 := 9;
-    p8 := 8;
-    p6 := 6;
-    p4 := 4;
-    p2 := 2;
-    p1 := 1;
-    {$IFEND}
-        Size.cx := p9;
-        Size.cy := Size.cx;
+  Size.cx := Scale96ToFont(9);
+  if not odd(Size.cx) then dec(Size.cx);
+    Size.cy := Size.cx;
 
     {$ifdef ThemeSupport}
     {$ifdef LCLWin}
@@ -4491,7 +4549,7 @@ begin
             Theme := OpenThemeDataForDPI(Handle, 'TREEVIEW', Screen.PixelsPerInch)
           else
             Theme := OpenThemeData(Handle, 'TREEVIEW');
-          if IsWinVistaOrAbove and (toUseExplorerTheme in FOptions.PaintOptions) then
+          if (toUseExplorerTheme in FOptions.PaintOptions) then
           GetThemePartSize(Theme, FPlusBM.Canvas.Handle, TVP_GLYPH, GLPS_OPENED, @R, TS_TRUE, Size);
         end
           else
@@ -4529,37 +4587,7 @@ begin
                   begin
                     if not(tsUseExplorerTheme in FStates) then
                     begin
-                      if FButtonStyle = bsTriangle then
-                      begin
-                        Brush.Color := clBlack;
-                        Pen.Color := clBlack;
-                        // todo: evaluate RTL triangle coordinates
-                        if BiDiMode = bdLeftToRight then
-                          Polygon([Point(p1, p8-p1), Point(p8-p1, p8-p1), Point(p8-p1, p1)])
-                        else
-                          Polygon([Point(p1, p1), Point(p1, p8-p1), Point(p8-p1, p8-p1)]);
-
-                // or?
-                //Polygon([Point(0, p2), Point(p8, p2), Point(p4, p6)]);
-                      end
-                        else
-                          begin
-                            // Button style is rectangular. Now ButtonFillMode determines how to fill the interior.
-                            if FButtonFillMode in [fmTreeColor, fmWindowColor, fmTransparent] then
-                            begin
-                              case FButtonFillMode of
-                                fmTreeColor:
-                                  FMinusBM.Canvas.Brush.Color := FColors.BackGroundColor;
-                                fmWindowColor:
-                                  FMinusBM.Canvas.Brush.Color := clWindow;
-                              end;
-                              Pen.Color := FColors.TreeLineColor;
-                              Rectangle(0, 0, Width, Height);
-                              Pen.Color := FColors.NodeFontColor;
-                              MoveTo(p2, Width div 2);
-                              LineTo(Width - p2, Width div 2);
-                            end
-                          end;
+                      PaintButtonBitmap(FMinusBM, FButtonStyle, false);
                       FHotMinusBM.Canvas.Draw(0, 0, FMinusBM);
                       FSelectedHotMinusBM.Canvas.Draw(0, 0, FMinusBM);
                     end;
@@ -4574,35 +4602,7 @@ begin
                   begin
                     if not(tsUseExplorerTheme in FStates) then
                     begin
-                      if FButtonStyle = bsTriangle then
-                      begin
-                        Brush.Color := clBlack;
-                        Pen.Color := clBlack;
-                        if BiDiMode = bdLeftToRight then
-                          Polygon([Point(p2, 0), Point(p6, p4), Point(p2, p8)])
-                        else
-                          Polygon([Point(p2, p4), Point(p6, 0), Point(p6, p8)])
-                      end
-                        else
-                          begin
-                            // Button style is rectangular. Now ButtonFillMode determines how to fill the interior.
-                            if FButtonFillMode in [fmTreeColor, fmWindowColor, fmTransparent] then
-                            begin
-                              case FButtonFillMode of
-                                fmTreeColor:
-                                  FPlusBM.Canvas.Brush.Color := FColors.BackGroundColor;
-                                fmWindowColor:
-                                  FPlusBM.Canvas.Brush.Color := clWindow;
-                              end;
-                              Pen.Color := FColors.TreeLineColor;
-                              Rectangle(0, 0, Width, Height);
-                              Pen.Color := FColors.NodeFontColor;
-                              MoveTo(p2, Width div 2);
-                              LineTo(Width - p2, Width div 2);
-                              MoveTo(Width div 2, p2);
-                              LineTo(Width div 2, Width - p2);
-                            end
-                          end;
+                       PaintButtonBitmap(FPlusBM, FButtonstyle, true);
                        FHotPlusBM.Canvas.Draw(0, 0, FPlusBM);
                        FSelectedHotPlusBM.Canvas.Draw(0, 0, FPlusBM);
                      end;
@@ -15377,7 +15377,7 @@ begin
     if IntersectRect(BlendRect, OrderRect(SelectionRect), TargetRect) then
     begin
       OffsetRect(BlendRect, -WindowOrgX, 0);
-      AlphaBlend(0, Target.Handle, BlendRect, Point(0, 0), bmConstantAlphaAndColor, FSelectionBlendFactor,
+      VirtualTrees.Utils.AlphaBlend(0, Target.Handle, BlendRect, Point(0, 0), bmConstantAlphaAndColor, FSelectionBlendFactor,
         ColorToRGB(FColors.SelectionRectangleBlendColor));
 
       Target.Brush.Color := FColors.SelectionRectangleBorderColor;
@@ -16063,7 +16063,7 @@ const
     LoadPanningCursors;
 
     //lcl need get png files from resources and apply alpha with CreateRegion & SetWindowRgn
-    Bitmap := CreateBitmapFromResourceName(0, BuildResourceName(ImageName));
+    Bitmap := CreateBitmapFromResourceName(HINSTANCE, BuildResourceName(ImageName));
     try
       Image.Width := Bitmap.Width;
       Image.Height := Bitmap.Height;
@@ -17507,6 +17507,7 @@ begin
       if IsDragWidthStored then
         FDragWidth := Round(FDragWidth * XProportion);
       FHeader.AutoAdjustLayout(XProportion, YProportion);
+      PrepareBitmaps(true, false);
     finally
       EnableAutoSizing;
     end;
@@ -21638,18 +21639,10 @@ var
   CellIsInLastColumn: Boolean;
   ColumnIsFixed: Boolean;
 
-  {$ifdef LCLCocoa}
-  sc: Double; // the retina scale. 1.0 for no-retina
-  cg: CGContextRef; // tracking the Context of Bitmap
-  cglast: CGContextRef; // the last Context of Bitmap.
-                        // The scale is applied only when the context changes
-  {$endif}
+  ScaleFactor: double;
 
 begin
-  {$ifdef LCLCocoa}
-  cglast := nil;
-  sc := GetCanvasScaleFactor;
-  {$endif}
+  ScaleFactor := GetCanvasScaleFactor;
 
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcPaint],'PaintTree');{$endif}
   {$ifdef DEBUG_VTV}Logger.Send([lcPaint, lcHeaderOffset],'Window',Window);{$endif}
@@ -21693,12 +21686,11 @@ begin
         else
           NodeBitmap.PixelFormat := PixelFormat;
 
-        {$ifdef LCLCocoa}
-        NodeBitmap.Width := Round(PaintWidth*sc);
-        cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
-        {$else}
-        NodeBitmap.Width := PaintWidth;
-        {$endif}
+        NodeBitmap.Width := Round(PaintWidth * ScaleFactor);
+        NodeBitmap.Height := 1;
+        {$if LCL_FullVersion >= 4990000}
+        LCLIntf.SetCanvasScaleFactor(NodeBitmap.Canvas.Handle, ScaleFactor);
+        {$ifend}
 
         // Make sure the buffer bitmap and target bitmap use the same transformation mode.
         {$ifndef Gtk}
@@ -21809,24 +21801,14 @@ begin
                 // Adjust height of temporary node bitmap.
                 with NodeBitmap do
                 begin
-                  if Height <> PaintInfo.Node.NodeHeight then
+                  if Height < PaintInfo.Node.NodeHeight then
                   begin
                     // Avoid that the VCL copies the bitmap while changing its height.
-                    {$ifdef LCLCocoa}
-                    Height := Round(PaintInfo.Node.NodeHeight * sc);
-                    cg := TCocoaBitmapContext(NodeBitmap.Canvas.Handle).CGContext;
-                    if cglast <> cg then
-                    begin
-                      CGContextScaleCTM(cg, sc, sc);
-                      cglast := cg;
-                    end;
-                    {$else}
-                    //lcl - glitch during selection
-                    {
-                    Height := 0;
-                    }
-                    Height := PaintInfo.Node.NodeHeight;
-                    {$endif}
+                    if Height > 0 then SetSize(1,1); // can't go to 0, must keep canvas
+                    SetSize(Round(PaintWidth * ScaleFactor), Round(PaintInfo.Node.NodeHeight * ScaleFactor));
+                    {$if LCL_FullVersion >= 4990000}
+                    LCLIntf.SetCanvasScaleFactor(NodeBitmap.Canvas.Handle, ScaleFactor);
+                    {$ifend}
 
                     {$ifdef UseSetCanvasOrigin}
                     SetCanvasOrigin(Canvas, Window.Left, 0);
@@ -22141,23 +22123,9 @@ begin
                 if not (poUnbuffered in PaintOptions) then
                   with NodeBitmap do
                   begin
-                    {$ifdef LCLCocoa}
-                    StretchBlt(
-                      TargetCanvas.Handle,
-                      TargetRect.Left,
-                      TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif},
-                      PaintWidth, PaintInfo.Node.NodeHeight,
-                      Canvas.Handle,
-                      Window.Left,
-                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif},
-                      NodeBitmap.Width, NodeBitmap.Height,
-                      SRCCOPY
-                    );
-                    {$else}
                     BitBlt(TargetCanvas.Handle, TargetRect.Left,
-                     TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif}, TargetRect.Width, TargetRect.Height, Canvas.Handle, Window.Left,
+                     TargetRect.Top {$ifdef ManualClipNeeded} + YCorrect{$endif}, Round(TargetRect.Width * ScaleFactor), Round(PaintInfo.Node.NodeHeight * ScaleFactor), Canvas.Handle, Window.Left,
                      {$ifdef ManualClipNeeded}YCorrect{$else}0{$endif}, SRCCOPY);
-                    {$endif}
                   end;
               end;
             end;
@@ -22198,7 +22166,11 @@ begin
             // Avoid unnecessary copying of bitmap content. This will destroy the DC handle too.
             NodeBitmap.Height := 0;
             NodeBitmap.PixelFormat := pf32Bit;
-            NodeBitmap.SetSize(TargetRect.Right - TargetRect.Left, TargetRect.Bottom - TargetRect.Top);
+            NodeBitmap.SetSize(Round((TargetRect.Right - TargetRect.Left) * ScaleFactor), Round((TargetRect.Bottom - TargetRect.Top) * ScaleFactor));
+            {$if LCL_FullVersion >= 4990000}
+            LCLIntf.SetCanvasScaleFactor(NodeBitmap.Canvas.Handle, ScaleFactor);
+            {$ifend}
+
           end;
 
           {$ifdef DEBUG_VTV}Logger.Send([lcPaintDetails],'NodeBitmap.Handle after changing height to background',NodeBitmap.Handle);{$endif}
@@ -23049,6 +23021,8 @@ var
   ScrolledHorizontally: Boolean;
 
 begin
+  if not HandleAllocated then
+    exit;
   //todo: minimize calls to ClientHeight and ClientWidth
   ScrolledVertically := False;
   ScrolledHorizontally := False;
@@ -23981,6 +23955,8 @@ end;
 procedure TBaseVirtualTree.UpdateHorizontalRange;
 
 begin
+  if not HandleAllocated then
+    exit;
   if FHeader.UseColumns then
     SetRangeX(FHeader.Columns.TotalWidth)
   else
@@ -23995,6 +23971,8 @@ var
   ScrollInfo: TScrollInfo;
 
 begin
+  if not HandleAllocated then
+    exit;
   UpdateHorizontalRange;
 
   if IsUpdating or not HandleAllocated then
@@ -24110,6 +24088,8 @@ var
   ScrollInfo: TScrollInfo;
 
 begin
+  if not HandleAllocated then
+    exit;
   UpdateVerticalRange;
 
   if (IsUpdating) then

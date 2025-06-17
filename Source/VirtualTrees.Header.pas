@@ -29,13 +29,7 @@ uses
   , ImgList
   , Menus
   , LCLVersion
-  , Types
-  {$ifdef LCLCocoa}
-  ,CocoaGDIObjects // hack: while using buffered drawing, multiply the context
-                   //       by the retina scale to achieve the needed scale for Retina
-                   //       Ideally - not to use Buffered. but Unbuffered drawing
-                   //       seems to need a fix
-  {$endif};
+  , Types;
 
 const
   DefaultColumnOptions = [coAllowClick, coDraggable, coEnabled, coParentColor, coParentBidiMode, coResizable,
@@ -362,6 +356,7 @@ type
     function IsDefaultHeightStored: Boolean;
     function IsFontStored : Boolean;
     function IsHeightStored: Boolean;
+    function IsMinHeightStored: Boolean;
     procedure SetAutoSizeIndex(Value : TColumnIndex);
     procedure SetBackground(Value : TColor);
     procedure SetColumns(Value : TVirtualTreeColumns);
@@ -471,7 +466,7 @@ type
     {$IFEND}
     property MainColumn           : TColumnIndex read GetMainColumn write SetMainColumn default 0;
     property MaxHeight            : TDimension read FMaxHeight write SetMaxHeight default 10000;
-    property MinHeight            : TDimension read FMinHeight write SetMinHeight default 10;
+    property MinHeight            : TDimension read FMinHeight write SetMinHeight stored IsMinHeightStored;
     property Options              : TVTHeaderOptions read FOptions write SetOptions default [hoColumnResize, hoDrag, hoShowSortGlyphs];
     property ParentFont           : Boolean read FParentFont write SetParentFont default True;
     property PopupMenu            : TPopupMenu read FPopupMenu write FPopupMenu;
@@ -603,11 +598,12 @@ begin
   {$IF LCL_FullVersion >= 1080000}
   FHeight := FOwner.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
   FDefaultHeight := FOwner.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
+  FMinHeight := FOwner.Scale96ToFont(DEFAULT_MIN_HEIGHT);
   {$ELSE}
   FHeight := DEFAULT_HEADER_HEIGHT;
   FDefaultHeight := DEFAULT_HEADER_HEIGHT;
-  {$IFEND}
   FMinHeight := 10;
+  {$IFEND}
   FMaxHeight := 10000;
   FFont := TFont.Create;
   FFont.OnChange := FontChanged;
@@ -723,6 +719,17 @@ begin
   Result := FHeight <> FOwner.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
   {$ELSE}
   Result := FHeight <> DEFAULT_HEADER_HEIGHT;
+  {$IFEND}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function TVTHeader.IsMinHeightStored: Boolean;
+begin
+  {$IF LCL_FullVersion >= 1080000}
+  Result := FMinHeight <> FOwner.Scale96ToFont(DEFAULT_Min_HEIGHT);
+  {$ELSE}
+  Result := FMinHeight <> DEFAULT_MIN_HEIGHT;
   {$IFEND}
 end;
 
@@ -1139,17 +1146,21 @@ begin
   if IsHeightStored then
     FHeight := Round(FHeight * AYProportion);
 
-    if Columns.IsDefaultWidthStored then
-      Columns.DefaultWidth := Round(Columns.DefaultWidth * AXProportion);
+  if IsMinHeightStored then
+    FMinHeight := Round(FMinHeight * AYProportion);
 
-    for i := 0 to Columns.Count-1 do begin
-      col := Columns[i];
-      if col.IsWidthStored then
-        col.Width := Round(col.Width * AXProportion);
-      if col.IsSpacingStored then
-        col.Spacing := Round(col.Spacing * AXProportion);
-      if col.IsMarginStored then
-        col.Margin := Round(col.Margin * AXProportion);    end;
+  if Columns.IsDefaultWidthStored then
+    Columns.DefaultWidth := Round(Columns.DefaultWidth * AXProportion);
+
+  for i := 0 to Columns.Count-1 do begin
+    col := Columns[i];
+    if col.IsWidthStored then
+      col.Width := Round(col.Width * AXProportion);
+    if col.IsSpacingStored then
+      col.Spacing := Round(col.Spacing * AXProportion);
+    if col.IsMarginStored then
+      col.Margin := Round(col.Margin * AXProportion);
+  end;
 end;
 {$IFEND}
 
@@ -5609,9 +5620,7 @@ procedure TVirtualTreeColumns.PaintHeader(DC : HDC; R : TRect; HOffset : TDimens
 var
   VisibleFixedWidth : TDimension;
   RTLOffset         : TDimension;
-  {$ifdef LCLCocoa}
   sc : Double;
-  {$endif}
 
   procedure PaintFixedArea;
 
@@ -5624,16 +5633,14 @@ var
 
 begin
   // Adjust size of the header bitmap
-  FHeaderBitmap.SetSize(Max(TreeViewControl.HeaderRect.Right, R.Right - R.Left), TreeViewControl.HeaderRect.Bottom);
-  {$ifdef LCLCocoa}
   if Assigned(Header) and Assigned(Header.TreeView) then
     sc := Header.Treeview.GetCanvasScaleFactor
   else
     sc := 1.0;
-  FHeaderBitmap.Width := Round(FHeaderBitmap.Width * sc);
-  FHeaderBitmap.Height := Round(FHeaderBitmap.Height * sc);
-  CGContextScaleCTM(TCocoaBitmapContext(FHeaderBitmap.Canvas.Handle).CGContext, sc, sc);
-  {$endif}
+  FHeaderBitmap.SetSize(Max(TreeViewControl.HeaderRect.Right, R.Right - R.Left), TreeViewControl.HeaderRect.Bottom);
+  {$if LCL_FullVersion >= 4990000}
+  LCLIntf.SetCanvasScaleFactor(FHeaderBitmap.Canvas.Handle, sc);
+  {$ifend}
 
   VisibleFixedWidth := GetVisibleFixedWidth;
 
@@ -5656,15 +5663,7 @@ begin
     PaintFixedArea;
 
   // Blit the result to target.
-  {$ifdef LCLCocoa}
-  StretchBlt(DC, R.Left, R.Top, R.Right - R.Left, R.Bottom - R.Top,
-    FHeaderBitmap.Canvas.Handle,
-    R.Left, R.Top,
-    FHeaderBitmap.Width, FHeaderBitmap.Height,
-    SRCCOPY);
-  {$else}
-  BitBlt(DC, R.Left, R.Top, R.Right - R.Left, R.Bottom - R.Top, FHeaderBitmap.Canvas.Handle, R.Left, R.Top, SRCCOPY);
-  {$endif}
+  BitBlt(DC, R.Left, R.Top, Round((R.Right - R.Left) * sc), Round((R.Bottom - R.Top) * sc), FHeaderBitmap.Canvas.Handle, R.Left, R.Top, SRCCOPY);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
