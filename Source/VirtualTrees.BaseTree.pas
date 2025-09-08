@@ -7106,9 +7106,13 @@ procedure TBaseVirtualTree.WMContextMenu(var Message: TLMContextMenu);
 // This method is called when a popup menu is about to be displayed.
 // We have to cancel some pending states here to avoid interferences.
 //lcl: handle mouse up here because MouseUp is not called when popup is show
+
 var
   HitInfo: THitInfo;
+  pt: TPoint;
+  {$ifdef ContextMenuBeforeMouseUp}
   MessageButtonUp: TLMLButtonUp;
+  {$endif}
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMContextMenu');{$endif}
@@ -7138,6 +7142,14 @@ begin
   else
     inherited WMContextMenu(Message);
   {$else}
+
+  if not Assigned(PopupMenu) then begin
+    // convert screen coordinates to client
+    pt := ScreenToClient(Point(Message.XPos, Message.YPos));
+    GetHitTestInfoAt(Message.XPos, Message.YPos, True, HitInfo); // ShiftState is not used anyway here
+    DoPopupMenu(HitInfo.HitNode, HitInfo.HitColumn, pt);
+  end;
+
   if not (tsPopupMenuShown in FStates) then
     inherited WMContextMenu(Message);
   {$endif}
@@ -8457,7 +8469,7 @@ var
 
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMRButtonUp');{$endif}
-  DoStateChange([], [tsPopupMenuShown, tsRightButtonDown]);
+  DoStateChange([], [tsRightButtonDown]);
 
   if FHeader.States = [] then
   begin
@@ -8478,8 +8490,6 @@ begin
     if toRightClickSelect in FOptions.SelectionOptions then
       HandleMouseUp(Message, HitInfo);
 
-    if not Assigned(PopupMenu) then
-      DoPopupMenu(HitInfo.HitNode, HitInfo.HitColumn, Point(Message.XPos, Message.YPos));
   end;
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcMessages],'WMRButtonUp');{$endif}
 end;
@@ -12148,6 +12158,12 @@ var
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcDrag],'DragEnter');{$endif}
   try
+    if not (toAcceptOLEDrop in TreeOptions.MiscOptions) then
+    begin
+      Effect := DROPEFFECT_NONE;
+      Exit(NOERROR);
+    end;
+
     // Determine acceptance of drag operation and reset scroll start time.
     FDragScrollStart := 0;
 
@@ -13480,6 +13496,7 @@ begin
     LCLIntf.SetFocus(Handle);
     // Repeat the hit test as an OnExit event might got triggered that could modify the tree.
     GetHitTestInfoAt(Message.XPos, Message.YPos, True, HitInfo, KeysToShiftState(Message.Keys));
+    FLastHitInfo := HitInfo; // See issue #1297
   end;
 
   if IsEmpty then

@@ -3118,6 +3118,7 @@ begin
 
   PaintInfo.Column := Self;
   PaintInfo.TargetCanvas := Owner.HeaderBitmap.Canvas;
+  PaintInfo.TargetCanvas.Font := Header.Font;
 
   with PaintInfo, Column do
   begin

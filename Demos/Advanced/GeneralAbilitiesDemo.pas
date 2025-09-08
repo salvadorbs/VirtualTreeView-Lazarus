@@ -376,15 +376,11 @@ procedure TGeneralForm.VST2GetPopupMenu(Sender: TBaseVirtualTree; Node: PVirtual
   const P: TPoint; var AskParent: Boolean; var PopupMenu: TPopupMenu);
 
 begin
-  case Column of
-    0:
-      PopupMenu := PopupMenu1
-  else
-    PopupMenu := nil;
-  end;                       
+  if Column <= 0 then
+    PopupMenu := PopupMenu1;
 end;
 
-//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------;
 
 procedure TGeneralForm.VST2KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 

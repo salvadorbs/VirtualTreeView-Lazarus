@@ -1438,13 +1438,9 @@ begin
 
         if not (csDesigning in ComponentState) then
         begin
-          if toAcceptOLEDrop in ToBeCleared then
-            RevokeDragDrop(Handle);
           if toFullRepaintOnResize in ToBeSet + ToBeCleared then
             //todo_lcl_check
             RecreateWnd;
-          if toAcceptOLEDrop in ToBeSet then
-            RegisterDragDrop(Handle, DragManager as IDropTarget);
           if toVariableNodeHeight in ToBeSet then
           begin
             BeginUpdate();
