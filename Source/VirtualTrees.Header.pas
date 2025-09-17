@@ -3458,6 +3458,8 @@ begin
     ToBeSet := Value - FOptions;
 
     FOptions := Value;
+    if coFixed in ToBeSet then
+      FOptions := FOptions - [coDraggable]; // issue #1314
 
     VisibleChanged := coVisible in (ToBeSet + ToBeCleared);
     lParentColorSet := coParentColor in ToBeSet;
