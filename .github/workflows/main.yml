@@ -141,6 +141,57 @@ jobs:
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/unicode/unicode.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/vtbasic/vtbasic.lpi" --widgetset=${{ matrix.build-widgetset }}
 
+    - name: Build FPCUnit test project
+      run: |
+        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Tests/Tests.lpi" --widgetset=${{ matrix.build-widgetset }}
+
+    - name: Run FPCUnit tests
+      continue-on-error: true
+      shell: bash
+      run: |
+        cd "${{ env.VTV_SOURCE }}/Tests"
+        mkdir -p artifacts
+        
+        # Search for the executable using find for stability across platforms and architectures
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          BIN=$(find . -maxdepth 5 -type f -name "Tests.exe" -not -path "./artifacts/*" | head -n 1)
+        else
+          # On Linux search for a file named 'Tests' that is executable
+          BIN=$(find . -maxdepth 5 -type f -name "Tests" -executable -not -path "./artifacts/*" | head -n 1)
+        fi
+
+        if [ -z "$BIN" ]; then
+          echo "Error: Test executable not found in $(pwd)" | tee artifacts/tests_output.txt
+          echo "Listing contents for debugging:"
+          find . -maxdepth 3 -not -path "*/.*"
+          echo "127" > artifacts/tests_exit_code.txt
+          exit 0
+        fi
+
+        echo "Found test binary at: $BIN"
+        "$BIN" --all --progress --format=plain > artifacts/tests_output.txt 2>&1
+        EXIT_CODE=$?
+        echo $EXIT_CODE > artifacts/tests_exit_code.txt
+        echo "FPCUnit tests completed with exit code $EXIT_CODE"
+
+    - name: Publish FPCUnit artifacts
+      if: always()
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: fpcunit_tests_${{ matrix.os }}_${{ matrix.build-widgetset }}
+        path: |
+          ${{ env.VTV_SOURCE }}/Tests/artifacts/**
+
+    - name: Fail on FPCUnit test failure
+      if: always()
+      run: |
+        if [ ! -f "${{ env.VTV_SOURCE }}/Tests/artifacts/tests_exit_code.txt" ]; then
+          echo "No test exit code file found" >&2
+          exit 1
+        fi
+        EXIT_CODE=$(cat "${{ env.VTV_SOURCE }}/Tests/artifacts/tests_exit_code.txt")
+        if [ "$EXIT_CODE" -ne 0 ]; then exit $EXIT_CODE; fi
+
     - name: Validate Cache
       if: steps.cache.outputs.cache-hit == 'true'
       run: ${{ matrix.lazbuild }} --version && echo "success=true" >> $GITHUB_OUTPUT || echo "success=false" >> $GITHUB_OUTPUT

@@ -3,14 +3,15 @@
 interface
 
 uses
-  DUnitX.TestFramework,
-  Vcl.Forms,
-  VirtualTrees, System.Types;
+  fpcunit,
+  testregistry,
+  Forms,
+  Graphics,
+  VirtualTrees, Types;
 
 type
 
-  [TestFixture]
-  TVTOnDrawTextTests = class
+  TVTOnDrawTextTests = class(TTestCase)
   strict private
     fTree: TVirtualStringTree;
     fForm: TForm;
@@ -41,26 +42,22 @@ type
 
     procedure GetTextEvent(Sender: TBaseVirtualTree; Node: PVirtualNode;
       Column: TColumnIndex; TextType: TVSTTextType; var CellText: string);
-  public
-    [Setup]
-    procedure Setup;
-    [TearDown]
-    procedure TearDown;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
 
-    [Test]
+  published
     procedure TestOnDrawText;
 
-    [Test]
     procedure TestOnDrawTextOnDrawTextEx;
 
-    [Test]
     procedure TestOnDrawTextEx;
   end;
 
 implementation
 
 uses
-  System.SysUtils, VirtualTrees.Types;
+  SysUtils, VirtualTrees.Types;
 
 const
   colCaption = 0;
@@ -110,8 +107,12 @@ begin
   end;
 end;
 
-procedure TVTOnDrawTextTests.Setup;
+procedure TVTOnDrawTextTests.SetUp;
+var
+  LCol1: TVirtualTreeColumn;
+  LCol2: TVirtualTreeColumn;
 begin
+  inherited SetUp;
   FDrawText1Called := False;
   FDrawTextEx1Called := False;
 
@@ -127,8 +128,8 @@ begin
 
   fTree.OnGetText := GetTextEvent;
 
-  var LCol1 := fTree.Header.Columns.Add;
-  var LCol2 := fTree.Header.Columns.Add;
+  LCol1 := fTree.Header.Columns.Add;
+  LCol2 := fTree.Header.Columns.Add;
   LCol1.Text := 'Caption';
   LCol2.Text := 'Data';
 
@@ -140,6 +141,7 @@ end;
 procedure TVTOnDrawTextTests.TearDown;
 begin
   FreeAndNil(fForm);
+  inherited TearDown;
 end;
 
 procedure TVTOnDrawTextTests.TestOnDrawText;
@@ -149,7 +151,7 @@ begin
   fTree.OnDrawTextEx := nil;
   fTree.Update;
 
-  Assert.IsTrue(FDrawText1Called and not FDrawTextEx1Called);
+  AssertTrue(FDrawText1Called and not FDrawTextEx1Called);
 end;
 
 procedure TVTOnDrawTextTests.TestOnDrawTextEx;
@@ -160,7 +162,7 @@ begin
   fTree.OnDrawTextEx := DrawTextEx2Event;
   fTree.Update;
 
-  Assert.IsTrue(not FDrawText2Called and FDrawTextEx2Called);
+  AssertTrue(not FDrawText2Called and FDrawTextEx2Called);
 end;
 
 procedure TVTOnDrawTextTests.TestOnDrawTextOnDrawTextEx;
@@ -171,9 +173,9 @@ begin
   fTree.OnDrawTextEx := DrawTextEx3Event;
   fTree.Update;
 
-  Assert.IsTrue(not FDrawText3Called and FDrawTextEx3Called);
+  AssertTrue(not FDrawText3Called and FDrawTextEx3Called);
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TVTOnDrawTextTests);
+  RegisterTest(TVTOnDrawTextTests);
 end.

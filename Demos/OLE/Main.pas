@@ -51,7 +51,6 @@ type
     procedure CutActionExecute(Sender: TObject);
     procedure CopyActionExecute(Sender: TObject);
     procedure PasteActionExecute(Sender: TObject);
-    procedure TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
     procedure Tree1GetText(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; TextType: TVSTTextType;
       var CellText: string);
     procedure FormCreate(Sender: TObject);
@@ -188,14 +187,6 @@ begin
   else;
     //if ActiveControl = RichEdit1 then
     //  RichEdit1.PasteFromClipboard;
-end;
-
-procedure TMainForm.TreeFreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
-var
-  Data: PNodeData;
-begin
-  Data := Sender.GetNodeData(Node);
-  Data^.Caption := '';
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
