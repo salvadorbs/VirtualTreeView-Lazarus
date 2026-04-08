@@ -10354,17 +10354,20 @@ begin
   DoStateChange([], [tsEditPending]);
   if not (tsEditing in FStates) then
     Exit(True);
+  DoStateChange([], [tsEditing]);
   if pCancel then
-    Result := FEditLink.CancelEdit
-  else
-    Result := FEditLink.EndEdit;
-  if Result then
   begin
-    DoStateChange([], [tsEditing]);
-    FEditLink := nil;
-    if Assigned(FOnEdited) then
+    Result := FEditLink.CancelEdit();
+    if Result and Assigned(FOnEditCancelled) then
+      FOnEditCancelled(Self, FEditColumn);
+  end
+  else
+  begin
+    Result := FEditLink.EndEdit;
+    if Result and Assigned(FOnEdited) then
       FOnEdited(Self, FFocusedNode, FEditColumn);
   end;
+  FEditLink := nil;
   TrySetFocus();
 end;
 
@@ -14498,6 +14501,8 @@ begin
     if SyncCheckstateWithSelection[Node] then
       Node.CheckState := csUncheckedNormal; // Avoid using SetCheckState() as it handles toSyncCheckboxesWithSelection as well.
     System.Inc(PAnsiChar(FSelection[Index]));
+    // update selection count
+    System.Dec(FSelectionCount); // Fixes #1197
     DoRemoveFromSelection(Node);
     Change(Node); // Calling Change() here fixes issue #1047
   end;
@@ -15494,7 +15499,10 @@ begin
     begin
       Brush.Color := Items[Column].GetEffectiveColor;
       FillRect(CellRect);
-     end;
+     end
+     else
+       Brush.Color := FColors.BackGroundColor;
+
 
     // Let the application customize the cell background and the content rectangle.
     DoBeforeCellPaint(Canvas, Node, Column, cpmPaint, CellRect, ContentRect);
@@ -21225,7 +21233,11 @@ begin
     Abort := False;
     Result := StartNode;
     if Result = nil then
-      Stop := nil
+    begin
+      Stop := nil;
+      // Use first node if we start with the root.
+      Result := GetFirstNoInit;
+    end
     else
     begin
       if not (vsInitialized in Result.States) and DoInit then
@@ -21246,21 +21258,17 @@ begin
       end;
     end;
 
-    // Use first node if we start with the root.
-    if Result = nil then
-      Result := GetFirstNoInit;
-
     if Assigned(Result) then
     begin
       if not (vsInitialized in Result.States) and DoInit then
         InitNode(Result);
 
       // Skip given node if only the child nodes are requested.
-      if ChildNodesOnly then
+      if ChildNodesOnly and (StartNode <> nil ) then
       begin
         if Result.ChildCount = 0 then
           Result := nil
-        else if StartNode <> nil then
+        else
           Result := GetNextNode(Result);
       end;
 

@@ -29,7 +29,7 @@ type
     procedure MLTreeEditing(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var Allowed: Boolean);
     procedure MLTreeStateChange(Sender: TBaseVirtualTree; Enter, Leave: TVirtualTreeStates);
     procedure MLTreeMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
-      var NodeHeight: Integer);
+      var NodeHeight: TDimension);
     procedure AutoAdjustCheckBoxClick(Sender: TObject);
   end;
 
@@ -132,8 +132,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TNodeForm.MLTreeMeasureItem(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
-  var NodeHeight: Integer);
+procedure TNodeForm.MLTreeMeasureItem(Sender: TBaseVirtualTree; TargetCanvas:
+    TCanvas; Node: PVirtualNode; var NodeHeight: TDimension);
 
 begin
   if Sender.MultiLine[Node] then

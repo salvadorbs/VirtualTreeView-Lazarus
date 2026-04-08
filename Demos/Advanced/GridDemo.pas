@@ -51,7 +51,7 @@ type
     procedure AutoSpanCheckBoxClick(Sender: TObject);
     procedure DisplayFullNameCheckBoxClick(Sender: TObject);
     procedure VST5ColumnHeaderSpanning(Sender: TVTHeader; Column: TColumnIndex;
-      var Count: Cardinal);
+      var Count: Integer);
   end;
 
 var
@@ -203,7 +203,7 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-procedure TGridForm.VST5ColumnHeaderSpanning(Sender: TVTHeader; Column: TColumnIndex; var Count: Cardinal);
+procedure TGridForm.VST5ColumnHeaderSpanning(Sender: TVTHeader; Column: TColumnIndex; var Count: Integer);
 begin
   case Column of
     2:
