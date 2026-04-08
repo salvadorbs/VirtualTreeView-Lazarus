@@ -3,48 +3,39 @@
 interface
 
 uses
-  DUnitX.TestFramework,
-  Vcl.Forms,
+  fpcunit,
+  testregistry,
+  Forms,
   VirtualTrees;
 
 type
 
-  [TestFixture]
-  TVTOnEditCancelledTests = class
+  TVTOnEditCancelledTests = class(TTestCase)
   strict private
     fTree: TVirtualStringTree;
     fForm: TForm;
     FEditCancelled: Boolean;
     procedure TreeEditCancelled(Sender: TBaseVirtualTree; Column: TColumnIndex);
-  public
-    [Setup]
-    procedure Setup;
-    [TearDown]
-    procedure TearDown;
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
 
-    [Test]
+  published
     procedure TestAddColumn;
-
-    [Test]
     procedure TestEditNodeFail;
-
-    [Test]
     procedure TestEditNode;
-
-    [Test]
     procedure TestEditNodeReadOnly;
-
-    [Test]
     procedure TestOnEditCancelled;
   end;
 
 implementation
 
 uses
-  System.SysUtils, VirtualTrees.Types;
+  SysUtils, VirtualTrees.Types;
 
-procedure TVTOnEditCancelledTests.Setup;
+procedure TVTOnEditCancelledTests.SetUp;
 begin
+  inherited SetUp;
   fForm := TForm.Create(nil);
   fTree := TVirtualStringTree.Create(fForm);
 end;
@@ -52,63 +43,79 @@ end;
 procedure TVTOnEditCancelledTests.TearDown;
 begin
   FreeAndNil(fForm);
+  inherited TearDown;
 end;
 
 procedure TVTOnEditCancelledTests.TestAddColumn;
+var
+  LBeforeColumnCount: Integer;
+  LAfterColumnCount: Integer;
 begin
-  var LBeforeColumnCount := fTree.Header.Columns.Count;
+  LBeforeColumnCount := fTree.Header.Columns.Count;
   fTree.Header.Columns.Add;
-  var LAfterColumnCount := fTree.Header.Columns.Count;
-  Assert.AreEqual<Integer>(LAfterColumnCount - LBeforeColumnCount, 1);
+  LAfterColumnCount := fTree.Header.Columns.Count;
+  AssertEquals(1, LAfterColumnCount - LBeforeColumnCount);
 end;
 
 procedure TVTOnEditCancelledTests.TestEditNode;
+var
+  LNode: PVirtualNode;
+  LEditNodeResult: Boolean;
+  LAfterStates: TVirtualTreeStates;
 begin
   fForm.Show;
   fTree.TreeOptions.MiscOptions := fTree.TreeOptions.MiscOptions + [toEditable];
   fTree.Parent := fForm;
   fTree.Header.Columns.Add;
-  var LNode := fTree.AddChild(fTree.RootNode);
-  var LEditNodeResult := fTree.EditNode(LNode, 0);
-  var LAfterStates := fTree.TreeStates;
-  Assert.AreEqual<TVirtualTreeStates>(LAfterStates * [tsEditing], [tsEditing]);
-  Assert.IsTrue(LEditNodeResult);
+  LNode := fTree.AddChild(fTree.RootNode);
+  LEditNodeResult := fTree.EditNode(LNode, 0);
+  LAfterStates := fTree.TreeStates;
+  AssertTrue(tsEditing in LAfterStates);
+  AssertTrue(LEditNodeResult);
 end;
 
 procedure TVTOnEditCancelledTests.TestEditNodeFail;
+var
+  LNode: PVirtualNode;
+  LEditNodeResult: Boolean;
 begin
   fForm.Show;
   fTree.TreeOptions.MiscOptions := fTree.TreeOptions.MiscOptions - [toEditable];
   fTree.Parent := fForm;
   fTree.Header.Columns.Add;
-  var LNode := fTree.AddChild(fTree.RootNode);
-  var LEditNodeResult := fTree.EditNode(LNode, 0);
-  Assert.IsFalse(LEditNodeResult);
+  LNode := fTree.AddChild(fTree.RootNode);
+  LEditNodeResult := fTree.EditNode(LNode, 0);
+  AssertFalse(LEditNodeResult);
 end;
 
 procedure TVTOnEditCancelledTests.TestEditNodeReadOnly;
+var
+  LNode: PVirtualNode;
+  LEditNodeResult: Boolean;
 begin
   fForm.Show;
   fTree.Parent := fForm;
   fTree.Header.Columns.Add;
-  var LNode := fTree.AddChild(fTree.RootNode);
+  LNode := fTree.AddChild(fTree.RootNode);
   fTree.TreeOptions.MiscOptions := fTree.TreeOptions.MiscOptions + [toReadOnly];
-  var LEditNodeResult := fTree.EditNode(LNode, 0);
-  Assert.IsFalse(LEditNodeResult);
+  LEditNodeResult := fTree.EditNode(LNode, 0);
+  AssertFalse(LEditNodeResult);
 end;
 
 procedure TVTOnEditCancelledTests.TestOnEditCancelled;
+var
+  LNode: PVirtualNode;
 begin
   fForm.Show;
   FEditCancelled := False;
   fTree.OnEditCancelled := TreeEditCancelled;
   fTree.TreeOptions.MiscOptions := fTree.TreeOptions.MiscOptions + [toEditable];
-  var LNode := fTree.AddChild(fTree.RootNode);
+  LNode := fTree.AddChild(fTree.RootNode);
   fTree.Parent := fForm;
   fTree.Header.Columns.Add;
   fTree.EditNode(LNode, 0);
   fTree.CancelEditNode;
-  Assert.IsTrue(FEditCancelled);
+  AssertTrue(FEditCancelled);
 end;
 
 procedure TVTOnEditCancelledTests.TreeEditCancelled(Sender: TBaseVirtualTree;
@@ -118,5 +125,5 @@ begin
 end;
 
 initialization
-  TDUnitX.RegisterTestFixture(TVTOnEditCancelledTests);
+  RegisterTest(TVTOnEditCancelledTests);
 end.
