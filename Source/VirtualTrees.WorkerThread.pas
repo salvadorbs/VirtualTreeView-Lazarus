@@ -17,9 +17,12 @@ type
     FWaiterList: TThreadList;
     FRefCount: Integer;
     FWorkEvent: TEvent;
+    FPendingException: TObject;                  // exception to be reraised on the main thread
+    FPendingExceptAddr: Pointer;                 // address where the exception was raised
     class procedure EnsureCreated();
     class procedure Dispose(CanBlock: Boolean);
     procedure WaitForValidationTermination(Tree: TBaseVirtualTree);
+    procedure ReraisePendingException;
   protected
     procedure Execute; override;
   public
@@ -151,7 +154,7 @@ var
 begin
   TThread.NameThreadForDebugging('VirtualTrees.TWorkerThread');
   while not Terminated do
-  begin
+  try
     FWorkEvent.WaitFor(INFINITE);
     if Terminated then
       exit;
@@ -188,7 +191,30 @@ begin
         TBaseVirtualTreeCracker(lCurrentTree).ChangeTreeStatesAsync(EnterStates, [tsValidating, tsStopValidation]);
       end;
     end;
+  except
+    on E: Exception do
+    begin
+      // Reraise the exception on the main thread, otherwise it would be
+      // swallowed here and the application would never be notified.
+      FPendingExceptAddr := ExceptAddr;
+      FPendingException := Exception(AcquireExceptionObject);
+      TThread.Synchronize(nil, ReraisePendingException);
+    end;
   end;//while
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TWorkerThread.ReraisePendingException;
+
+var
+  lException: Exception;
+
+begin
+  lException := Exception(FPendingException);
+  FPendingException := nil;
+  if Assigned(lException) then
+    raise lException at FPendingExceptAddr;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
