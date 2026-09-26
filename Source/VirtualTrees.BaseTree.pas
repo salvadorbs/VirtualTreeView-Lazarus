@@ -1951,13 +1951,13 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 // Support resources with bmp as well as png
-procedure LoadBitmapFromResource(Bitmap: Graphics.TBitmap; const ResourceName: String);
+procedure LoadBitmapFromResource(Bitmap: TCustomBitmap; const ResourceName: String);
 var
   ResourceBitmap: TCustomBitmap;
 begin
   ResourceBitmap := CreateBitmapFromResourceName(HINSTANCE, BuildResourceName(ResourceName));
   try
-    ResourceBitmap.Transparent := True;
+    //    ResourceBitmap.Transparent := True;
     Bitmap.Assign(ResourceBitmap);
   finally
     ResourceBitmap.Free;
@@ -2357,12 +2357,14 @@ begin
   FSelectedHotPlusBM := TBitmap.Create;
   FSelectedHotMinusBM := TBitmap.Create;
 
+  (*
   FPlusBM.PixelFormat := pf32Bit;
   FHotPlusBM.PixelFormat := pf32Bit;
   FMinusBM.PixelFormat := pf32Bit;
   FHotMinusBM.PixelFormat := pf32Bit;
   FSelectedHotPlusBM.PixelFormat := pf32Bit;
   FSelectedHotMinusBM.PixelFormat := pf32Bit;
+  *)
 
   BorderStyle := TFormBorderStyle.bsSingle;
   FButtonStyle := bsRectangle;
@@ -4400,96 +4402,102 @@ var
 
   //--------------- local functions -------------------------------------------
 
-  procedure FillBitmap (ABitmap: TBitmap);
+  procedure CreateAndFillBitmap (var ABitmap: TBitmap);
   begin
-    with ABitmap, Canvas do
+    if ABitmap <> nil then
+      ABitmap.Free;
+    ABitmap := TBitmap.Create;
+
+    {$IFDEF DARWIN}
+    ABitmap.PixelFormat := pf32Bit;
+    ABitmap.SetSize(Size.cx, Size.cy);
+    exit;
+    {$ENDIF}
+
+    if (FButtonFillMode = fmShaded) and (FButtonStyle = bsRectangle) then
     begin
-      SetSize(Size.cx, Size.cy);
-
-      if (tsUseThemes in FStates) and (toUseExplorerTheme in FOptions.PaintOptions) or VclStyleEnabled then
-      begin
-        if (FHeader.MainColumn > NoColumn) then
-          Brush.Color := FHeader.Columns[FHeader.MainColumn].GetEffectiveColor
-        else
-          Brush.Color := FColors.BackGroundColor;
-      end
-      else
-        Brush.Color := clFuchsia;
-
-      Transparent := True;
-      TransparentColor := Brush.Color;
-
-      FillRect(Rect(0, 0, Width, Height));
+      ABitmap.PixelFormat := pf32Bit;
+      exit;
     end;
+
+    ABitmap.PixelFormat := pf24Bit;
+    ABitmap.Transparent := True;
+    ABitmap.SetSize(Size.cx, Size.cy);
+
+    if (tsUseThemes in FStates) and (toUseExplorerTheme in FOptions.PaintOptions) or VclStyleEnabled then
+    begin
+      if (FHeader.MainColumn > NoColumn) then
+        ABitmap.Canvas.Brush.Color := FHeader.Columns[FHeader.MainColumn].GetEffectiveColor
+      else
+        ABitmap.Canvas.Brush.Color := FColors.BackGroundColor;
+    end
+    else
+      ABitmap.Canvas.Brush.Color := clFuchsia;
+
+    ABitmap.TransparentColor := ABitmap.Canvas.Brush.Color;
+    ABitmap.Canvas.FillRect(Rect(0, 0, ABitmap.Width, ABitmap.Height));
   end;
 
   procedure PaintButtonBitmap(ABitmap: TBitmap; BtnStyle: TVTButtonStyle; IsPlus: Boolean);
   var
-    img: TLazIntfImage;
-    canv: TLazCanvas;
     m, c: Integer;
   begin
-    img := ABitmap.CreateIntfImage;
-    canv := TLazCanvas.Create(img);
-    try
-      img.FillPixels(colTransparent);
-      c := Img.Width div 2;
-      case BtnStyle of
-        bsRectangle:
+    c := ABitmap.Width div 2;
+    case BtnStyle of
+      bsRectangle:
+        begin
+          if FButtonFillMode = fmShaded then
           begin
-            if FButtonFillMode in [fmTreeColor, fmWindowColor, fmTransparent] then
-            begin
-              case FButtonFillMode of
-                fmTreeColor:
-                  canv.Brush.FPColor := TColorToFPColor(ColorToRGB(FColors.BackGroundColor));
-                fmWindowColor:
-                  canv.Brush.FPColor := TColorToFPColor(ColorToRGB(clWindow));
-                fmTransparent:
-                  canv.Brush.Style := bsClear;
-              end;
-              canv.Pen.FPColor := TColorToFPColor(ColorToRGB(FColors.TreeLineColor)); //clWindowText));
-              m := c div 2;
-              if m = 0 then m := 1;
-              canv.Rectangle(0, 0, img.Width, img.Height);
-              canv.Pen.FPColor := TColorToFPColor(ColorToRGB(clWindowText));
-              canv.Line(c-m, c, c+m, c);
-              if IsPlus then
-                canv.Line(c, c-m, c, c+m);
-            end else
-            begin
-              if IsPlus then
-                LoadBitmapFromResource(FMinusBM, 'laz_vt_xpbuttonplus')
-              else
-                LoadBitmapFromResource(FMinusBM, 'laz_vt_xpbuttonminus');
-            end;
-          end;
-
-        bsTriangle:
-          begin
-            canv.Brush.FPColor := TColorToFPColor(ColorToRGB(clWindowText));
-            canv.Pen.FPColor := canv.Brush.FPColor;
+            ABitmap.PixelFormat := pf32Bit;
             if IsPlus then
-            begin
-              m := Img.Width * 7 div 10;
-              if BiDiMode = bdLeftToRight then
-                canv.Polygon([Point(0, 0), Point(0, Img.Height-1), Point(m, c)])
-              else
-                canv.Polygon([Point(Img.Width-1-m, c), Point(Img.Width-1, Img.Height-1), Point(Img.Width-1, 0)]);
-            end else
-            begin
-              m := Img.Width * 7 div 20;
-              if BiDiMode = bdLeftToRight then
-                canv.Polygon([Point(c-m, c+m), Point(c+m, c+m), Point(c+m, c-m)])
-              else
-                canv.Polygon([Point(c-m, c-m), Point(c-m, c+m), Point(c+m, c+m)]);
-            end;
+              LoadBitmapFromResource(ABitmap, 'laz_vt_xpbuttonplus')
+            else
+              LoadBitmapFromResource(ABitmap, 'laz_vt_xpbuttonminus');
+            exit;
           end;
-      end;
 
-      ABitmap.LoadFromIntfImage(img);
-    finally
-      canv.Free;
-      img.Free;
+          case FButtonFillMode of
+            fmTreeColor:
+              ABitmap.Canvas.Brush.Color := ColorToRGB(FColors.BackGroundColor);
+            fmWindowColor:
+              ABitmap.Canvas.Brush.Color := ColorToRGB(clWindow);
+            fmTransparent:
+              ABitmap.Canvas.Brush.Style := bsClear;
+          end;
+          ABitmap.Canvas.Pen.Color := ColorToRGB(FColors.TreeLineColor);
+          m := c div 2;
+          if m = 0 then m := 1;
+          ABitmap.Canvas.Rectangle(0, 0, ABitmap.Width, ABitmap.Height);
+          ABitmap.Canvas.Pen.Color := ColorToRGB(clWindowText);
+          ABitmap.Canvas.Line(c-m, c, c+m+1, c);
+          if IsPlus then
+            ABitmap.Canvas.Line(c, c-m, c, c+m+1);
+        end;
+
+      bsTriangle:
+        begin
+          ABitmap.Canvas.Brush.Color := ColorToRGB(clWindowText);
+          ABitmap.Canvas.Pen.Color := ABitmap.Canvas.Brush.Color;
+          if IsPlus then
+          begin
+            m := ABitmap.Width * 7 div 10;
+            if BiDiMode = bdLeftToRight then
+              ABitmap.Canvas.Polygon([Point(0, 0), Point(0, ABitmap.Height-1), Point(m, c)])
+            else
+              ABitmap.Canvas.Polygon([
+                Point(ABitmap.Width-1-m, c),
+                Point(ABitmap.Width-1, ABitmap.Height-1),
+                Point(ABitmap.Width-1, 0)
+              ]);
+          end else
+          begin
+            m := ABitmap.Width * 7 div 20;
+            if BiDiMode = bdLeftToRight then
+              ABitmap.Canvas.Polygon([Point(c-m, c+m), Point(c+m, c+m), Point(c+m, c-m)])
+            else
+              ABitmap.Canvas.Polygon([Point(c-m, c-m), Point(c-m, c+m), Point(c+m, c+m)]);
+          end;
+        end;
     end;
   end;
 
@@ -4515,12 +4523,12 @@ begin
       else
         Size.cx := ScaledPixels(cMinExpandoHeight);
       Size.cy := Size.cx;
-      FillBitmap(FPlusBM);
-      FillBitmap(FHotPlusBM);
-      FillBitmap(FSelectedHotPlusBM);
-      FillBitmap(FMinusBM);
-      FillBitmap(FHotMinusBM);
-      FillBitmap(FSelectedHotMinusBM);
+      CreateAndFillBitmap(FPlusBM);
+      CreateAndFillBitmap(FHotPlusBM);
+      CreateAndFillBitmap(FSelectedHotPlusBM);
+      CreateAndFillBitmap(FMinusBM);
+      CreateAndFillBitmap(FHotMinusBM);
+      CreateAndFillBitmap(FSelectedHotMinusBM);
       R := Rect(0,0,Size. cx,Size.cy);
       // tcbCategoryGlyphClosed, tcbCategoryGlyphOpened from CategoryButtons
       StyleServices.DrawElement(FPlusBM.Canvas.Handle, StyleServices.GetElementDetails(tcbCategoryGlyphClosed), R);
@@ -4565,12 +4573,12 @@ begin
           //To mitigate this, Hook up the OnPrepareButtonImages and draw them yourself.
           if Assigned(FOnPrepareButtonImages) then
           begin
-            FillBitmap(FPlusBM);
-            FillBitmap(FHotPlusBM);
-            FillBitmap(FSelectedHotPlusBM);
-            FillBitmap(FMinusBM);
-            FillBitmap(FHotMinusBM);
-            FillBitmap(FSelectedHotMinusBM);
+            CreateAndFillBitmap(FPlusBM);
+            CreateAndFillBitmap(FHotPlusBM);
+            CreateAndFillBitmap(FSelectedHotPlusBM);
+            CreateAndFillBitmap(FMinusBM);
+            CreateAndFillBitmap(FHotMinusBM);
+            CreateAndFillBitmap(FSelectedHotMinusBM);
             FOnPrepareButtonImages(Self, FPlusBM, FHotPlusBM, FSelectedHotPlusBM, FMinusBM, FHotMinusBM, FSelectedHotMinusBM, size);
           end
             else
@@ -4578,9 +4586,9 @@ begin
                 with FMinusBM, Canvas do
                 begin
                   // box is always of odd size
-                  FillBitmap(FMinusBM);
-                  FillBitmap(FHotMinusBM);
-                  FillBitmap(FSelectedHotMinusBM);
+                  CreateAndFillBitmap(FMinusBM);
+                  CreateAndFillBitmap(FHotMinusBM);
+                  CreateAndFillBitmap(FSelectedHotMinusBM);
                   // Weil die selbstgezeichneten Bitmaps sehen im Vcl Style scheiße aus
                   // Because the self-drawn bitmaps view Vcl Style shit
                   if (not VclStyleEnabled) {or (Theme = 0)} then
@@ -4595,9 +4603,9 @@ begin
                 end;
                 with FPlusBM, Canvas do
                 begin
-                  FillBitmap(FPlusBM);
-                  FillBitmap(FHotPlusBM);
-                  FillBitmap(FSelectedHotPlusBM);
+                  CreateAndFillBitmap(FPlusBM);
+                  CreateAndFillBitmap(FHotPlusBM);
+                  CreateAndFillBitmap(FSelectedHotPlusBM);
                   if (not VclStyleEnabled) {or (Theme = 0)} then
                   begin
                     if not(tsUseExplorerTheme in FStates) then
