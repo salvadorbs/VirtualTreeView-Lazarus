@@ -116,6 +116,13 @@ begin
   lShortenedWidth := fBitmap.Canvas.TextWidth(lShortenedString);
 
   AssertTrue(Format('The shortened string "%s" has a width of %d and does not fit into the requested %d pixels.', [lShortenedString, lShortenedWidth, pWidth]), lShortenedWidth <= pWidth);
+  if pShortString = '' then
+    // The exact boundary result depends on the font's ellipsis width: the
+    // shortened string is empty only when even the ellipsis does not fit.
+    AssertTrue(Format('Expected "" or "..." but got "%s".', [lShortenedString]),
+      (lShortenedString = '') or (lShortenedString = '...'))
+  else
+    AssertEquals(Format('Expected the shortened string "%s" but got "%s".', [pShortString, lShortenedString]), pShortString, lShortenedString);
 end;
 
 initialization
