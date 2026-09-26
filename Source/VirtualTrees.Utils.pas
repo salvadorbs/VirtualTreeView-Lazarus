@@ -313,25 +313,29 @@ begin
       EllipsisWidth := Size.cx;
     end;
 
-    if Width <= EllipsisWidth then
+    // Do a binary search for the optimal string length which fits into the given width.
+    L := 0;
+    N := 0;
+    W := Width;
+    H := Len;
+    while L < H do
+    begin
+      N := (L + H + 1) shr 1;
+      GetTextExtentPoint32W(DC, PWideChar(WideStr), N, Size);
+      W := Size.cx + EllipsisWidth;
+      if W <= Width then
+        L := N
+      else
+        H := N - 1;
+    end;
+    if W <= Width then
+      L := N;
+    if L >= Len then
+      Result := S
+    else if Width <= EllipsisWidth then
       Result := ''
     else
-    begin
-      // Do a binary search for the optimal string length which fits into the given width.
-      L := 0;
-      H := Len - 1;
-      while L < H do
-      begin
-        N := (L + H + 1) shr 1;
-        GetTextExtentPoint32W(DC, PWideChar(WideStr), N, Size);
-        W := Size.cx + EllipsisWidth;
-        if W <= Width then
-          L := N
-        else
-          H := N - 1;
-      end;
       Result := UTF8Encode(Copy(WideStr, 1, L) + '...');
-    end;
   end;
 end;
 {$else}
@@ -359,25 +363,29 @@ begin
       EllipsisWidth := Size.cx;
     end;
 
-    if Width <= EllipsisWidth then
+    // Do a binary search for the optimal string length which fits into the given width.
+    L := 0;
+    N := 0;
+    W := Width;
+    H := Len;
+    while L < H do
+    begin
+      N := (L + H + 1) shr 1;
+      GetTextExtentPoint32(DC, PAnsiChar(S), N, Size);
+      W := Size.cx + EllipsisWidth;
+      if W <= Width then
+        L := N
+      else
+        H := N - 1;
+    end;
+    if W <= Width then
+      L := N;
+    if L >= Len then
+      Result := S
+    else if Width <= EllipsisWidth then
       Result := ''
     else
-    begin
-      // Do a binary search for the optimal string length which fits into the given width.
-      L := 0;
-      H := Len - 1;
-      while L < H do
-      begin
-        N := (L + H + 1) shr 1;
-        GetTextExtentPoint32(DC, PAnsiChar(S), N, Size);
-        W := Size.cx + EllipsisWidth;
-        if W <= Width then
-          L := N
-        else
-          H := N - 1;
-      end;
       Result := Copy(S, 1, L) + '...';
-    end;
   end;
 end;
 {$endif}
