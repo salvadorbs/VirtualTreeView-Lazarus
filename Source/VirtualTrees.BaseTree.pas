@@ -4450,9 +4450,9 @@ var
           begin
             ABitmap.PixelFormat := pf32Bit;
             if IsPlus then
-              LoadBitmapFromResource(ABitmap, 'laz_vt_xpbuttonplus')
+              LoadBitmapFromResource(ABitmap, 'vt_xpbuttonplus')
             else
-              LoadBitmapFromResource(ABitmap, 'laz_vt_xpbuttonminus');
+              LoadBitmapFromResource(ABitmap, 'vt_xpbuttonminus');
             exit;
           end;
 
