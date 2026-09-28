@@ -47,7 +47,7 @@
   DFCS_HOT = $1000;
   
 //Thread support
-  //This values is for win32, how about others??
+  // Standard infinite timeout, identical on all supported platforms.
   INFINITE = $FFFFFFFF;
   
 //OLE Support
