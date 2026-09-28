@@ -262,9 +262,9 @@ begin
           Pen.Color := clBlack;
           Brush.Color := clInfoBk;
           if StyleServices.Enabled and ((toThemeAware in TBVTCracker(Tree).TreeOptions.PaintOptions) or
-             (toUseExplorerTheme in TBVTCracker(Tree).TreeOptions.PaintOptions)) then
+             (tsUseExplorerTheme in TBVTCracker(Tree).TreeStates)) then
           begin
-            if toUseExplorerTheme in TBVTCracker(Tree).TreeOptions.PaintOptions then // ToolTip style
+            if tsUseExplorerTheme in TBVTCracker(Tree).TreeStates then // ToolTip style
               StyleServices.DrawElement(Canvas.Handle, StyleServices.GetElementDetails(tttStandardNormal), R {$IF CompilerVersion >= 34}, nil, FCurrentPPI{$IFEND})
             else
               begin // Hint style

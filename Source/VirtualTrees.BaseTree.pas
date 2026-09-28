@@ -4424,7 +4424,7 @@ var
     ABitmap.Transparent := True;
     ABitmap.SetSize(Size.cx, Size.cy);
 
-    if (tsUseThemes in FStates) and (toUseExplorerTheme in FOptions.PaintOptions) or VclStyleEnabled then
+    if (tsUseThemes in FStates) and (tsUseExplorerTheme in FStates) or VclStyleEnabled then
     begin
       if (FHeader.MainColumn > NoColumn) then
         ABitmap.Canvas.Brush.Color := FHeader.Columns[FHeader.MainColumn].GetEffectiveColor
@@ -9523,12 +9523,17 @@ begin
   if ((StyleServices.Enabled ) and (toThemeAware in TreeOptions.PaintOptions)  ) then
   begin
     DoStateChange([tsUseThemes]);
+    // tsUseExplorerTheme drives the native Windows (UxTheme) renderer, so it may
+    // only be enabled when that renderer is actually available. On other
+    // widgetsets (GTK, Qt) the generic LCL theme / custom drawing is used.
+    {$ifdef Windows}
     if (toUseExplorerTheme in FOptions.PaintOptions) then
     begin
       DoStateChange([tsUseExplorerTheme]);
       SetWindowTheme('explorer');
     end
     else
+    {$endif}
       DoStateChange([], [tsUseExplorerTheme]);
   end
   else
@@ -15246,46 +15251,50 @@ begin
   else
     XPos := R.Right - ButtonX - FPlusBM.Width;
 
+  // The native Explorer theme is only available on Windows. Elsewhere - or when
+  // no theme handle can be obtained - fall back to the custom-drawn bitmaps.
+  {$ifdef Windows}
   if (tsUseExplorerTheme in FStates) and not VclStyleEnabled then
   begin
-    {$ifdef Windows}
     Glyph := IfThen(IsHot, TVP_HOTGLYPH, TVP_GLYPH);
     State := IfThen(vsExpanded in Node.States, GLPS_OPENED, GLPS_CLOSED);
     Pos := Rect(XPos, R.Top + ButtonY, XPos + FPlusBM.Width, R.Top + ButtonY + FPlusBM.Height);
     Theme := OpenThemeData(Handle, 'TREEVIEW');
-    DrawThemeBackground(Theme, Canvas.Handle, Glyph, State, Pos, nil);
-    CloseThemeData(Theme);
-    {$endif}
+    if Theme <> 0 then
+    begin
+      DrawThemeBackground(Theme, Canvas.Handle, Glyph, State, Pos, nil);
+      CloseThemeData(Theme);
+      Exit;
+    end;
+  end;
+  {$endif}
+
+  if vsExpanded in Node.States then
+  begin
+    if IsHot then
+    begin
+      if IsSelected then
+        BitMap := FSelectedHotMinusBM
+      else
+        Bitmap := FHotMinusBM;
+    end
+    else
+      Bitmap := FMinusBM;
   end
   else
   begin
-    if vsExpanded in Node.States then
+    if IsHot then
     begin
-      if IsHot then
-      begin
-        if IsSelected then
-          BitMap := FSelectedHotMinusBM
-        else
-          Bitmap := FHotMinusBM;
-      end
+      if IsSelected then
+        BitMap := FSelectedHotPlusBM
       else
-        Bitmap := FMinusBM;
+        Bitmap := FHotPlusBM;
     end
     else
-    begin
-      if IsHot then
-      begin
-        if IsSelected then
-          BitMap := FSelectedHotPlusBM
-        else
-          Bitmap := FHotPlusBM;
-      end
-      else
-        Bitmap := FPlusBM;
-    end;
-    // Need to draw this masked.
-    Canvas.Draw(XPos, R.Top + ButtonY, Bitmap);
+      Bitmap := FPlusBM;
   end;
+  // Need to draw this masked.
+  Canvas.Draw(XPos, R.Top + ButtonY, Bitmap);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -1515,14 +1515,20 @@ begin
         if ((tsUseThemes in TreeStates) or ((toThemeAware in ToBeSet) and StyleServices.Enabled)) and (toUseExplorerTheme in (ToBeSet + ToBeCleared)) and
           not VclStyleEnabled then
         begin
+          // tsUseExplorerTheme is only meaningful for the native Windows theme.
+          {$ifdef Windows}
           if (toUseExplorerTheme in ToBeSet) then
           begin
             SetWindowTheme('explorer');
             DoStateChange([tsUseExplorerTheme]);
           end
-          else if toUseExplorerTheme in ToBeCleared then
+          else
+          {$endif}
+          if toUseExplorerTheme in ToBeCleared then
           begin
+            {$ifdef Windows}
             SetWindowTheme('');
+            {$endif}
             DoStateChange([], [tsUseExplorerTheme]);
           end;
         end;
