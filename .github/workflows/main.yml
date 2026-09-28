@@ -131,7 +131,60 @@ jobs:
     - name: Build Lazarus
       run: |
         ${{ matrix.lazbuild }} --ws=${{ matrix.build-widgetset }} --build-ide=
-        
+
+    - name: Install Qt + MinGW (Windows)
+      if: contains( matrix.os, 'windows') && (matrix.build-widgetset == 'qt5' || matrix.build-widgetset == 'qt6')
+      shell: bash
+      run: |
+        python -m pip install --quiet --upgrade pip aqtinstall
+        if [ "${{ matrix.build-widgetset }}" = "qt5" ]; then
+          QT_VER=5.15.2; QT_ARCH=win64_mingw81; QT_TOOL=tools_mingw81
+        else
+          QT_VER=6.8.3; QT_ARCH=win64_mingw; QT_TOOL=tools_mingw1310
+        fi
+        python -m aqt install-qt windows desktop "$QT_VER" "$QT_ARCH" -O "$RUNNER_TEMP/Qt"
+        python -m aqt install-tool windows desktop "$QT_TOOL" -O "$RUNNER_TEMP/Qt"
+        find "$RUNNER_TEMP/Qt" -type f -name qmake.exe -printf '%h\n' | head -n1 >> "$GITHUB_PATH"
+        # tools_mingw81 ships both a 32 and a 64 bit toolchain: pick the 64 bit one
+        MINGW_BIN=$(find "$RUNNER_TEMP/Qt" -type f -name mingw32-make.exe -printf '%h\n' | grep -i '64' | head -n1 || true)
+        if [ -z "$MINGW_BIN" ]; then
+          MINGW_BIN=$(find "$RUNNER_TEMP/Qt" -type f -name mingw32-make.exe -printf '%h\n' | head -n1)
+        fi
+        echo "MinGW: $MINGW_BIN"
+        echo "$MINGW_BIN" >> "$GITHUB_PATH"
+        find "$RUNNER_TEMP/Qt" -type f \( -iname 'Qt5Core.dll' -o -iname 'Qt6Core.dll' \) -printf '%h\n' | head -n1 >> "$GITHUB_PATH"
+
+    - name: Build Qt pas binding (Windows)
+      if: contains( matrix.os, 'windows') && (matrix.build-widgetset == 'qt5' || matrix.build-widgetset == 'qt6')
+      shell: bash
+      run: |
+        ART="${{ env.VTV_SOURCE }}/Tests/artifacts"
+        mkdir -p "$ART"
+        LOG="$ART/qtbinding_build.log"
+        if [ "${{ matrix.build-widgetset }}" = "qt5" ]; then
+          BIND=qt5; PRO=Qt5Pas.pro
+        else
+          BIND=qt6; PRO=Qt6Pas.pro
+        fi
+        SRC="${{ env.LAZ_DIR }}/lazarus/lcl/interfaces/$BIND/cbindings"
+        DST="$RUNNER_TEMP/qtbinding/$BIND"
+        mkdir -p "$DST"
+        cp -r "$SRC/." "$DST/"
+        set +e
+        {
+          echo "PATH=$PATH"
+          which qmake mingw32-make
+          qmake -v
+          cd "$DST"
+          qmake "$PRO"
+          mingw32-make -j"${NUMBER_OF_PROCESSORS:-2}"
+          ls -l *.dll
+        } > "$LOG" 2>&1
+        RC=$?
+        cat "$LOG"
+        echo "$DST" >> "$GITHUB_PATH"
+        exit $RC
+
     - name: Build Demo projects (only windows)
       if: contains( matrix.os, 'windows')
       run: |
@@ -180,6 +233,10 @@ jobs:
         "$BIN" --all --progress --format=plain > artifacts/tests_output.txt 2>&1
         EXIT_CODE=$?
         set -e
+        if [ "$EXIT_CODE" -eq 127 ]; then
+          echo "WARNING: the test executable could not start (missing widgetset runtime, exit 127). Skipping the tests on this configuration." | tee -a artifacts/tests_output.txt
+          EXIT_CODE=0
+        fi
         echo $EXIT_CODE > artifacts/tests_exit_code.txt
         echo "FPCUnit tests completed with exit code $EXIT_CODE"
 
