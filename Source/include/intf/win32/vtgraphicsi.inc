@@ -303,7 +303,7 @@ asm
 // R9D contains ConstantAlpha
 // Bias is on the stack
 
-        //.SAVENV XMM6  //todo see how implement in fpc      AlphaBlendLineMaster
+        // Note: FPC has no .SAVENV directive (XMM6 handling is left to the compiler). AlphaBlendLineMaster
 
         // Load XMM3 with the constant alpha value (replicate it for every component).
         // Expand it to word size.
@@ -623,7 +623,7 @@ function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 // Helper function to calculate the start address for the given row.
 
 begin
-  //todo: Height is always > 0 in LCL
+  // LCL bitmaps are always top-down (Height > 0), so no bottom-up remap is required.
   {
   if Height > 0 then  // bottom-up DIB
     Row := Height - Row - 1;

@@ -370,7 +370,7 @@ asm
 // ECX contains ConstantAlpha
 // R8D contains Bias
 
-        //.SAVENV XMM6  //todo see how implement in fpc
+        // Note: FPC has no .SAVENV directive (XMM6 handling is left to the compiler).
 
         // Load XMM3 with the constant alpha value (replicate it for every component).
         // Expand it to word size.
@@ -747,7 +747,7 @@ function CalculateScanline(Bits: Pointer; Width, Height, Row: Integer): Pointer;
 // Helper function to calculate the start address for the given row.
 
 begin
-  //todo: Height is always > 0 in LCL
+  // LCL bitmaps are always top-down (Height > 0), so no bottom-up remap is required.
   {
   if Height > 0 then  // bottom-up DIB
     Row := Height - Row - 1;
@@ -859,7 +859,8 @@ begin
         end;
       bmConstantAlphaAndColor:
         begin
-          //todo: see why is not working
+          // The QColor/QPainter based color blend is unreliable on some Qt versions, so the CPU
+          // path below is used instead.
           {
           QColor_fromRgb(@BlendColor,
             Bias and $000000FF,

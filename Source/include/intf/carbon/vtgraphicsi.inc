@@ -1,4 +1,5 @@
-//todo: properly implement
+// Note: only a plain copy fallback is provided. VirtualTreeView uses bmConstantAlphaAndColor, which
+// would need a Carbon specific implementation to blend properly.
 procedure AlphaBlend(Source, Destination: HDC; const R: TRect; const Target: TPoint; Mode: TBlendMode; ConstantAlpha, Bias: Integer);
 begin
   case Mode of
@@ -7,7 +8,7 @@ begin
     bmMasterAlpha,
     bmConstantAlphaAndColor:
       begin
-	    BitBlt(Destination, Target.X, Target.Y, R.Right - R.Left, R.Bottom - R.Top, Source, R.Left, R.Right, SRCCOPY); 
+	    BitBlt(Destination, Target.X, Target.Y, R.Right - R.Left, R.Bottom - R.Top, Source, R.Left, R.Top, SRCCOPY); 
       end;
   end;
 end;
