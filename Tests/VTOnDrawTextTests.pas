@@ -7,6 +7,7 @@ uses
   testregistry,
   Forms,
   Graphics,
+  VirtualTrees.Types,
   VirtualTrees, Types;
 
 type
@@ -24,6 +25,11 @@ type
 
     FDrawText3Called: Boolean;
     FDrawTextEx3Called: Boolean;
+
+    // Invokes the text drawing routine that raises OnDrawText / OnDrawTextEx.
+    // It does not depend on the widgetset actually repainting the control,
+    // because LCL repaints differently on each backend (win32, gtk2, gtk3, qt).
+    procedure TriggerTextDrawing;
 
     procedure DrawText1Event(Sender: TBaseVirtualTree; TargetCanvas: TCanvas;
       Node: PVirtualNode; Column: TColumnIndex; const Text: string;
@@ -54,14 +60,47 @@ type
     procedure TestOnDrawTextEx;
   end;
 
+  // Bypasses the protected DoTextDrawing so the test does not depend on the
+  // widgetset actually painting the control.
+  TVirtualStringTreeAccess = class(TVirtualStringTree)
+  public
+    procedure DoTextDrawingAccess(var PaintInfo: TVTPaintInfo; const Text: string;
+      CellRect: TRect; DrawFormat: Cardinal);
+  end;
+
 implementation
 
 uses
-  SysUtils, VirtualTrees.Types;
+  SysUtils;
 
 const
   colCaption = 0;
   colData    = 1;
+
+procedure TVirtualStringTreeAccess.DoTextDrawingAccess(var PaintInfo: TVTPaintInfo;
+  const Text: string; CellRect: TRect; DrawFormat: Cardinal);
+begin
+  DoTextDrawing(PaintInfo, Text, CellRect, DrawFormat);
+end;
+
+procedure TVTOnDrawTextTests.TriggerTextDrawing;
+var
+  LBitmap: TBitmap;
+  LPaintInfo: TVTPaintInfo;
+begin
+  LBitmap := TBitmap.Create;
+  try
+    LBitmap.SetSize(200, 20);
+    LPaintInfo := Default(TVTPaintInfo);
+    LPaintInfo.Canvas := LBitmap.Canvas;
+    LPaintInfo.Node := fTree.GetFirstChild(fTree.RootNode);
+    LPaintInfo.Column := colCaption;
+    TVirtualStringTreeAccess(fTree).DoTextDrawingAccess(LPaintInfo, 'Caption',
+      Rect(0, 0, 200, 20), 0);
+  finally
+    LBitmap.Free;
+  end;
+end;
 
 procedure TVTOnDrawTextTests.DrawText1Event(Sender: TBaseVirtualTree;
   TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
@@ -149,7 +188,7 @@ begin
   // This test ensures that OnDrawText event is called when OnDrawText is assigned
   fTree.OnDrawText := DrawText1Event;
   fTree.OnDrawTextEx := nil;
-  fTree.Update;
+  TriggerTextDrawing;
 
   AssertTrue(FDrawText1Called and not FDrawTextEx1Called);
 end;
@@ -160,7 +199,7 @@ begin
   // and that OnDrawText is not called
   fTree.OnDrawText := nil;
   fTree.OnDrawTextEx := DrawTextEx2Event;
-  fTree.Update;
+  TriggerTextDrawing;
 
   AssertTrue(not FDrawText2Called and FDrawTextEx2Called);
 end;
@@ -171,7 +210,7 @@ begin
   // OnDrawText and OnDrawTextEx are assigned and that OnDrawText is not called
   fTree.OnDrawText := DrawText3Event;
   fTree.OnDrawTextEx := DrawTextEx3Event;
-  fTree.Update;
+  TriggerTextDrawing;
 
   AssertTrue(not FDrawText3Called and FDrawTextEx3Called);
 end;
