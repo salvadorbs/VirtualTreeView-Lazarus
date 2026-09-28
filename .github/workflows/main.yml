@@ -67,13 +67,13 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get -m -y install libgtk2.0-dev libpango1.0-dev libffi-dev libxtst-dev xvfb
-        Xvfb :1 &
+        
         
     - name: Install Dependencies (Ubuntu - only GTK3)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'gtk3'
       run: |
         sudo apt-get update
-        sudo apt-get -m -y install libgtk-3-dev
+        sudo apt-get -m -y install libgtk-3-dev xvfb
         
     - name: Install Dependencies (Ubuntu - only QT5)
       if: contains( matrix.os, 'ubuntu') && matrix.build-widgetset == 'qt5'
@@ -81,7 +81,7 @@ jobs:
         wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.16/libqt5pas1_2.16-4_amd64.deb
         wget https://github.com/davidbannon/libqt5pas/releases/download/v1.2.16/libqt5pas-dev_2.16-4_amd64.deb
         sudo apt-get update
-        sudo apt-get -m -y install qt5-qmake qtbase5-dev libqt5x11extras5-dev libxcb-keysyms1-dev
+        sudo apt-get -m -y install qt5-qmake qtbase5-dev libqt5x11extras5-dev libxcb-keysyms1-dev xvfb
         sudo apt-get -m -y install ./libqt5pas1_2.16-4_amd64.deb
         sudo apt-get -m -y install ./libqt5pas-dev_2.16-4_amd64.deb
         
@@ -91,9 +91,16 @@ jobs:
         wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.10/libqt6pas6_6.2.10-1_amd64.deb
         wget https://github.com/davidbannon/libqt6pas/releases/download/v6.2.10/libqt6pas6-dev_6.2.10-1_amd64.deb
         sudo apt-get update
-        sudo apt-get -m -y install qt6-base-dev libxcb-keysyms1-dev libgl-dev qt6-base-private-dev
+        sudo apt-get -m -y install qt6-base-dev libxcb-keysyms1-dev libgl-dev qt6-base-private-dev xvfb
         sudo apt-get -m -y install ./libqt6pas6_6.2.10-1_amd64.deb
         sudo apt-get -m -y install ./libqt6pas6-dev_6.2.10-1_amd64.deb
+
+    - name: Start Xvfb (Ubuntu)
+      if: contains( matrix.os, 'ubuntu')
+      run: |
+        Xvfb :99 -screen 0 1280x1024x24 &
+        sleep 2
+        echo "DISPLAY=:99" >> $GITHUB_ENV
 
     - name: Generate Cache Hash
       run: echo "${{ matrix.fpcup-url }}${{ env.FPCUP_OPT }}${{ env.FPC_URL }}${{ env.FPC_BRANCH }}${{ env.LAZ_URL }}${{ env.LAZ_REVISION }}" > .cache
@@ -169,8 +176,10 @@ jobs:
         fi
 
         echo "Found test binary at: $BIN"
+        set +e
         "$BIN" --all --progress --format=plain > artifacts/tests_output.txt 2>&1
         EXIT_CODE=$?
+        set -e
         echo $EXIT_CODE > artifacts/tests_exit_code.txt
         echo "FPCUnit tests completed with exit code $EXIT_CODE"
 
