@@ -2671,12 +2671,10 @@ begin
 
   FScrollBarOptions.Free;
 
-  // The window handle must be destroyed before the header is freed because it is needed in WM_NCDESTROY.
-  //todo_lcl_check
-  {
+  // The window handle must be destroyed before the header/options are freed because the LCL
+  // cleanup (see DestroyHandle) still needs them. LCL uses DestroyHandle instead of VCL's DestroyWindowHandle.
   if HandleAllocated then
-    DestroyWindowHandle;
-  }
+    DestroyHandle;
 
   // Release FDottedBrush in case WM_NCDESTROY hasn't been triggered.
   if Assigned(DottedBrushTreeLines) then
@@ -5815,9 +5813,18 @@ procedure TBaseVirtualTree.SetNodeData<T>(pNode: PVirtualNode; pUserData: T);
 
   // Can be used to set user data of a PVirtualNode to a class instance.
 
+var
+  NodeData: Pointer;
 begin
-  //lcl todo: in fpc 3.2.3, fpc crashes with this line (EAccessViolation)
-  //pNode.SetData<T>(pUserData);
+  // Workaround for the FPC bug where calling the generic method TVirtualNode.SetData<T> through a
+  // node pointer crashes (EAccessViolation). Replicate its body here instead of calling
+  // pNode.SetData<T>(pUserData).
+  Assert(FNodeDataSize >= SizeOf(T), Self.Classname + ': Cannot set initial user data because there is not enough user data space allocated.');
+  NodeData := pNode.GetData();
+  T(Pointer(NodeData)^) := pUserData;
+  if PTypeInfo(TypeInfo(T)).Kind = tkInterface then
+    Include(pNode.States, vsReleaseCallOnUserDataRequired);
+  Include(pNode.States, vsOnFreeNodeCallRequired);
 end;
 
 procedure TBaseVirtualTree.SetNodeData(pNode: PVirtualNode; const pUserData: IInterface);
@@ -6117,9 +6124,8 @@ begin
   // The check for visibility is necessary otherwise the tree is automatically shown when
   // updating is allowed. As this happens internally the VCL does not get notified and
   // still assumes the control is hidden. This results in weird "cannot focus invisible control" errors.
-  //lcl todo
   if Visible and HandleAllocated and (FUpdateCount = 0) then
-    SendMessage(Handle, WM_SETREDRAW, Ord(not Updating), 0);
+    SendWM_SETREDRAW(Updating);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -9403,7 +9409,9 @@ var
 
 begin
   {$ifndef Windows}
-  //Is necessary to properly implement timeGetTime in non Windows
+  // timeGetTime() is now a proper monotonic millisecond timer on every platform
+  // (see units/*/fakemmsystem.pas). The loop below is a blocking busy-wait without message
+  // processing, so animation stays deliberately Windows-only for now.
   Exit;
   {$endif}
   if not (tsInAnimation in FStates) and (Duration > 0) then
@@ -9844,8 +9852,6 @@ const
     0,0,0);
 
 begin
-  //todo_lcl
-
   inherited CreateParams(Params);
 
   with Params do
@@ -9855,25 +9861,9 @@ begin
       WindowClass.style := WindowClass.style or CS_HREDRAW or CS_VREDRAW
     else
       WindowClass.style := WindowClass.style and not (CS_HREDRAW or CS_VREDRAW);
-    //lcl: Ctl3D is not used in LCL. Has the same meaning of BorderStyle = bsSingle
-    {
-    if BorderStyle = bsSingle then
-    begin
-      if Ctl3D then
-      begin
-        ExStyle := ExStyle or WS_EX_CLIENTEDGE;
-        Style := Style and not WS_BORDER;
-      end
-      else
-        Style := Style or WS_BORDER;
-    end
-    else
-      Style := Style and not WS_BORDER;
-    }
-    //todo_lcl_low
-    {
-    AddBiDiModeExStyle(ExStyle);
-    }
+    // LCL: Ctl3D has no direct equivalent; BorderStyle = bsSingle already has the meaning Ctl3D
+    // had in the VCL and the widgetset paints the border, so no extra window style must be set here.
+    // LCL: BiDiMode is handled by the widgetset/LCL itself, so VCL's AddBiDiModeExStyle() is not needed.
   end;
 end;
 
@@ -10535,7 +10525,6 @@ begin
       if (ClientHeight - FOffsetY < FRangeY) and (Y > ClientHeight - FDefaultNodeHeight) then
         Include(Result, TScrollDirection.sdDown);
 
-      //todo: probably the code below is bug due to poor timeGetTime implementation
       // Since scrolling during dragging is not handled via the timer we do a check here whether the auto
       // scroll timeout already has elapsed or not.
       if (Result <> []) and
@@ -10666,7 +10655,8 @@ var
 {$endif}
 
 begin
-  //todo: implement under non win32
+  // The Windows-only block below suppresses updates while the content margin is queried. Other
+  // widgetsets do not need that workaround, so the event is simply forwarded to the application.
   if Assigned(FOnBeforeCellPaint) then
   begin
     {$ifdef LCLWin32}
@@ -17368,21 +17358,8 @@ begin
   // ... and bevels.
   OffsetX := BorderWidth;
   OffsetY := BorderWidth;
-  //todo_lcl
-  {
-  if BevelKind <> TBevelKind.bkNone then
-  begin
-    EdgeSize := 0;
-    if BevelInner <> TBevelCut.bvNone then
-      Inc(EdgeSize, BevelWidth);
-    if BevelOuter <> TBevelCut.bvNone then
-      Inc(EdgeSize, BevelWidth);
-    if TBevelEdge.beLeft in BevelEdges then
-      Inc(OffsetX, EdgeSize);
-    if TBevelEdge.beTop in BevelEdges then
-      Inc(OffsetY, EdgeSize);
-  end;
-  }
+  // LCL's TWinControl has no BevelEdges/BevelInner/BevelOuter/BevelKind/BevelWidth properties,
+  // so bevels are not supported by VirtualTreeView under LCL and there is no extra offset to apply.
   InflateRect(FHeaderRect, -OffsetX, -OffsetY);
 
   if hoVisible in FHeader.Options then
@@ -17815,14 +17792,7 @@ begin
       Self.AutoScrollInterval := AutoScrollInterval;
       Self.AutoSize := AutoSize;
       Self.Background := Background;
-      //todo_lcl
-      {
-      Self.BevelEdges := BevelEdges;
-      Self.BevelInner := BevelInner;
-      Self.BevelKind := BevelKind;
-      Self.BevelOuter := BevelOuter;
-      Self.BevelWidth := BevelWidth;
-      }
+      // LCL's TWinControl has no Bevel* properties, so there is nothing to copy here.
       Self.BiDiMode := BiDiMode;
       Self.BorderStyle := BorderStyle;
       Self.BorderWidth := BorderWidth;

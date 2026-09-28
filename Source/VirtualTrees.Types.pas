@@ -1463,7 +1463,6 @@ begin
         if not (csDesigning in ComponentState) then
         begin
           if toFullRepaintOnResize in ToBeSet + ToBeCleared then
-            //todo_lcl_check
             RecreateWnd;
           if toVariableNodeHeight in ToBeSet then
           begin
@@ -1710,7 +1709,6 @@ begin
   if FAlwaysVisible <> Value then
   begin
     FAlwaysVisible := Value;
-    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
       TVTCracker(FOwner).RecreateWnd;
   end;
@@ -1723,7 +1721,6 @@ begin
   if FScrollBars <> Value then
   begin
     FScrollBars := Value;
-    //todo_lcl_check
     if not (csLoading in FOwner.ComponentState) and FOwner.HandleAllocated then
       TVTCracker(FOwner).RecreateWnd;
   end;

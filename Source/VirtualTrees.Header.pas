@@ -1561,7 +1561,8 @@ begin
                 Invalidate(FColumns[I]);
             end;
             FStates := FStates - [hsDragPending] + [hsDragging];
-            //todo: implement drag image under gtk
+            // Only the Windows OLE drag helper actually displays the prepared drag image; on the other
+            // widgetsets the header image is prepared but not shown (known limitation).
             PrepareDrag(P, FDragStart);
             HandleHeaderMouseMove := True;
             Result := 0;
@@ -1929,9 +1930,7 @@ begin
           if ((AdjustHoverColumn(P)) or ((FDownIndex > NoColumn) and (FHoverIndex <> FDownIndex))) then
           begin
             Invalidate(nil);
-            //todo: under lcl, the hint is show even if HintMouseMessage is not implemented
-            //Is it necessary here?
-            //use Delphi's internal hint handling for header hints too
+            // LCL implements Application.HintMouseMessage, so the header hint is handled here.
             if hoShowHint in FOptions then
             begin
               //client coordinates!

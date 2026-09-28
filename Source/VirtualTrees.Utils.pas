@@ -287,9 +287,9 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-//todo: Unify the procedure or change to widgetset specific
-// Currently the UTF-8 version is broken.
-// the unicode version is used when all winapi is available
+// The unicode version is used when all winapi is available (see INCOMPLETE_WINAPI).
+// The fallback below measures by bytes; it trims the result to a UTF-8 character boundary so it
+// never splits a multi-byte sequence.
 
 {$ifndef INCOMPLETE_WINAPI}
 function ShortenString(DC: HDC; const S: string; Width: TDimension; EllipsisWidth: TDimension = 0): string;
@@ -371,7 +371,7 @@ begin
     while L < H do
     begin
       N := (L + H + 1) shr 1;
-      GetTextExtentPoint32(DC, PAnsiChar(S), N, Size);
+      GetTextExtentPoint32(DC, PChar(S), N, Size);
       W := Size.cx + EllipsisWidth;
       if W <= Width then
         L := N
@@ -385,7 +385,12 @@ begin
     else if Width <= EllipsisWidth then
       Result := ''
     else
+    begin
+      // Never cut in the middle of a UTF-8 multi-byte sequence.
+      while (L > 0) and ((Ord(S[L + 1]) and $C0) = $80) do
+        Dec(L);
       Result := Copy(S, 1, L) + '...';
+    end;
   end;
 end;
 {$endif}

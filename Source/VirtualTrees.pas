@@ -925,10 +925,7 @@ begin
   with PaintInfo do
   begin
     R := ContentRect;
-    //todo_lcl See how TextStyle should be set
-    {
-    Canvas.TextFlags := 0;
-    }
+    // LCL has no TCanvas.TextFlags; DoTextDrawing() uses LCLIntf.DrawText, so no TextStyle needs to be set here.
     InflateRect(R, -TextMargin, 0);
 
     if (vsDisabled in Node.States) or not Enabled then
@@ -986,7 +983,6 @@ begin
       else
         DrawFormat := DrawFormat or AlignmentToDrawFlag[Alignment];
     end;
-    //todo_lcl_check
     if not Canvas.TextStyle.Opaque then
       SetBkMode(Canvas.Handle, TRANSPARENT)
     else
@@ -1032,10 +1028,7 @@ begin
     end;
 
     DrawFormat := DT_NOPREFIX or DT_VCENTER or DT_SINGLELINE;
-    //todo_lcl See how Canvas.TextStyle should be
-    {
-    Canvas.TextFlags := 0;
-    }
+    // LCL has no TCanvas.TextFlags; text is drawn with LCLIntf.DrawText, so no TextStyle needs to be set here.
     DoPaintText(Node, Canvas, Column, ttStatic);
 
     // Disabled node color overrides all other variants.
@@ -1055,7 +1048,6 @@ begin
         Inc(R.Left, NodeWidth); // room for node text
     end;
 
-    //todo_lcl_check
     if not Canvas.TextStyle.Opaque then
       SetBkMode(Canvas.Handle, TRANSPARENT)
     else
@@ -1287,7 +1279,8 @@ end;
 
 procedure TCustomVirtualStringTree.CutToClipBoard;
 begin
-  //todo: currently there's no way in LCL to know when the clipboard was used
+  // LCL gives no notification when clipboard content is consumed, so cut is implemented as a copy
+  // (the nodes are marked but not removed).
   CopyToClipBoard;
 end;
 {$endif}
