@@ -104,15 +104,6 @@ object StateForm: TStateForm
       Enabled = False
       TabOrder = 2
     end
-    object CheckBox20: TCheckBox
-      Left = 6
-      Height = 20
-      Top = 21
-      Width = 158
-      Caption = 'Mouse check pending'
-      Enabled = False
-      TabOrder = 3
-    end
     object CheckBox21: TCheckBox
       Left = 6
       Height = 20
@@ -185,15 +176,6 @@ object StateForm: TStateForm
       Caption = 'Incremental search pending'
       Enabled = False
       TabOrder = 3
-    end
-    object CheckBox18: TCheckBox
-      Left = 9
-      Height = 20
-      Top = -1
-      Width = 140
-      Caption = 'Key check pending'
-      Enabled = False
-      TabOrder = 4
     end
   end
   object GroupBox4: TGroupBox
@@ -443,15 +425,6 @@ object StateForm: TStateForm
     ClientHeight = 129
     ClientWidth = 224
     TabOrder = 8
-    object CheckBox22: TCheckBox
-      Left = 9
-      Height = 20
-      Top = 114
-      Width = 181
-      Caption = 'Default node height scale'
-      Enabled = False
-      TabOrder = 0
-    end
     object CheckBox26: TCheckBox
       Left = 9
       Height = 20
@@ -476,6 +449,15 @@ object StateForm: TStateForm
       Top = 74
       Width = 178
       Caption = 'Tumb tracking (scrollbar)'
+      Enabled = False
+      TabOrder = 3
+    end
+    object CheckBox35: TCheckBox
+      Left = 10
+      Height = 17
+      Top = 101
+      Width = 190
+      Caption = 'Updates locked'
       Enabled = False
       TabOrder = 3
     end

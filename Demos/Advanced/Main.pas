@@ -16,6 +16,9 @@ uses
 type
   TMainForm = class(TForm)
     PageScroller1: TPanel;
+    Bevel1: TBevel;
+    Bevel2: TBevel;
+    Bevel3: TBevel;
     SpeedDemoButton: TSpeedButton;
     AbilitiesDemoButton: TSpeedButton;
     PropertiesDemoButton: TSpeedButton;
@@ -62,14 +65,14 @@ procedure LoadUnicodeStrings(const Name: string; var Strings: array of String);
 // Loads the Unicode strings from the resource.
 
 var
-  Stream: TResourceStream;
+  Stream: TStream;
   Head, Tail: PAnsiChar;
   I: Integer;
 
 begin
-  Stream := TResourceStream.Create(HINSTANCE, Name, RT_RCDATA);
+  Stream := TLazarusResourceStream.Create(Name, PChar('UNI')); // TResourceStream.Create(HINSTANCE, Name, RT_RCDATA);
   try
-    Head := Stream.Memory;
+    Head := TMemoryStream(Stream).Memory;
     Tail := Head;
     for I := 0 to High(Strings) do
     begin
@@ -173,6 +176,8 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+initialization
+  {$I unicode.lrs}
 end.
 
 

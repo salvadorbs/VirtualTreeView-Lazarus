@@ -14,7 +14,7 @@ interface
 
 uses
   delphicompat, LCLIntf, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, VirtualTrees, LResources, LCLType, variants, VirtualTrees.BaseTree, VirtualTrees.Types;
+  StdCtrls, VirtualTrees, LResources, LCLType, variants, Menus, VirtualTrees.BaseTree, VirtualTrees.Types;
 
 type
 
@@ -26,6 +26,9 @@ type
     Label15: TLabel;
     TreeImages: TImageList;
     Label1: TLabel;
+    Label2: TLabel;
+    PopupMenu: TPopupMenu;
+    Edit1: TMenuItem;
     AutoSpanCheckBox: TCheckBox;
     DisplayFullNameCheckBox: TCheckBox;
     procedure VST5BeforeCellPaint(Sender: TBaseVirtualTree; TargetCanvas: TCanvas; Node: PVirtualNode;
@@ -113,7 +116,7 @@ end;
 
 procedure TGridForm.VST5FreeNode(Sender: TBaseVirtualTree; Node: PVirtualNode);
 begin
-  ///Node.GetData<TGridData>().Free();
+  Node.GetData<TGridData>().Free();
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

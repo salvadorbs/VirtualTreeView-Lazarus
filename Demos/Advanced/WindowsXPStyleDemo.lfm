@@ -119,65 +119,90 @@ object WindowsXPForm: TWindowsXPForm
     OnInitNode = XPTreeInitNode
     OnStateChange = XPTreeStateChange
   end
-  object ToolBar2: TToolBar
+  object CoolBar1: TCoolBar
     Left = 0
     Height = 34
     Top = 0
     Width = 844
-    ButtonHeight = 32
-    ButtonWidth = 32
-    Caption = 'ToolBar2'
-    Images = SmallImages
-    List = True
-    ShowCaptions = True
-    TabOrder = 1
-    object ToolButton7: TToolButton
-      Left = 1
-      Top = 2
-      ImageIndex = 9
-      Style = tbsDropDown
-    end
-    object ToolButton10: TToolButton
-      Left = 47
-      Top = 2
-      ImageIndex = 10
-      Style = tbsDropDown
-    end
-    object ToolButton11: TToolButton
-      Left = 93
-      Top = 2
-      ImageIndex = 18
-    end
-    object ToolButton12: TToolButton
-      Left = 127
-      Top = 2
-      ImageIndex = 14
-    end
-    object ToolButton13: TToolButton
-      Left = 161
-      Top = 2
-      ImageIndex = 21
-    end
-    object ToolButton14: TToolButton
-      Left = 195
-      Top = 2
-      ImageIndex = 8
-      Style = tbsDropDown
-    end
-    object ToolButton15: TToolButton
-      Left = 241
-      Height = 32
-      Top = 2
-      Width = 8
-      Caption = 'ToolButton15'
-      Style = tbsSeparator
-    end
-    object ToolButton16: TToolButton
-      Left = 249
-      Top = 2
-      Caption = 'Click here to print the treeview.'
-      ImageIndex = 24
-      OnClick = ToolButton9Click
+    Align = alTop
+    Bands = <
+      item
+        Control = ToolBar1
+        ImageIndex = -1
+        MinHeight = 30
+        Width = 840
+      end>
+    EdgeInner = esLowered
+    EdgeOuter = esNone
+    object ToolBar1: TToolBar
+      Left = 11
+      Height = 30
+      Top = 0
+      Width = 831
+      ButtonHeight = 28
+      ButtonWidth = 32
+      Caption = 'ToolBar1'
+      Images = SmallImages
+      List = True
+      ShowCaptions = True
+      TabOrder = 0
+      Transparent = True
+      object ToolButton1: TToolButton
+        Left = 0
+        Top = 0
+        AutoSize = True
+        ImageIndex = 9
+        Style = tbsDropDown
+      end
+      object ToolButton2: TToolButton
+        Left = 47
+        Top = 0
+        AutoSize = True
+        ImageIndex = 10
+        Style = tbsDropDown
+      end
+      object ToolButton3: TToolButton
+        Left = 93
+        Top = 0
+        AutoSize = True
+        ImageIndex = 18
+      end
+      object ToolButton4: TToolButton
+        Left = 127
+        Top = 0
+        AutoSize = True
+        ImageIndex = 14
+      end
+      object ToolButton5: TToolButton
+        Left = 161
+        Top = 0
+        AutoSize = True
+        ImageIndex = 21
+      end
+      object ToolButton6: TToolButton
+        Left = 195
+        Top = 0
+        AutoSize = True
+        ImageIndex = 8
+        Style = tbsDropDown
+      end
+      object ToolButton8: TToolButton
+        Left = 241
+        Height = 28
+        Top = 0
+        Width = 8
+        Caption = 'ToolButton8'
+        ImageIndex = 9
+        Style = tbsSeparator
+      end
+      object ToolButton9: TToolButton
+        Left = 249
+        Top = 0
+        AutoSize = True
+        Caption = 'Click here to print the treeview.'
+        ImageIndex = 24
+        OnClick = ToolButton9Click
+      end
     end
   end
   object LargeImages: TImageList

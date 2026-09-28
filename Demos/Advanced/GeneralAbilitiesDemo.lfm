@@ -1,111 +1,53 @@
 object GeneralForm: TGeneralForm
-  Left = 291
-  Height = 536
-  Top = 185
-  Width = 722
-  ActiveControl = BitBtn1
-  Caption = 'GeneralForm'
-  ClientHeight = 536
-  ClientWidth = 722
+  Left = 155
+  Height = 550
+  Top = 117
+  Width = 915
+  ActiveControl = VST2
+  Caption = 'Virtual Treeview Features'
+  ClientHeight = 550
+  ClientWidth = 915
+  Color = clBtnFace
+  Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'MS Sans Serif'
+  Font.Style = []
   KeyPreview = True
   OnCreate = FormCreate
   ShowHint = True
   LCLVersion = '1.7'
-  object Label18: TLabel
-    AnchorSideTop.Control = RadioGroup2
-    AnchorSideTop.Side = asrBottom
-    Left = 503
-    Height = 13
-    Top = 334
-    Width = 104
-    Anchors = [akTop, akRight]
-    BorderSpacing.Top = 20
-    Caption = 'Switch check images:'
-    ParentColor = False
-  end
-  object Label19: TLabel
-    AnchorSideTop.Control = CheckMarkCombo
-    AnchorSideTop.Side = asrBottom
-    Left = 505
-    Height = 13
-    Top = 390
-    Width = 97
-    Anchors = [akTop, akRight]
-    BorderSpacing.Top = 20
-    Caption = 'Switch main column:'
-    ParentColor = False
-  end
-  object Label8: TLabel
-    Left = 51
-    Height = 13
-    Top = 40
-    Width = 669
-    Anchors = [akTop, akRight]
-    Caption = 'This sample is an introduction to the general look and feel of Virtual Treeview. Note: you can change almost every visual aspect of the control.'
-    ParentColor = False
-    WordWrap = True
-  end
   object VST2: TVirtualStringTree
     Left = 5
-    Height = 523
-    Top = 8
-    Width = 474
+    Height = 540
+    Top = 5
+    Width = 470
     Anchors = [akTop, akLeft, akRight, akBottom]
-    AutoExpandDelay = 300
-    ButtonFillMode = fmWindowColor
-    CheckImageKind = ckDarkTick
     ClipboardFormats.Strings = (
+      'CSV'
       'HTML Format'
+      'Plain text'
+      'Rich Text Format'
+      'Rich Text Format Without Objects'
       'Unicode text'
       'Virtual Tree Data'
     )
     Colors.BorderColor = clScrollBar
-    Colors.DropTargetColor = clActiveBorder
-    Colors.DropTargetBorderColor = clActiveCaption
+    Colors.FocusedSelectionColor = 15461355
+    Colors.FocusedSelectionBorderColor = 15461355
+    Colors.GridLineColor = 14209710
     Colors.HotColor = clBlack
-    Colors.UnfocusedSelectionBorderColor = clBtnShadow
+    Colors.SelectionRectangleBlendColor = 15461355
     DefaultNodeHeight = 24
-    DefaultText = 'Node'
-    DragCursor = crHelp
     DrawSelectionMode = smBlendedRectangle
     EditDelay = 200
     Font.Height = -11
     Font.Name = 'Lucida Sans Unicode'
     Header.AutoSizeIndex = -1
     Header.Background = clBtnShadow
-    Header.Columns = <    
-      item
-        Hint = 'Column which initially contains the tree.'
-        ImageIndex = 10
-        Position = 1
-        Spacing = 20
-        Text = 'Initial main column'
-        Width = 300
-      end    
-      item
-        Color = 14737632
-        Hint = 'Image only column.'
-        MaxWidth = 22
-        Options = [coEnabled, coParentBidiMode, coVisible]
-        Position = 0
-        Spacing = 0
-        Width = 22
-      end    
-      item
-        Hint = 'Column with mathematic, greek, japanese and german (nonsense) text.'
-        ImageIndex = 4
-        Options = [coAllowClick, coEnabled, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus]
-        Position = 2
-        Spacing = 20
-        Text = 'Language column'
-        Width = 300
-      end>
-    Header.DefaultHeight = 17
     Header.Height = 20
+    Header.MainColumn = 1
     Header.Options = [hoColumnResize, hoDblClickResize, hoDrag, hoHotTrack, hoShowHint, hoVisible]
-    Header.ParentFont = True
+    Header.PopupMenu = VTHPopup
     Header.Style = hsFlatButtons
     HintMode = hmTooltip
     HotCursor = crHandPoint
@@ -122,8 +64,8 @@ object GeneralForm: TGeneralForm
     TreeOptions.StringOptions = [toSaveCaptions, toShowStaticText, toAutoAcceptEditChange]
     OnDragOver = VST2DragOver
     OnFocusChanging = VST2FocusChanging
-    OnGetText = VST2GetText
-    OnPaintText = VST2PaintText
+    OnFreeNode = VST2FreeNode
+    OnGetCellText = VST2GetCellText
     OnGetImageIndexEx = VST2GetImageIndexEx
     OnGetNodeDataSize = VST2GetNodeDataSize
     OnGetPopupMenu = VST2GetPopupMenu
@@ -131,175 +73,141 @@ object GeneralForm: TGeneralForm
     OnInitNode = VST2InitNode
     OnKeyDown = VST2KeyDown
     OnNewText = VST2NewText
+    OnPaintText = VST2PaintText
     OnStateChange = VST2StateChange
+    Header.Columns = <
+      item
+        Hint = 'Column which initially contains the tree.'
+        ImageIndex = 10
+        Position = 1
+        Spacing = 20
+        Text = 'Initial main column'
+        Width = 300
+      end
+      item
+        Hint = 'Column with mathematic, greek, japanese and german (nonsense) text.'
+        ImageIndex = 4
+        Options = [coAllowClick, coEnabled, coParentColor, coResizable, coShowDropMark, coVisible, coAllowFocus]
+        Position = 2
+        Spacing = 20
+        Text = 'Language column'
+        Width = 300
+      end>
   end
-  object CheckMarkCombo: TComboBox
-    AnchorSideTop.Control = Label18
-    AnchorSideTop.Side = asrBottom
-    Left = 488
-    Height = 21
-    Top = 349
-    Width = 216
-    Anchors = [akTop, akRight]
-    BorderSpacing.Top = 2
-    ItemHeight = 13
-    Items.Strings = (
-      'Light check marks'
-      'Dark check marks'
-      'Light tick marks'
-      'Dark tick marks'
-      'Flat tick marks'
-      'Windows XP style images'
-      'Custom check images'
-      'System flat check images'
-      'System default check images'
-    )
-    OnChange = CheckMarkComboChange
-    PopupMenu = PopupMenu1
-    Style = csDropDownList
+  object ScrollBox1: TScrollBox
+    Left = 480
+    Height = 545
+    Top = 5
+    Width = 430
+    Align = alRight
+    BorderStyle = bsNone
     TabOrder = 1
-  end
-  object MainColumnUpDown: TUpDown
-    AnchorSideTop.Control = Label19
-    AnchorSideTop.Side = asrBottom
-    Left = 488
-    Height = 16
-    Top = 405
-    Width = 37
-    Anchors = [akTop, akRight]
-    BorderSpacing.Top = 2
-    Increment = 2
-    Max = 2
-    Min = 0
-    OnChanging = MainColumnUpDownChanging
-    Orientation = udHorizontal
-    Position = 2
-    TabOrder = 2
-    Wrap = True
-  end
-  object BitBtn1: TBitBtn
-    Left = 488
-    Height = 30
-    Hint = 'Pick a font to be used by this tree.'
-    Top = 8
-    Width = 99
-    Anchors = [akTop, akRight]
-    Caption = 'Tree font'
-    Glyph.Data = {
-      96010000424D9601000000000000760000002800000018000000180000000100
-      0400000000002001000000000000000000001000000000000000000000000000
-      BF0000BF000000BFBF00BF000000BF00BF00BFBF0000C0C0C000808080000000
-      FF0000FF000000FFFF00FF000000FF00FF00FFFF0000FFFFFF00333333333333
-      3333333333333333333333333333380088333333333333333338007700833333
-      3333333333307700770333000333300003307033003333090833309903077033
-      3333330990000999030770333333333099999990330770833033333090000903
-      3330708807033330990309033330770077033333090090333333007707033333
-      099090333333330030333333309990338000033333333333309903300CCCC003
-      3333333333090330CC00CCC03333333333090330C0330CC03333333333303330
-      CC000CC03333333333333330CCCCCCC03333333333333330C0330C0333333333
-      33333300C000CC0333333333333330CCCCCCCC03333333333333300000000033
-      3333333333333333333333333333333333333333333333333333
-    }
-    OnClick = BitBtn1Click
-    TabOrder = 3
-  end
-  object RadioGroup1: TRadioGroup
-    AnchorSideTop.Control = ThemeRadioGroup
-    AnchorSideTop.Side = asrBottom
-    Left = 488
-    Height = 77
-    Top = 150
-    Width = 216
-    Anchors = [akTop, akRight]
-    AutoFill = True
-    BorderSpacing.Top = 10
-    Caption = 'Tree button look: '
-    ChildSizing.LeftRightSpacing = 6
-    ChildSizing.TopBottomSpacing = 6
-    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
-    ChildSizing.EnlargeVertical = crsHomogenousChildResize
-    ChildSizing.ShrinkHorizontal = crsScaleChilds
-    ChildSizing.ShrinkVertical = crsScaleChilds
-    ChildSizing.Layout = cclLeftToRightThenTopToBottom
-    ChildSizing.ControlsPerLine = 1
-    ClientHeight = 59
-    ClientWidth = 212
-    ItemIndex = 0
-    Items.Strings = (
-      'Usual +/- buttons and lines'
-      'Little triangles without lines'
-    )
-    OnClick = RadioGroup1Click
-    TabOrder = 4
-  end
-  object RadioGroup2: TRadioGroup
-    AnchorSideTop.Control = RadioGroup1
-    AnchorSideTop.Side = asrBottom
-    Left = 488
-    Height = 77
-    Top = 237
-    Width = 216
-    Anchors = [akTop, akRight]
-    AutoFill = True
-    BorderSpacing.Top = 10
-    Caption = 'Draw selection mode: '
-    ChildSizing.LeftRightSpacing = 6
-    ChildSizing.TopBottomSpacing = 6
-    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
-    ChildSizing.EnlargeVertical = crsHomogenousChildResize
-    ChildSizing.ShrinkHorizontal = crsScaleChilds
-    ChildSizing.ShrinkVertical = crsScaleChilds
-    ChildSizing.Layout = cclLeftToRightThenTopToBottom
-    ChildSizing.ControlsPerLine = 1
-    ClientHeight = 59
-    ClientWidth = 212
-    ItemIndex = 1
-    Items.Strings = (
-      'Dotted rectangle'
-      'Alpha blended rectangle'
-    )
-    OnClick = RadioGroup2Click
-    TabOrder = 5
-  end
-  object ThemeRadioGroup: TRadioGroup
-    AnchorSideLeft.Side = asrBottom
-    AnchorSideTop.Control = Label8
-    AnchorSideTop.Side = asrBottom
-    Left = 488
-    Height = 77
-    Top = 63
-    Width = 216
-    Anchors = [akTop, akRight]
-    AutoFill = True
-    BorderSpacing.Left = 10
-    BorderSpacing.Top = 10
-    Caption = ' Switch XP theme awareness: '
-    ChildSizing.LeftRightSpacing = 6
-    ChildSizing.TopBottomSpacing = 6
-    ChildSizing.EnlargeHorizontal = crsHomogenousChildResize
-    ChildSizing.EnlargeVertical = crsHomogenousChildResize
-    ChildSizing.ShrinkHorizontal = crsScaleChilds
-    ChildSizing.ShrinkVertical = crsScaleChilds
-    ChildSizing.Layout = cclLeftToRightThenTopToBottom
-    ChildSizing.ControlsPerLine = 1
-    ClientHeight = 59
-    ClientWidth = 212
-    Items.Strings = (
-      'Theme aware'
-      'Not theme aware'
-    )
-    OnClick = ThemeRadioGroupClick
-    TabOrder = 6
-  end
-  object SaveButton: TBitBtn
-    Left = 608
-    Height = 30
-    Top = 8
-    Width = 99
-    Anchors = [akTop, akRight]
-    Caption = 'Save as text...'
-    OnClick = SaveButtonClick
-    TabOrder = 7
+    object Panel1: TPanel
+      Left = 0
+      Height = 545
+      Top = 0
+      Width = 430
+      Align = alClient
+      BevelOuter = bvNone
+      TabOrder = 0
+      object Label8: TLabel
+        Left = 10
+        Height = 55
+        Top = 95
+        Width = 410
+        Caption = 'This sample is an introduction to the general look and feel of VirtualTreeview. Note: you can change almost every visual aspect of the control.'
+        ParentColor = False
+        WordWrap = True
+      end
+      object BitBtn1: TBitBtn
+        Left = 10
+        Height = 30
+        Hint = 'Pick a font to be used by this tree.'
+        Top = 10
+        Width = 200
+        Caption = 'Tree font'
+        TabOrder = 0
+        OnClick = BitBtn1Click
+      end
+      object SaveButton: TBitBtn
+        Left = 10
+        Height = 30
+        Top = 55
+        Width = 200
+        Caption = 'Save as text...'
+        TabOrder = 1
+        OnClick = SaveButtonClick
+      end
+      object ThemeRadioGroup: TRadioGroup
+        Left = 10
+        Height = 72
+        Top = 162
+        Width = 200
+        Caption = 'Switch XP theme awareness: '
+        Items.Strings = (
+          'Theme aware'
+          'Not theme aware')
+        TabOrder = 2
+        OnClick = ThemeRadioGroupClick
+      end
+      object RadioGroup1: TRadioGroup
+        Left = 10
+        Height = 72
+        Top = 244
+        Width = 200
+        Caption = 'Tree button look: '
+        ItemIndex = 0
+        Items.Strings = (
+          'Usual +/- buttons and lines'
+          'Little triangles without lines')
+        TabOrder = 3
+        OnClick = RadioGroup1Click
+      end
+      object RadioGroup2: TRadioGroup
+        Left = 10
+        Height = 72
+        Top = 326
+        Width = 200
+        Caption = 'Draw selection mode: '
+        ItemIndex = 1
+        Items.Strings = (
+          'Dotted rectangle'
+          'Alpha blended rectangle')
+        TabOrder = 4
+        OnClick = RadioGroup2Click
+      end
+      object GroupBox1: TGroupBox
+        Left = 10
+        Height = 47
+        Top = 408
+        Width = 200
+        Caption = 'Main Column'
+        ClientHeight = 29
+        ClientWidth = 196
+        TabOrder = 5
+        object Label19: TLabel
+          Left = 8
+          Height = 18
+          Top = 21
+          Width = 96
+          Caption = 'Switch main column:'
+        end
+        object MainColumnUpDown: TUpDown
+          Left = 112
+          Height = 16
+          Top = 20
+          Width = 35
+          AlignButton = udLeft
+          Increment = 2
+          Max = 2
+          OnChanging = MainColumnUpDownChanging
+          Orientation = udHorizontal
+          Position = 2
+          TabOrder = 0
+          Wrap = True
+        end
+      end
+    end
   end
   object TreeImages: TImageList
     left = 22
@@ -885,16 +793,8 @@ object GeneralForm: TGeneralForm
     }
   end
   object FontDialog1: TFontDialog
-    Font.Height = -11
-    Font.Name = 'MS Sans Serif'
-    MinFontSize = 0
-    MaxFontSize = 0
-    left = 84
-    top = 148
   end
   object PopupMenu1: TPopupMenu
-    left = 116
-    top = 148
     object Onemenuitem1: TMenuItem
       Caption = 'Menu items'
     end
@@ -905,11 +805,11 @@ object GeneralForm: TGeneralForm
       Caption = 'with popup menu.'
     end
   end
+  object VTHPopup: TVTHeaderPopupMenu
+    Left = 116
+    Top = 180
+  end
   object SaveDialog: TSaveDialog
-    Filter = 'HTML file in UTF-8 (*.htm; *.html)|*.htm;*.html|Unicode UTF-16 text file (*.uni)|*.uni|Rich text UTF-16 file (*.rtf)|*.rtf|Comma separated values ANSI text file (*.csv)|*.csv|Unicode UTF-8 text file (*.txt)|*.txt|Plain ANSI text file (*.txt)|*.txt'
-    Options = [ofOverwritePrompt, ofHideReadOnly, ofExtensionDifferent, ofEnableSizing]
-    left = 148
-    top = 148
   end
   object ImageList1: TImageList
     Height = 24

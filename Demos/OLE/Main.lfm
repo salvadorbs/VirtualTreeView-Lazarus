@@ -207,6 +207,19 @@ object MainForm: TMainForm
         Caption = 'You can use the rich edit control as source and as target. It initiates OLE drag'' drop.'
         ParentColor = False
       end
+      object RichEdit1: TMemo
+        Left = 4
+        Height = 145
+        Top = 32
+        Width = 665
+        Anchors = [akTop, akLeft, akRight, akBottom]
+        HideSelection = False
+        Lines.Strings = (
+          'RichEdit1')
+        ScrollBars = ssBoth
+        TabOrder = 0
+        WordWrap = False
+      end
     end
     object LogTabSheet: TTabSheet
       Caption = 'Drag''n drop operation log'

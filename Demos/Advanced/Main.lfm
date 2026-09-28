@@ -15,6 +15,14 @@ object MainForm: TMainForm
   OnShow = FormShow
   Position = poScreenCenter
   LCLVersion = '1.7'
+  object Bevel1: TBevel
+    Left = 0
+    Height = 2
+    Top = 77
+    Width = 981
+    Align = alTop
+    Shape = bsTopLine
+  end
   object PageScroller1: TPanel
     Left = 0
     Height = 77
@@ -983,6 +991,22 @@ object MainForm: TMainForm
         }
         GroupIndex = 1
         OnClick = DemoButtonClick
+      end
+      object Bevel2: TBevel
+        Left = 887
+        Top = 4
+        Width = 10
+        Height = 70
+        Shape = bsSpacer
+        Style = bsRaised
+      end
+      object Bevel3: TBevel
+        Left = 0
+        Top = 0
+        Width = 10
+        Height = 70
+        Shape = bsSpacer
+        Style = bsRaised
       end
       object Label1: TLabel
         Left = 0

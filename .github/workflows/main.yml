@@ -196,7 +196,9 @@ jobs:
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/dataarray/dataarray.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/dragdrop/vtvdragdrop.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/images/images.lpi" --widgetset=${{ matrix.build-widgetset }}
+        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Interfaces/charityevents.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Minimal/minimal_lcl.lpi" --widgetset=${{ matrix.build-widgetset }}
+        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Multiselect/multiselect.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Objects/mvcdemo.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/unicode/unicode.lpi" --widgetset=${{ matrix.build-widgetset }}
         ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/vtbasic/vtbasic.lpi" --widgetset=${{ matrix.build-widgetset }}

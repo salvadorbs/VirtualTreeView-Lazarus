@@ -26,8 +26,9 @@ uses
 type                                        
   TGeneralForm = class(TForm)
     VST2: TVirtualStringTree;
-    CheckMarkCombo: TComboBox;
-    Label18: TLabel;
+    ScrollBox1: TScrollBox;
+    Panel1: TPanel;
+    GroupBox1: TGroupBox;
     MainColumnUpDown: TUpDown;        
     Label19: TLabel;
     BitBtn1: TBitBtn;
@@ -55,7 +56,6 @@ type
     procedure VST2PaintText(Sender: TBaseVirtualTree; const TargetCanvas: TCanvas; Node: PVirtualNode; Column: TColumnIndex;
       TextType: TVSTTextType);
     procedure VST2GetNodeDataSize(Sender: TBaseVirtualTree; var NodeDataSize: Integer);
-    procedure CheckMarkComboChange(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure MainColumnUpDownChanging(Sender: TObject; var AllowChange: Boolean);
     procedure VST2GetPopupMenu(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; const P: TPoint;
@@ -123,8 +123,6 @@ begin
   {$endif}
   if ThemeRadioGroup.Enabled then
     ThemeRadioGroup.ItemIndex := 0;
-
-  CheckMarkCombo.ItemIndex := 3;
 
   // Add a second line of hint text for column headers (not possible in the object inspector).
   with VST2.Header do
@@ -258,7 +256,7 @@ begin
       4:
         begin
           WideStr := WideChar($20AC);
-          WideStr := 'nichts ist unmöglich ' + WideStr;
+          WideStr := 'nichts ist unmï¿½glich ' + WideStr;
           ForeignText := UTF8Encode(WideStr);
         end;
       5:
@@ -352,14 +350,6 @@ begin
     if Execute then
       VST2.Font := Font;
   end;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-procedure TGeneralForm.CheckMarkComboChange(Sender: TObject);
-
-begin
-  VST2.CheckImageKind := TCheckImageKind(CheckMarkCombo.ItemIndex);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

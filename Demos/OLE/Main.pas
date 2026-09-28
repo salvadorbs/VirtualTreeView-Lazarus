@@ -35,7 +35,7 @@ type
     LogTabSheet: TTabSheet;
     RichTextTabSheet: TTabSheet;
     LogListBox: TListBox;
-    //RichEdit1: TRichEdit;
+    RichEdit1: TMemo;
     Label3: TLabel;
     Label7: TLabel;
     Button2: TButton;
@@ -117,9 +117,9 @@ begin
   else
     if ActiveControl = Tree2 then
       Tree2.CutToClipboard
-    else;
-      //if ActiveControl = RichEdit1 then
-      //  RichEdit1.CutToClipboard;
+    else
+      if ActiveControl = RichEdit1 then
+        RichEdit1.CutToClipboard;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -132,9 +132,9 @@ begin
   else
     if ActiveControl = Tree2 then
       Tree2.CopyToClipboard
-    else;
-      //if ActiveControl = RichEdit1 then
-      //  RichEdit1.CopyToClipboard;
+    else
+      if ActiveControl = RichEdit1 then
+        RichEdit1.CopyToClipboard;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -184,9 +184,9 @@ begin
       end;
     end;
   end
-  else;
-    //if ActiveControl = RichEdit1 then
-    //  RichEdit1.PasteFromClipboard;
+  else
+    if ActiveControl = RichEdit1 then
+      RichEdit1.PasteFromClipboard;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

@@ -56,7 +56,7 @@ implementation
 {$R *.lfm}
 
 uses
-  States, LclExt;
+  States, LclExt, LResources;
 
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -254,7 +254,7 @@ begin
   //FBackBitmap2.PixelFormat := OptimalPixelFormat;
   CreateCheckerBackground;
   FHeaderBitmap := TBitmap.Create;
-  FHeaderBitmap.LoadFromResourceName(HINSTANCE, 'Transcriptions');
+  FHeaderBitmap.LoadFromLazarusResource('Transcriptions');
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -319,4 +319,6 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 
+initialization
+  {$I bitmap.lrs}
 end.

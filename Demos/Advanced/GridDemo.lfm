@@ -34,6 +34,17 @@ object GridForm: TGridForm
     ParentColor = False
     WordWrap = True
   end
+  object Label2: TLabel
+    Left = 518
+    Height = 73
+    Top = 248
+    Width = 195
+    Anchors = [akTop, akRight]
+    AutoSize = False
+    Caption = 'AUTO SPAN: Use the following option to see Auto Span in action where a long First Name extends into the Last Name column.'
+    ParentColor = False
+    WordWrap = True
+  end
   object VST5: TVirtualStringTree
     Cursor = 63
     Left = 8
@@ -116,6 +127,9 @@ object GridForm: TGridForm
     OnPaintText = VST5PaintText
     OnInitNode = VST5InitNode
     OnStateChange = VST5StateChange
+    OnFreeNode = VST5FreeNode
+    OnColumnHeaderSpanning = VST5ColumnHeaderSpanning
+    PopupMenu = PopupMenu
   end
   object GridLineCheckBox: TCheckBox
     Left = 520
@@ -128,6 +142,25 @@ object GridForm: TGridForm
     OnClick = GridLineCheckBoxClick
     State = cbChecked
     TabOrder = 1
+  end
+  object AutoSpanCheckBox: TCheckBox
+    Left = 518
+    Height = 17
+    Top = 327
+    Width = 153
+    Anchors = [akTop, akRight]
+    Caption = 'Switch ON Auto Span'
+    OnClick = AutoSpanCheckBoxClick
+    TabOrder = 2
+  end
+  object DisplayFullNameCheckBox: TCheckBox
+    Left = 518
+    Height = 17
+    Top = 360
+    Width = 153
+    Caption = 'Display Full Name'
+    OnClick = DisplayFullNameCheckBoxClick
+    TabOrder = 3
   end
   object TreeImages: TImageList
     left = 22
@@ -711,5 +744,13 @@ object GridForm: TGridForm
       0000000000000000000000000000000000000000000000000000000000000000
       0000000000000000000000000000
     }
+  end
+  object PopupMenu: TPopupMenu
+    Left = 83
+    Top = 36
+    object Edit1: TMenuItem
+      Caption = 'Edit'
+      OnClick = Edit1Click
+    end
   end
 end

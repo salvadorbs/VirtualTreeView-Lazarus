@@ -21,7 +21,6 @@ type
     CheckBox8: TCheckBox;
     CheckBox9: TCheckBox;
     CheckBox19: TCheckBox;
-    CheckBox20: TCheckBox;
     CheckBox21: TCheckBox;
     CheckBox27: TCheckBox;
     CheckBox43: TCheckBox;
@@ -30,7 +29,6 @@ type
     CheckBox11: TCheckBox;
     CheckBox15: TCheckBox;
     CheckBox16: TCheckBox;
-    CheckBox18: TCheckBox;
     GroupBox4: TGroupBox;
     CheckBox5: TCheckBox;
     CheckBox6: TCheckBox;
@@ -57,10 +55,10 @@ type
     CheckBox23: TCheckBox;
     CheckBox33: TCheckBox;
     GroupBox8: TGroupBox;
-    CheckBox22: TCheckBox;
     CheckBox26: TCheckBox;
     CheckBox30: TCheckBox;
     CheckBox34: TCheckBox;
+    CheckBox35: TCheckBox;
     CheckBox38: TCheckBox;
     CheckBox45: TCheckBox;
     CheckBox46: TCheckBox;
@@ -176,6 +174,7 @@ begin
   CheckBox32.Enabled := EnableCheckBox.Checked;
   CheckBox33.Enabled := EnableCheckBox.Checked;
   CheckBox34.Enabled := EnableCheckBox.Checked;
+  CheckBox35.Enabled := EnableCheckBox.Checked;
   CheckBox36.Enabled := EnableCheckBox.Checked;
   CheckBox37.Enabled := EnableCheckBox.Checked;
   CheckBox38.Enabled := EnableCheckBox.Checked;

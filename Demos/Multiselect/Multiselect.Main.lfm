@@ -1,0 +1,149 @@
+object Form1: TForm1
+  Left = 0
+  Height = 776
+  Top = 0
+  Width = 1104
+  Caption = 'Multiselect Demo'
+  ClientHeight = 776
+  ClientWidth = 1104
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -27
+  Font.Name = 'Segoe UI'
+  Font.Style = []
+  Position = poMainFormCenter
+  OnCreate = FormCreate
+  LCLVersion = '1.7'
+  object VirtualStringTree1: TVirtualStringTree
+    Left = 0
+    Height = 776
+    Top = 0
+    Width = 828
+    Align = alClient
+    DefaultNodeHeight = 46
+    Header.AutoSizeIndex = 0
+    Header.DefaultHeight = 40
+    Header.MaxHeight = 22500
+    Header.MinHeight = 23
+    Header.Options = [hoColumnResize, hoDrag, hoShowSortGlyphs, hoVisible]
+    Indent = 41
+    Margin = 9
+    TabOrder = 0
+    TextMargin = 9
+    TreeOptions.SelectionOptions = [toExtendedFocus, toMultiSelect, toSelectNextNodeOnRemoval]
+    OnFreeNode = VirtualStringTree1FreeNode
+    OnGetText = VirtualStringTree1GetText
+    OnKeyPress = VirtualStringTree1KeyPress
+    Header.Columns = <
+      item
+        MaxWidth = 9999
+        MinWidth = 9
+        Position = 0
+        Spacing = 2
+        Text = 'table_schema'
+        Width = 212
+      end
+      item
+        MaxWidth = 9999
+        MinWidth = 9
+        Position = 1
+        Spacing = 2
+        Text = 'table_name'
+        Width = 191
+      end
+      item
+        MaxWidth = 9999
+        MinWidth = 9
+        Position = 2
+        Spacing = 2
+        Text = 'table_type'
+        Width = 204
+      end
+      item
+        MaxWidth = 9999
+        MinWidth = 9
+        Position = 3
+        Spacing = 2
+        Text = 'table_version'
+        Width = 183
+      end>
+  end
+  object Panel1: TPanel
+    Left = 828
+    Height = 776
+    Top = 0
+    Width = 276
+    Align = alRight
+    BevelOuter = bvNone
+    Caption = 'Panel1'
+    TabOrder = 1
+    DesignSize = (
+      276
+      776)
+    object btnSelect4CellsLeftToRight: TButton
+      Left = 44
+      Height = 90
+      Top = 6
+      Width = 216
+      Anchors = [akRight]
+      Caption = 'Select 4 cells'#13#10'left to right'
+      OnClick = btnSelect4CellsLeftToRightClick
+      TabOrder = 0
+      WordWrap = True
+    end
+    object btnSelect4CellsRightToLeft: TButton
+      Left = 44
+      Height = 90
+      Top = 110
+      Width = 216
+      Anchors = [akRight]
+      Caption = 'Select 4 cells'#13#10'right to left'
+      OnClick = btnSelect4CellsRightToLeftClick
+      TabOrder = 1
+      WordWrap = True
+    end
+    object btnClickRow2Col1: TButton
+      Left = 14
+      Height = 56
+      Top = 293
+      Width = 252
+      Anchors = [akRight]
+      Caption = 'Select row 2, cell 1'
+      OnClick = btnClickRow2Col1Click
+      TabOrder = 2
+    end
+    object btnClickRow1Col1: TButton
+      Left = 14
+      Height = 57
+      Top = 222
+      Width = 252
+      Anchors = [akRight]
+      Caption = 'Select row 1, cell 1'
+      OnClick = btnClickRow1Col1Click
+      TabOrder = 3
+    end
+    object btnSelectRow3Col1Row4Col2: TButton
+      Left = 14
+      Height = 118
+      Top = 363
+      Width = 252
+      Anchors = [akRight]
+      Caption = 'Select row 3, col 2, row 4, col 3'#13#10'Copy'
+      OnClick = btnSelectRow3Col1Row4Col2Click
+      TabOrder = 4
+      WordWrap = True
+    end
+    object btnSelectRow2_3_Copy: TButton
+      Left = 14
+      Height = 72
+      Top = 495
+      Width = 252
+      Anchors = [akRight]
+      Caption = 'Select row 2-3, copy'
+      OnClick = btnSelectRow2_3_CopyClick
+      TabOrder = 5
+      WordWrap = True
+    end
+  end
+end
