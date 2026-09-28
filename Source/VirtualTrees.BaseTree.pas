@@ -12113,7 +12113,7 @@ begin
   Result := DragOver(VTVDragManager.DragSource, KeyState, dsDragMove, Pt, Effect);
   try
     if (Result <> NOERROR) or ((Effect and not DROPEFFECT_SCROLL) = DROPEFFECT_NONE) then
-      Result := E_FAIL
+      Result := HResult(E_FAIL)
     else
     begin
       try
@@ -12142,7 +12142,7 @@ begin
       except
         // An unhandled exception here leaks memory.
         Application.HandleException(Self);
-        Result := E_UNEXPECTED;
+        Result := HResult(E_UNEXPECTED);
       end;
     end;
   finally
@@ -12214,7 +12214,7 @@ begin
     end;
     Result := NOERROR;
   except
-    Result := E_UNEXPECTED;
+    Result := HResult(E_UNEXPECTED);
   end;
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcDrag],'DragEnter');{$endif}
 end;
@@ -12404,7 +12404,7 @@ begin
       Effect := Effect or Integer(DROPEFFECT_SCROLL);
     Result := NOERROR;
   except
-    Result := E_UNEXPECTED;
+    Result := HResult(E_UNEXPECTED);
   end;
   //{$ifdef DEBUG_VTV}Logger.ExitMethod([lcDrag],'DragOver');{$endif}
 end;
