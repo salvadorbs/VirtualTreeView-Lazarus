@@ -1,5 +1,7 @@
 
+{$if (Defined(CPU386) or Defined(CPUX86_64))}
 {$ASMMODE INTEL}
+{$endif}
 
 procedure AlphaBlendLineConstant(Source, Destination: Pointer; Count: Integer; ConstantAlpha, Bias: Integer);
 
@@ -9,6 +11,10 @@ procedure AlphaBlendLineConstant(Source, Destination: Pointer; Count: Integer; C
 // and 255 totally opaque (source pixel only).
 // Bias is an additional value which gets added to every component and must be in the range -128..127
 
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
+begin
+end;
+{$else}
 asm
 
 {$ifdef CPU64}
@@ -135,6 +141,7 @@ asm
         POP     ESI
 {$endif}
 end;
+{$endif}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -144,6 +151,10 @@ procedure AlphaBlendLinePerPixel(Source, Destination: Pointer; Count, Bias: Inte
 // The layout of a pixel must be BGRA.
 // Bias is an additional value which gets added to every component and must be in the range -128..127
 
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
+begin
+end;
+{$else}
 asm
 
 {$ifdef CPU64}
@@ -268,6 +279,7 @@ asm
         POP     ESI
 {$endif}
 end;
+{$endif}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -278,6 +290,10 @@ procedure AlphaBlendLineMaster(Source, Destination: Pointer; Count: Integer; Con
 // ConstantAlpha must be in the range 0..255.
 // Bias is an additional value which gets added to every component and must be in the range -128..127
 
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
+begin
+end;
+{$else}
 asm
 
 {$ifdef CPU64}
@@ -421,6 +437,7 @@ asm
         POP     ESI
 {$endif}
 end;
+{$endif}
 
 //----------------------------------------------------------------------------------------------------------------------
 
@@ -430,6 +447,10 @@ procedure AlphaBlendLineMasterAndColor(Destination: Pointer; Count: Integer; Con
 // The layout of a pixel must be BGRA and Color must be rrggbb00 (as stored by a COLORREF).
 // ConstantAlpha must be in the range 0..255.
 
+{$if not (Defined(CPU386) or Defined(CPUX86_64))}
+begin
+end;
+{$else}
 asm
 
 {$ifdef CPU64}
@@ -530,14 +551,15 @@ asm
         JNZ     @1
 {$endif}
 end;
+{$endif}
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure EMMS;
 
 // Reset MMX state to use the FPU for other tasks again.
+{$if not(Defined(CPU386))}
 
-{$ifdef CPU64}
   inline;
   begin
   end;
