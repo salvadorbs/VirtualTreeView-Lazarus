@@ -164,11 +164,13 @@ type
 
 
 
+  TVTHintKind = (vhkText, vhkOwnerDraw);
   PVTHintData = ^TVTHintData;
   TVTHintData = record
     Tree: TBaseVirtualTree;
     Node: PVirtualNode;
     Column: TColumnIndex;
+    Kind: TVTHintKind;          // whether the hint is owner drawn or drawn as text
     HintRect: TRect;            // used for draw trees only, string trees get the size from the hint string
     HintText: string;    // set when size of the hint window is calculated
     BidiMode: TBidiMode;
@@ -356,9 +358,10 @@ type
   // operations
   TVTOperationEvent = procedure(Sender: TBaseVirtualTree; OperationKind: TVTOperationKind) of object;
 
-  TVTHintKind = (vhkText, vhkOwnerDraw);
   TVTHintKindEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var Kind: TVTHintKind) of object;
   TVTDrawHintEvent = procedure(Sender: TBaseVirtualTree; HintCanvas: TCanvas; Node: PVirtualNode; R: TRect; Column: TColumnIndex) of object;
+  TVTGetHintEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
+    var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string) of object;
   TVTGetHintSizeEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex; var R: TRect) of object;
 
   // miscellaneous
@@ -454,6 +457,7 @@ type
     FLastChangedNode,                            // used for delayed change event
     FCurrentHotNode: PVirtualNode;               // Node over which the mouse is hovering.
     FCurrentHotColumn: TColumnIndex;             // Column over which the mouse is hovering.
+    FCurrentHintNode: PVirtualNode;              // Node which has shown the hint.
     FHotNodeButtonHit: Boolean;                  // Indicates wether the mouse is hovering over the hot node's button.
     FLastSelRect,
     FNewSelRect: TRect;                          // used while doing draw selection
@@ -747,6 +751,7 @@ type
     // search, sort
     FOnCompareNodes: TVTCompareEvent;            // used during sort
     FOnDrawHint: TVTDrawHintEvent;
+    FOnGetHint: TVTGetHintEvent;                 // used to retrieve the hint text to be displayed for a specific node
     FOnGetHintSize: TVTGetHintSizeEvent;
     FOnGetHintKind: TVTHintKindEvent;
     FOnIncrementalSearch: TVTIncrementalSearchEvent; // triggered on every key press (not key down)
@@ -1496,6 +1501,7 @@ type
     property OnGetCursor: TVTGetCursorEvent read FOnGetCursor write FOnGetCursor;
     property OnGetHeaderCursor: TVTGetHeaderCursorEvent read FOnGetHeaderCursor write FOnGetHeaderCursor;
     property OnGetHelpContext: TVTHelpContextEvent read FOnGetHelpContext write FOnGetHelpContext;
+    property OnGetHint: TVTGetHintEvent read FOnGetHint write FOnGetHint;
     property OnGetHintSize: TVTGetHintSizeEvent read FOnGetHintSize write
         FOnGetHintSize;
     property OnGetHintKind: TVTHintKindEvent read FOnGetHintKind write
@@ -6806,7 +6812,6 @@ var
   IsFocusedOrEditing: Boolean;
   ParentForm: TCustomForm;
   BottomRightCellContentMargin: TPoint;
-  HintKind: TVTHintKind;
 begin
   with Message do
   begin
@@ -6905,9 +6910,9 @@ begin
             begin
               // An owner-draw tree should only display a hint when at least
               // its OnGetHintSize event handler is assigned.
-              DoGetHintKind(HitInfo.HitNode, HitInfo.HitColumn, HintKind);
+              DoGetHintKind(HitInfo.HitNode, HitInfo.HitColumn, FHintData.Kind);
               FHintData.HintRect := Rect(0, 0, 0, 0);
-              if (HintKind = vhkOwnerDraw) then
+              if (FHintData.Kind = vhkOwnerDraw) then
               begin
                 DoGetHintSize(HitInfo.HitNode, HitInfo.HitColumn, FHintData.HintRect);
                 ShowOwnHint := not IsRectEmpty(FHintData.HintRect);
@@ -7175,6 +7180,11 @@ begin
         end;
         SetOffsetX(FOffsetX + RTLFactor * ScrollAmount);
       end;
+
+      // Mouse stays in the same position, so reset the area which the mouse
+      // must leave to let a hint be shown again.
+      if ShowHint and (ScrollAmount <> 0) then
+        FLastHintRect := Rect(0, 0, 0, 0);
     end;
 
   end;
@@ -13369,6 +13379,14 @@ begin
   oldHotNode := FCurrentHotNode;
   // Get information about the hit.
   GetHitTestInfoAt(X, Y, True, HitInfo, []);
+
+  // If we left the old hintable node/column, hide its hint
+  if ShowHint then
+    if (HitInfo.HitNode <> FCurrentHintNode) or (HitInfo.HitColumn <> FCurrentHotColumn) then
+    begin
+      Application.HideHint;
+      FCurrentHintNode := HitInfo.HitNode;
+    end;
 
   // Only make the new node being "hot" if its label is hit or full row selection is enabled.
   CheckPositions := [hiOnItemLabel, hiOnItemCheckbox];
@@ -23574,10 +23592,9 @@ procedure TBaseVirtualTree.DoGetHintKind(Node: PVirtualNode; Column:
     TColumnIndex; var Kind: TVTHintKind);
 
 begin
+  Kind := DefaultHintKind;
   if Assigned(FOnGetHintKind) then
-    FOnGetHintKind(Self, Node, Column, Kind)
-  else
-    Kind := DefaultHintKind;
+    FOnGetHintKind(Self, Node, Column, Kind);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

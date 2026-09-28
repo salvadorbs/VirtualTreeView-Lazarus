@@ -20,6 +20,8 @@ type
   protected
     function DoGetCellContentMargin(Node: PVirtualNode; Column: TColumnIndex;
       CellContentMarginType: TVTCellContentMarginType = ccmtAllSides; Canvas: TCanvas = nil): TPoint; override;
+    function DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex;
+      var LineBreakStyle: TVTTooltipLineBreakStyle): string; override;
     function DoGetNodeWidth(Node: PVirtualNode; Column: TColumnIndex; Canvas: TCanvas = nil): TDimension; override;
     procedure DoPaintNode(var PaintInfo: TVTPaintInfo); override;
     function GetDefaultHintKind: TVTHintKind; override;
@@ -203,6 +205,7 @@ type
     property OnGetCursor;
     property OnGetHeaderCursor;
     property OnGetHelpContext;
+    property OnGetHint;
     property OnGetHintKind;
     property OnGetHintSize;
     property OnGetImageIndex;
@@ -312,6 +315,17 @@ begin
   if Assigned(FOnDrawNode) then
     FOnDrawNode(Self, PaintInfo);
 end;
+
+function TCustomVirtualDrawTree.DoGetNodeHint(Node: PVirtualNode; Column: TColumnIndex;
+  var LineBreakStyle: TVTTooltipLineBreakStyle): string;
+
+begin
+  Result := inherited DoGetNodeHint(Node, Column, LineBreakStyle);
+  if Assigned(OnGetHint) then
+    OnGetHint(Self, Node, Column, LineBreakStyle, Result);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
 
 function TCustomVirtualDrawTree.GetDefaultHintKind: TVTHintKind;
 

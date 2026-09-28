@@ -199,8 +199,6 @@ type
 
   TVSTGetTextEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
     TextType: TVSTTextType; var CellText: string) of object;
-  TVSTGetHintEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
-    var LineBreakStyle: TVTTooltipLineBreakStyle; var HintText: string) of object;
   // New text can only be set for variable caption.
   TVSTNewTextEvent = procedure(Sender: TBaseVirtualTree; Node: PVirtualNode; Column: TColumnIndex;
     NewText: string) of object;
@@ -249,7 +247,6 @@ type
 
     FOnGetText: TVSTGetTextEvent;                  // used to retrieve the string to be displayed for a specific node
     fOnGetCellText: TVSTGetCellTextEvent;             // used to retrieve the normal and static text of a tree node
-    FOnGetHint: TVSTGetHintEvent;                  // used to retrieve the hint to be displayed for a specific node
     FOnNewText: TVSTNewTextEvent;                  // used to notify the application about an edited node caption
     FOnShortenString: TVSTShortenStringEvent;      // used to allow the application a customized string shortage
     FOnMeasureTextWidth: TVTMeasureTextEvent;      // used to adjust the width of the cells
@@ -314,7 +311,6 @@ type
     property EllipsisWidth: Integer read FEllipsisWidth;
     property TreeOptions: TCustomStringTreeOptions read GetOptions write SetOptions;
 
-    property OnGetHint: TVSTGetHintEvent read FOnGetHint write FOnGetHint;
     property OnGetText: TVSTGetTextEvent read FOnGetText write FOnGetText;
     property OnGetCellText: TVSTGetCellTextEvent read fOnGetCellText write fOnGetCellText;
     property OnNewText: TVSTNewTextEvent read FOnNewText write FOnNewText;
@@ -1356,8 +1352,8 @@ function TCustomVirtualStringTree.DoGetNodeHint(Node: PVirtualNode; Column: TCol
 
 begin
   Result := inherited DoGetNodeHint(Node, Column, LineBreakStyle);
-  if Assigned(FOnGetHint) then
-    FOnGetHint(Self, Node, Column, LineBreakStyle, Result);
+  if Assigned(OnGetHint) then
+    OnGetHint(Self, Node, Column, LineBreakStyle, Result);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1367,8 +1363,8 @@ function TCustomVirtualStringTree.DoGetNodeTooltip(Node: PVirtualNode; Column: T
 
 begin
   Result := inherited DoGetNodeToolTip(Node, Column, LineBreakStyle);
-  if Assigned(FOnGetHint) then
-    FOnGetHint(Self, Node, Column, LineBreakStyle, Result)
+  if Assigned(OnGetHint) then
+    OnGetHint(Self, Node, Column, LineBreakStyle, Result)
   else
     Result := Text[Node, Column];
 end;
