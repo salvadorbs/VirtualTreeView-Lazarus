@@ -32,7 +32,15 @@ const
   WideCR = Char(#13);
   WideLF = Char(#10);
 
-
+// Minimal HTML text encoder. Replaces Delphi's System.NetEncoding.THtmlEncoding,
+// which is not available in FPC/LCL (see upstream issue #1368).
+function HtmlEncode(const S: string): string;
+begin
+  Result := StringReplace(S, '&', '&amp;', [rfReplaceAll]);
+  Result := StringReplace(Result, '<', '&lt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '>', '&gt;', [rfReplaceAll]);
+  Result := StringReplace(Result, '"', '&quot;', [rfReplaceAll]);
+end;
 
 function ContentToHTML(Tree: TCustomVirtualStringTree; Source: TVSTTextSourceType; const Caption: string): String;
 
@@ -128,12 +136,14 @@ var
   Index: Integer;
   IndentWidth,
   LineStyleText: String;
+  CellText: String;
   Alignment: TAlignment;
   BidiMode: TBidiMode;
 
   CellPadding: String;
   CrackTree: TCustomVirtualStringTreeCracker;
   lGetCellTextEventArgs: TVSTGetCellTextEventArgs;
+  MulticellSelected: Boolean; // multicell support
 begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
 
@@ -213,11 +223,16 @@ begin
     Columns := nil;
     ColumnColors := nil;
     RenderColumns := CrackTree.Header.UseColumns;
-    if RenderColumns then
+    // begin multicell
+    MulticellSelected := CrackTree.Header.Columns.HasMulticellSelection;
+    if RenderColumns or MulticellSelected then
     begin
       Columns := CrackTree.Header.Columns.GetVisibleColumns;
+      if CrackTree.GetSelectedCellCount > 0 then
+        Columns := CrackTree.Header.Columns.GetSelectedCellColumns;
       SetLength(ColumnColors, Length(Columns));
     end;
+    // end multicell support
 
     CrackTree.GetRenderStartValues(Source, Run, GetNextNode);
     Save := Run;
@@ -422,7 +437,8 @@ begin
           lGetCellTextEventArgs.Node := Run;
           lGetCellTextEventArgs.Column := Index;
           CrackTree.DoGetText(lGetCellTextEventArgs);
-          Buffer.Add(lGetCellTextEventArgs.CellText);
+          CellText := HtmlEncode(lGetCellTextEventArgs.CellText);
+          Buffer.Add(CellText);
           if not lGetCellTextEventArgs.StaticText.IsEmpty and (toShowStaticText in TStringTreeOptions(CrackTree.TreeOptions).StringOptions) then
             Buffer.Add(' ' + lGetCellTextEventArgs.StaticText);
           Buffer.Add('</td>');
@@ -591,6 +607,7 @@ var
   LocaleBuffer: array [0..1] of Char;
   CrackTree: TCustomVirtualStringTreeCracker;
   lGetCellTextEventArgs: TVSTGetCellTextEventArgs;
+  MulticellSelected: Boolean; // multicell support
 begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
 
@@ -612,8 +629,15 @@ begin
     LastLevel := 0;
 
     RenderColumns := CrackTree.Header.UseColumns;
-    if RenderColumns then
+    // begin multicell
+    MulticellSelected := CrackTree.Header.Columns.HasMulticellSelection;
+    if RenderColumns or MulticellSelected then
+    begin
       Columns := CrackTree.Header.Columns.GetVisibleColumns;
+      if CrackTree.GetSelectedCellCount > 0 then
+        Columns := CrackTree.Header.Columns.GetSelectedCellColumns;
+    end;
+    // end multicell support
 
     CrackTree.GetRenderStartValues(Source, Run, GetNextNode);
     Save := Run;
@@ -835,6 +859,7 @@ var
   I: Integer;
   CrackTree: TCustomVirtualStringTreeCracker;
   lGetCellTextEventArgs: TVSTGetCellTextEventArgs;
+  MulticellSelected: Boolean;
 begin
   CrackTree := TCustomVirtualStringTreeCracker(Tree);
 
@@ -844,8 +869,19 @@ begin
   try
     Columns := nil;
     RenderColumns := CrackTree.Header.UseColumns;
-    if RenderColumns then
+    MulticellSelected := CrackTree.Header.Columns.HasMulticellSelection;
+
+    // begin multicell
+    if RenderColumns or MulticellSelected then
+    begin
       Columns := CrackTree.Header.Columns.GetVisibleColumns;
+      // multicell support
+      if CrackTree.GetSelectedCellCount > 0 then
+      begin
+        Columns := CrackTree.Header.Columns.GetSelectedCellColumns;
+      end;
+    end;
+    // end multicell support
 
     CrackTree.GetRenderStartValues(Source, Run, GetNextNode);
     Save := Run;
