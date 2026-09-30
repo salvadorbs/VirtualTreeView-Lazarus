@@ -383,7 +383,6 @@ type
     procedure SetSortDirection(const Value : TSortDirection);
     procedure SetStyle(Value : TVTHeaderStyle);
     function GetRestoreSelectionColumnIndex : Integer;
-    function AreColumnsStored: Boolean;
   protected
     FStates              : THeaderStates; //Used to keep track of internal states the header can enter.
     FDragStart           : TPoint;        //initial mouse drag position
@@ -423,7 +422,6 @@ type
     procedure RescaleHeader;
     procedure UpdateMainColumn;
     procedure UpdateSpringColumns;
-    procedure WriteColumns(Writer : TWriter);
     procedure InternalSetMainColumn(const Index : TColumnIndex);
     procedure InternalSetAutoSizeIndex(const Index : TColumnIndex);
     procedure InternalSetSortColumn(const Index : TColumnIndex);
@@ -462,7 +460,7 @@ type
   published
     property AutoSizeIndex        : TColumnIndex read FAutoSizeIndex write SetAutoSizeIndex;
     property Background           : TColor read FBackgroundColor write SetBackground default clBtnFace;
-    property Columns              : TVirtualTreeColumns read FColumns write SetColumns stored AreColumnsStored;
+    property Columns              : TVirtualTreeColumns read FColumns write SetColumns;
     property DefaultHeight        : TDimension read FDefaultHeight write SetDefaultHeight default 19;
     property Font                 : TFont read FFont write SetFont stored IsFontStored;
     property FixedAreaConstraints : TVTFixedAreaConstraints read FFixedAreaConstraints write FFixedAreaConstraints;
@@ -2342,47 +2340,6 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-type
-  //--- HACK WARNING!
-  //This type cast is a partial rewrite of the private section of TWriter. The purpose is to have access to
-  //the FPropPath member, which is otherwise not accessible. The reason why this access is needed is that
-  //with nested components this member contains unneeded property path information. These information prevent
-  //successful load of the stored properties later.
-  //In System.Classes.pas you can see that FPropPath is reset several times to '' to prevent this case for certain properies.
-  //Unfortunately, there is no clean way for us here to do the same.
-{$HINTS off}
-  TWriterHack = class(TFiler)
-  private
-    FRootAncestor : TComponent;
-    FPropPath     : string;
-  end;
-{$HINTS on}
-
-
-procedure TVTHeader.WriteColumns(Writer : TWriter);
-
-//Write out the columns but take care for the case VT is a nested component.
-
-var
-  LastPropPath : string;
-
-begin
-  //Save last property path for restoration.
-  LastPropPath := TWriterHack(Writer).FPropPath;
-  try
-    //If VT is a nested component then this path contains the name of the parent component at this time
-    //(otherwise it is already empty). This path is then combined with the property name under which the tree
-    //is defined in the parent component. Unfortunately, the load code in System.Classes.pas does not consider this case
-    //is then unable to load this property.
-    TWriterHack(Writer).FPropPath := '';
-    Writer.WriteCollection(Columns);
-  finally
-    TWriterHack(Writer).FPropPath := LastPropPath;
-  end;
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
 function TVTHeader.AllowFocus(ColumnIndex : TColumnIndex) : Boolean;
 begin
   Result := False;
@@ -2390,15 +2347,6 @@ begin
     Exit; //Just in case.
 
   Result := (coAllowFocus in FColumns[ColumnIndex].Options);
-end;
-
-//----------------------------------------------------------------------------------------------------------------------
-
-function TVTHeader.AreColumnsStored: Boolean;
-begin
-  // The columns are stored by the owner tree to support Visual Form Inheritance
-  // GnutGetText skips non-stored properties, so retur Stored True at runtime
-  Result := not (csDesigning in Self.Treeview.ComponentState);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------

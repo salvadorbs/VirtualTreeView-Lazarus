@@ -9932,28 +9932,16 @@ procedure TBaseVirtualTree.DefineProperties(Filer: TFiler);
 // There were heavy changes in some properties during development of VT. This method helps to make migration easier
 // by reading old properties manually and put them into the new properties as appropriate.
 // Note: these old properties are never written again and silently disappear.
-// June 2002: Meanwhile another task is done here too: working around the problem that TCollection is not streamed
-//            correctly when using Visual Form Inheritance (VFI).
-
-var
-  StoreIt: Boolean;
 
 begin
   inherited;
 
-  // The header can prevent writing columns altogether.
-  if TVTHeaderCracker(FHeader).CanWriteColumns then
-  begin
-    // Check if we inherit from an ancestor form (Visual Form Inheritance).
-    StoreIt := Filer.Ancestor = nil;
-    // If there is an ancestor then save columns only if they are different to the base set.
-    if not StoreIt then
-      StoreIt := not FHeader.Columns.Equals(TBaseVirtualTree(Filer.Ancestor).FHeader.Columns);
-  end
-  else
-    StoreIt := False;
-
-  Filer.DefineProperty('Columns', TVTHeaderCracker(FHeader).ReadColumns, TVTHeaderCracker(FHeader).WriteColumns, StoreIt);
+  // The columns are streamed by the published TVTHeader.Columns property, so the
+  // Lazarus translation system always sees a single "header.columns[...]" identifier.
+  // Keep a read-only defined property for backwards compatibility: old LFM/DFM
+  // files which stored the columns under the former tree level "Columns" property
+  // still load. It is never written again, therefore new saves use Header.Columns.
+  Filer.DefineProperty('Columns', TVTHeaderCracker(FHeader).ReadColumns, nil, False);
 
   // #622 made old DFMs incompatible with new VTW - so the program is compiled successfully
   //    and then suddenly crashes at user site in runtime.
@@ -9962,7 +9950,8 @@ begin
   Filer.DefineProperty('HintAnimation', FakeReadIdent, nil, false);
 
   //lcl: ignore delphi only properties or events
-  TReader(Filer).OnPropertyNotFound := DoPropertyNotFound;
+  if Filer is TReader then
+    TReader(Filer).OnPropertyNotFound := DoPropertyNotFound;
 end;
 
 procedure TBaseVirtualTree.DestroyHandle;
