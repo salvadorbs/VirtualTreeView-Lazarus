@@ -5387,7 +5387,8 @@ begin
     {$IFEND}
   if FDefaultNodeHeight <> Value then
   begin
-	if (Parent <> nil) and (toAutoChangeScale in TreeOptions.AutoOptions) then
+	if (Parent <> nil) and (toAutoChangeScale in TreeOptions.AutoOptions)
+	  and not (csLoading in ComponentState) then
       HandleNeeded(); // Create window handle and font proactively to prevent any unintended rescaling in AutoChnageScale(). See issue #1341
     Inc(FRoot.TotalHeight, Value - FDefaultNodeHeight);
     FRoot.SetNodeHeight(FRoot.NodeHeight + Value - FDefaultNodeHeight);
