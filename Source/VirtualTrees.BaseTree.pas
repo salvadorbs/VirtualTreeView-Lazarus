@@ -426,6 +426,11 @@ type
     function GetNext(Node: PVirtualNode): PVirtualNode;
   end;
 
+  TVTPreparedBackground = record
+    Bitmap: TBitmap;
+    BackgroundColor: TColor;
+    Transparent: Boolean;
+  end;
 
   // ----- TBaseVirtualTree
   TBaseVirtualTree = class abstract(TVTBaseAncestor)
@@ -487,8 +492,11 @@ type
     FTempNodeCache: TNodeArray;                  // used at various places to hold temporarily a bunch of node refs.
     FTempNodeCount: Cardinal;                    // number of nodes in FTempNodeCache
     FBackground: TVTBackground;                  // A background image loadable at design and runtime.
+    FBackgroundPrepared: TVTPreparedBackground;  // Prepared background image and settings used when it was created.
     FBackgroundImageTransparent: Boolean;        // By default, this is off. When switched on, will try to draw the image
                                                  // transparent by using the color of the component as transparent color
+    FCustomBackgroundChange: TNotifyEvent;       // Chains a consumer's Background.OnChange handler if they overwrite
+                                                 // our internal hook (see #1402), so their handler still fires.
 
     FMargin: TDimension;                         // horizontal distance to border and columns
     FTextMargin: TDimension;                     // space between the node's text and its horizontal bounds
@@ -566,7 +574,8 @@ type
     FOffsetY: TDimension;                        // Determines left and top scroll offset.
     FEffectiveOffsetX: TDimension;               // Actual position of the horizontal scroll bar (varies depending on bidi mode).
     FRangeX,
-    FRangeY: TNodeHeight;                         // current virtual width and height of the tree
+    FRangeY: TNodeHeight;                        // current virtual width and height of the tree
+    FScrolling: Boolean;                         // True while updating scroll bars in reaction to scrolling. See issue #983.
     FBottomSpace: TDimension;                    // Extra space below the last node.
 
     FDefaultPasteMode: TVTNodeAttachMode;        // Used to determine where to add pasted nodes to.
@@ -764,6 +773,10 @@ type
 
     FVclStyleEnabled: Boolean;
     FSelectionCount: Integer;
+    FSelectionMarkedCount: Integer;              // Number of entries in FSelection that InternalRemoveFromSelection has
+                                                 // marked for removal but that PackSelection has not yet dropped. Only
+                                                 // SelectedCount subtracts it; FSelectionCount stays the physical count
+                                                 // because PackArray needs it to know how far to scan. See issue #1197.
 
     {$IFDEF DelphiStyleServices}
     procedure CMStyleChanged(var Message: TMessage); message CM_STYLECHANGED;
@@ -771,6 +784,7 @@ type
   	{$ENDIF}
 
     procedure AdjustTotalCount(Node: PVirtualNode; Value: Integer; relative: Boolean = False);
+    procedure BackgroundPictureChanged(Sender: TObject);
     function CalculateCacheEntryCount: Integer;
     procedure CalculateVerticalAlignments(var PaintInfo: TVTPaintInfo; var VButtonAlign: TDimension);
     function ChangeCheckState(Node: PVirtualNode; Value: TCheckState): Boolean;
@@ -787,6 +801,7 @@ type
     function FindInPositionCache(Position: TDimension; var CurrentPos: TNodeHeight): PVirtualNode; overload;
     procedure FixupTotalCount(Node: PVirtualNode);
     procedure FixupTotalHeight(Node: PVirtualNode);
+    function GetBackgroundBitmap(Source: TVTBackground; aBkgColor: TColor): TBitmap;
     function GetBottomNode: PVirtualNode;
     function GetCheckState(Node: PVirtualNode): TCheckState;
     function GetCheckType(Node: PVirtualNode): TCheckType;
@@ -831,6 +846,7 @@ type
     {$else}
     function PackArray(TheArray: TNodeArray; Count: Integer): Integer;
     {$endif}
+    function PackSelection: Boolean;
     procedure FakeReadIdent(Reader: TReader);
     procedure SetAlignment(const Value: TAlignment);
     procedure SetAnimationDuration(const Value: Cardinal);
@@ -1910,7 +1926,7 @@ type
     property SelectionLocked: Boolean read FSelectionLocked write FSelectionLocked;
     property TotalCount: Cardinal read GetTotalCount;
     property TreeStates: TVirtualTreeStates read FStates write FStates;
-    property SelectedCount: Integer read FSelectionCount;
+    property SelectedCount: Integer read GetSelectedCount;
     property TopNode: PVirtualNode read GetTopNode write SetTopNode;
     property VerticalAlignment[Node: PVirtualNode]: Byte read GetVerticalAlignment write SetVerticalAlignment;
     property VisibleCount: Cardinal read FVisibleCount;
@@ -1991,7 +2007,7 @@ type
   //These allow us access to protected members in the classes
   TVirtualTreeColumnsCracker = class(TVirtualTreeColumns);
   TVTHeaderCracker = class(TVTHeader);
-  TVirtualTreeColumnCracker = class(TVirtualTreeColumn);												 
+  TVirtualTreeColumnCracker = class(TVirtualTreeColumn);
   TBaseVirtualTreeCracker = class(TBaseVirtualTree);
 
   // streaming support
@@ -2114,6 +2130,16 @@ begin
   {$ELSE}
   Result.AddResourceName(0, CheckImagesStrings[CheckKind], clFuchsia);
   {$IFEND}
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function IsSameMethod(const Method1, Method2: TNotifyEvent): Boolean;
+
+// Compare two methods for equality. (Issue #1402) This can be moved to a utility unit if needed in more areas.
+
+begin
+  Result := (TMethod(Method1).Code = TMethod(Method2).Code) and (TMethod(Method1).Data = TMethod(Method2).Data);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -2601,6 +2627,8 @@ begin
   FAutoScrollInterval := 1;
 
   FBackground := TVTBackground.Create;
+  FBackground.OnChange := BackgroundPictureChanged;
+
   // Similar to the Transparent property of TImage,
   // this flag is Off by default.
   FBackGroundImageTransparent := False;
@@ -2668,6 +2696,7 @@ begin
   Clear;
   FColors.Free;
   FBackground.Free;
+  FreeAndNil(FBackgroundPrepared.Bitmap);
 
   FScrollBarOptions.Free;
 
@@ -2771,6 +2800,27 @@ begin
   end;
 
   UpdateVerticalRange;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TBaseVirtualTree.BackgroundPictureChanged(Sender: TObject);
+
+// Invalidates the prepared background image whenever the background picture changes.
+
+// Note: If Background's bitmap pixels are modified directly (ScanLine, a raw HBITMAP/HDC, or any
+// GDI call that bypasses TCanvas), OnChange is not called.  The cached FBackgroundPrepared image
+// will keep showing the previously prepared image.  In such cases, reassign the Background to
+// force an OnChange so it can be re-prepared.
+
+begin
+  FreeAndNil(FBackgroundPrepared.Bitmap);
+  Invalidate;
+
+  // Forward to a consumer's own OnChange handler that got chained in GetBackgroundBitmap()
+  // after they overwrote Background.OnChange themselves (see #1402).
+  if Assigned(FCustomBackgroundChange) then
+    FCustomBackgroundChange(Sender);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -3673,6 +3723,41 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+function TBaseVirtualTree.GetBackgroundBitmap(Source: TVTBackground; aBkgColor: TColor): TBitmap;
+
+// Prepares and returns the background bitmap ready to be drawn.  Creates a new bitmap if it
+// hasn't been created yet or if preparation settings have changed.
+
+var
+  bkgColor: TColor;
+
+begin
+  // A consumer may have reassigned Background.OnChange, replacing our hook; re-chain it so their
+  // handler still fires (see #1402). Checks FBackground specifically, not Source, since that's
+  // whose hook we're guarding, regardless of what's passed in.
+  if not IsSameMethod(FBackground.OnChange, BackgroundPictureChanged) then
+  begin
+    FCustomBackgroundChange := FBackground.OnChange;
+    FBackground.OnChange := BackgroundPictureChanged;
+  end;
+
+  bkgColor := ColorToRGB(aBkgColor);
+  if Assigned(FBackgroundPrepared.Bitmap) and
+     (FBackgroundPrepared.BackgroundColor = bkgColor) and
+     (FBackgroundPrepared.Transparent = FBackGroundImageTransparent) then
+    Exit(FBackgroundPrepared.Bitmap);
+
+  FreeAndNil(FBackgroundPrepared.Bitmap);
+  FBackgroundPrepared.Bitmap := TBitmap.Create;
+
+  PrepareBackGroundPicture(Source, FBackgroundPrepared.Bitmap, Source.Width, Source.Height, bkgColor);
+  FBackgroundPrepared.BackgroundColor := bkgColor;
+  FBackgroundPrepared.Transparent := FBackGroundImageTransparent;
+  Result := FBackgroundPrepared.Bitmap;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 function TBaseVirtualTree.GetBottomNode: PVirtualNode;
 
 begin
@@ -3982,7 +4067,9 @@ end;
 
 function TBaseVirtualTree.GetSelectedCount: Integer;
 begin
-  Exit(FSelectionCount);
+  // Entries already marked for removal must not be counted any more, otherwise this reports a stale value while
+  // OnRemoveFromSelection / OnChange run (issue #1197). FSelectionMarkedCount is 0 outside those windows.
+  Exit(FSelectionCount - FSelectionMarkedCount);
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -4221,7 +4308,6 @@ var
   OldRect,
   NewRect: TRect;
   MainColumn: TColumnIndex;
-  MaxValue: Integer;
 
   // limits of a node and its text
   NodeLeft,
@@ -4279,12 +4365,7 @@ begin
   if Result then
   begin
     // Do some housekeeping if there was a change.
-    MaxValue := PackArray(FSelection, FSelectionCount);
-    if MaxValue > -1 then
-    begin
-      FSelectionCount := MaxValue;
-      SetLength(FSelection, FSelectionCount);
-    end;
+    PackSelection();
     if FTempNodeCount > 0 then
     begin
       if tsClearOnNewSelection in fStates then
@@ -4608,6 +4689,8 @@ end;
 {$IMPLICITEXCEPTIONS OFF}
 
 function TBaseVirtualTree.PackArray(TheArray: TNodeArray; Count: Integer): Integer; assembler;
+// *This is an optimization to get as near as possible with the PUREPASCAL code without the
+//  compiler generating a _DynArrayAddRef call. We still modify the array's content via pointers.
 
 // Removes all entries from the selection array which are no longer in use. The selection array must be sorted for this
 // algo to work. Values which must be removed are marked with bit 0 (LSB) set. This little trick works because memory
@@ -4664,6 +4747,30 @@ end;
 {$IMPLICITEXCEPTIONS ON}
 
 {$endif}
+//----------------------------------------------------------------------------------------------------------------------
+
+function TBaseVirtualTree.PackSelection: Boolean;
+
+// Drops the entries that InternalRemoveFromSelection has marked for removal and updates the selection count
+// accordingly. Returns True if the array was actually shortened.
+// This used to be an open coded five liner repeated at every call site; having it in one place is what keeps
+// FSelectionMarkedCount from drifting, because resetting it is easy to forget (issue #1197).
+
+var
+  NewSize: Integer;
+
+begin
+  NewSize := PackArray(FSelection, FSelectionCount);
+  Result := NewSize > -1;
+  if Result then
+  begin
+    FSelectionCount := NewSize;
+    SetLength(FSelection, FSelectionCount);
+  end;
+  // No marked entries can be left over, regardless of whether anything was removed.
+  FSelectionMarkedCount := 0;
+end;
+
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TBaseVirtualTree.PrepareBitmaps(NeedButtons, NeedLines: Boolean);
@@ -5485,14 +5592,16 @@ end;
 
 procedure TBaseVirtualTree.SetFocusedNode(Value: PVirtualNode);
 
-var
-  WasDifferent: Boolean;
-
 begin
-  WasDifferent := Value <> FFocusedNode;
+  // Issue #1379: Setting the node that is already focused must not have side effects,
+  // in particular it must not end node editing. Keyboard navigation sets the focused
+  // node a second time through AddToSelection(); without this check that redundant
+  // assignment ended an edit which the application had just started in OnFocusChanged.
+  if Value = FFocusedNode then
+    Exit;
   DoFocusNode(Value, True);
   // Do change event only if there was actually a change.
-  if WasDifferent and (FFocusedNode = Value) then
+  if FFocusedNode = Value then
     DoFocusChange(FFocusedNode, FFocusedColumn);
 end;
 
@@ -6245,11 +6354,9 @@ var
   DrawRect: TRect;
   DrawingBitmap: TBitmap;
 begin
-  DrawingBitmap := TBitmap.Create;
-  try
-    // clear background
-    Target.Brush.Color := aBkgColor;
-    Target.FillRect(R);
+  // clear background
+  Target.Brush.Color := aBkgColor;
+  Target.FillRect(R);
 
   // Picture rect in relation to client viewscreen.
   PicRect := Rect(FBackgroundOffsetX, FBackgroundOffsetY, FBackgroundOffsetX + Source.Width, FBackgroundOffsetY + Source.Height);
@@ -6260,14 +6367,12 @@ begin
   // If picture falls in AreaRect, return intersection (DrawRect).
   if IntersectRect(DrawRect, PicRect, AreaRect) then
   begin
-      PrepareBackGroundPicture(Source, DrawingBitmap, Source.Width, Source.Height, aBkgColor);
-      // copy image to destination
-      BitBlt(Target.Handle, DrawRect.Left - OffsetPosition.X, DrawRect.Top - OffsetPosition.Y, (DrawRect.Right - OffsetPosition.X) - (DrawRect.Left - OffsetPosition.X),
+    DrawingBitmap := GetBackgroundBitmap(Source, aBkgColor);
+
+    // copy image to destination
+    BitBlt(Target.Handle, DrawRect.Left - OffsetPosition.X, DrawRect.Top - OffsetPosition.Y, (DrawRect.Right - OffsetPosition.X) - (DrawRect.Left - OffsetPosition.X),
       (DrawRect.Bottom - OffsetPosition.Y) - (DrawRect.Top - OffsetPosition.Y) + R.Top, DrawingBitmap.Canvas.Handle, DrawRect.Left - PicRect.Left, DrawRect.Top - PicRect.Top,
-        SRCCOPY);
-    end;
-  finally
-    DrawingBitmap.Free;
+      SRCCOPY);
   end;
 end;
 
@@ -6315,42 +6420,38 @@ var
   DeltaY: TDimension;
   DrawingBitmap: TBitmap;
 begin
-  DrawingBitmap := TBitmap.Create;
-  try
-    PrepareBackGroundPicture(Source, DrawingBitmap, Source.Width, Source.Height, aBkgColor);
-    with Target do
+  DrawingBitmap := GetBackgroundBitmap(Source, aBkgColor);
+
+  with Target do
+  begin
+    SourceY := (R.Top + Offset.Y + FBackgroundOffsetY) mod Source.Height;
+    // Always wrap the source coordinates into positive range.
+    if SourceY < 0 then
+      SourceY := Source.Height + SourceY;
+
+    // Tile image vertically until target rect is filled.
+    while R.Top < R.Bottom do
     begin
-      SourceY := (R.Top + Offset.Y + FBackgroundOffsetY) mod Source.Height;
-      // Always wrap the source coordinates into positive range.
-      if SourceY < 0 then
-        SourceY := Source.Height + SourceY;
+      SourceX := (R.Left + Offset.X + FBackgroundOffsetX) mod Source.Width;
+      // always wrap the source coordinates into positive range
+      if SourceX < 0 then
+        SourceX := Source.Width + SourceX;
 
-      // Tile image vertically until target rect is filled.
-      while R.Top < R.Bottom do
+      TargetX := R.Left;
+      // height of strip to draw
+      DeltaY := Min(R.Bottom - R.Top, Source.Height - SourceY);
+
+      // tile the image horizontally
+      while TargetX < R.Right do
       begin
-        SourceX := (R.Left + Offset.X + FBackgroundOffsetX) mod Source.Width;
-        // always wrap the source coordinates into positive range
-        if SourceX < 0 then
-          SourceX := Source.Width + SourceX;
-
-        TargetX := R.Left;
-        // height of strip to draw
-        DeltaY := Min(R.Bottom - R.Top, Source.Height - SourceY);
-
-        // tile the image horizontally
-        while TargetX < R.Right do
-        begin
-          BitBlt(Handle, TargetX, R.Top, Min(R.Right - TargetX, Source.Width - SourceX), DeltaY,
-            DrawingBitmap.Canvas.Handle, SourceX, SourceY, SRCCOPY);
-          Inc(TargetX, Source.Width - SourceX);
-          SourceX := 0;
-        end;
-        Inc(R.Top, Source.Height - SourceY);
-        SourceY := 0;
+        BitBlt(Handle, TargetX, R.Top, Min(R.Right - TargetX, Source.Width - SourceX), DeltaY,
+          DrawingBitmap.Canvas.Handle, SourceX, SourceY, SRCCOPY);
+        Inc(TargetX, Source.Width - SourceX);
+        SourceX := 0;
       end;
+      Inc(R.Top, Source.Height - SourceY);
+      SourceY := 0;
     end;
-  finally
-    DrawingBitmap.Free;
   end;
 end;
 
@@ -8664,6 +8765,8 @@ end;
 procedure TBaseVirtualTree.WMPaint(var Message: TLMPaint);
 var
   DC: HDC;
+  HeaderTarget: TRect;
+  BorderSize: TSize;
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMPaint');{$endif}
   //todo:
@@ -8692,12 +8795,31 @@ begin
   {
   if hoVisible in FHeader.Options then
   begin
-    DC := GetDCEx(Handle, 0, DCX_CACHE or DCX_CLIPSIBLINGS or DCX_WINDOW or DCX_VALIDATE);
-    if DC <> 0 then
-      try
-        FHeader.Columns.PaintHeader(DC, FHeaderRect, -FEffectiveOffsetX);
-    finally
-      ReleaseDC(Handle, DC);
+    if Message.DC <> 0 then
+    begin
+      // The caller supplied a device context, so this is a copy being rendered somewhere else
+      // (TWinControl.PaintTo), not a paint of the real window. The header has to go into that DC - fetching a
+      // window DC here would draw it onto the screen and leave the copy without a header, which is issue #632.
+      HeaderTarget := FHeaderRect;
+      if csPaintCopy in ControlState then
+      begin
+        // PaintTo draws the border itself and then moves the origin inside it, while FHeaderRect is relative to
+        // the outer window corner. Without this the header ends up offset by the border width and is clipped on
+        // the opposite edge. GetBorderDimensions returns negative values, so adding them shifts back.
+        BorderSize := GetBorderDimensions;
+        OffsetRect(HeaderTarget, BorderSize.cx, BorderSize.cy);
+      end;
+      FHeader.Columns.PaintHeader(Message.DC, HeaderTarget, -FEffectiveOffsetX);
+    end
+    else
+    begin
+      DC := GetDCEx(Handle, 0, DCX_CACHE or DCX_CLIPSIBLINGS or DCX_WINDOW or DCX_VALIDATE);
+      if DC <> 0 then
+        try
+          FHeader.Columns.PaintHeader(DC, FHeaderRect, -FEffectiveOffsetX);
+      finally
+        ReleaseDC(Handle, DC);
+      end;
     end;
   end;//if header visible
   }
@@ -8727,7 +8849,10 @@ begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMPrint');{$endif}
   // Draw only if the window is visible or visibility is not required.
   if ((Message.Flags and PRF_CHECKVISIBLE) = 0) or IsWindowVisible(Handle) then
-    Header.Columns.PaintHeader(Message.DC, FHeaderRect, -FEffectiveOffsetX);
+    // The header lives in the non-client area, so it must only be drawn when the caller asked for that part.
+    // Painting it for a PRF_CLIENT only request put it over the client area and corrupted the border (#632).
+    if (Message.Flags and PRF_NONCLIENT) <> 0 then
+      Header.Columns.PaintHeader(Message.DC, FHeaderRect, -FEffectiveOffsetX);
 
   inherited WMPrint(Message);
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcMessages],'WMPrint');{$endif}
@@ -9044,7 +9169,12 @@ begin
         DoStateChange([], [tsThumbTracking]);
         // Avoiding to adjust the horizontal scroll position while tracking makes scrolling much smoother
         // but we need to adjust the final position here then.
-        UpdateScrollBars(True);
+        FScrolling := True; // issue #983, see UpdateHorizontalRange
+        try
+          UpdateScrollBars(True);
+        finally
+          FScrolling := False;
+        end;
         // Really weird invalidation needed here (and I do it only because it happens so rarely), because
         // when showing the horizontal scrollbar while scrolling down using the down arrow button,
         // the button will be repainted on mouse up (at the wrong place in the far right lower corner)...
@@ -10432,7 +10562,10 @@ begin
     end;
   end;
 
-  if (tsUseExplorerTheme in FStates) and HasChildren[Node] and (Indent >= 0)
+  // Do not suppress the line under the explorer-style button in band mode: bands are box edges,
+  // not lines pointing at the button, and the band conversion in PaintTreeLines relies on ltNone
+  // never being the last entry (issue #1091: bands disappeared, plus an out-of-bounds read).
+  if (tsUseExplorerTheme in FStates) and HasChildren[Node] and (Indent >= 0) and (FLineMode <> lmBands)
        and not ((vsAllChildrenHidden in Node.States) and (toAutoHideButtons in TreeOptions.AutoOptions)) then
     LineImage[Indent] := ltNone;
 end;
@@ -12079,7 +12212,14 @@ begin
           UpdateVerticalScrollBar(suoRepaintScrollBars in Options);
           if not (FHeader.UseColumns or IsMouseSelecting) and
             (FScrollBarOptions.ScrollBars in [TScrollStyle.ssHorizontal, TScrollStyle.ssBoth]) then
-            UpdateHorizontalScrollBar(suoRepaintScrollBars in Options);
+          begin
+            FScrolling := True; // issue #983, see UpdateHorizontalRange
+            try
+              UpdateHorizontalScrollBar(suoRepaintScrollBars in Options);
+            finally
+              FScrolling := False;
+            end;
+          end;
         end;
       end;
       {$ifndef INCOMPLETE_WINAPI}
@@ -13219,9 +13359,11 @@ function TBaseVirtualTree.GetMaxRightExtend(): TDimension;
 
 var
   Node,
-  NextNode: PVirtualNode;
+  NextNode,
+  PrevNode: PVirtualNode;
   TopPosition: TDimension;
   CurrentWidth: TDimension;
+  ScrollBarOffset: TDimension;
 
 begin
   Node := GetNodeAt(0, 0, True, TopPosition);
@@ -13229,12 +13371,26 @@ begin
   if not Assigned(Node) then
     exit;
 
+  if (FScrolling) and ((GetWindowLong(Handle, GWL_STYLE) and WS_HSCROLL) <> 0) then
+  begin
+    ScrollBarOffset := GetSystemMetrics(SM_CYHSCROLL);
+    PrevNode := GetPreviousVisible(Node, True);
+    while (ScrollBarOffset > 0) and Assigned(PrevNode) do
+    begin
+      CurrentWidth := GetOffset(TVTElement.ofsRightOfText, PrevNode);
+      if Result < CurrentWidth then
+        Result := CurrentWidth;
+      Dec(ScrollBarOffset, NodeHeight[PrevNode]);
+      PrevNode := GetPreviousVisible(PrevNode, True);
+    end;
+  end;
+
   while Assigned(Node) do
   begin
     if not (vsInitialized in Node.States) then
       InitNode(Node);
     CurrentWidth := GetOffset(TVTElement.ofsRightOfText, Node);
-    if Result < (CurrentWidth) then
+    if Result < CurrentWidth then
       Result := CurrentWidth;
     Inc(TopPosition, NodeHeight[Node]);
     if TopPosition > Height then
@@ -14627,7 +14783,6 @@ end;
 procedure TBaseVirtualTree.InternalClearSelection();
 
 var
-  Count: Integer;
   lNode: PVirtualNode;
 begin
   // It is possible that there are invalid node references in the selection array
@@ -14635,12 +14790,7 @@ begin
   // Handle this potentially dangerous situation by packing the selection array explicitely.
   if IsUpdating then
   begin
-    Count := PackArray(FSelection, FSelectionCount);
-    if Count > -1 then
-    begin
-      FSelectionCount := Count;
-      SetLength(FSelection, FSelectionCount);
-    end;
+    PackSelection();
   end;
 
   while FSelectionCount > 0 do
@@ -14655,6 +14805,7 @@ begin
   end;
   ResetRangeAnchor;
   FSelection := nil;
+  FSelectionMarkedCount := 0; // the array is gone, so nothing can still be pending
   DoStateChange([], [tsClearPending]);
 end;
 
@@ -14909,6 +15060,10 @@ begin
     if SyncCheckstateWithSelection[Node] then
       Node.CheckState := csUncheckedNormal; // Avoid using SetCheckState() as it handles toSyncCheckboxesWithSelection as well.
     System.Inc(PAnsiChar(FSelection[Index]));
+    // The entry is only marked here, PackSelection() drops it later. Until then FSelectionCount still counts it,
+    // so remember how many are pending - otherwise SelectedCount reports a stale, too high value in the events
+    // fired below, which is issue #1197.
+    System.Inc(FSelectionMarkedCount);
     DoRemoveFromSelection(Node);
     Change(Node); // Calling Change() here fixes issue #1047
   end;
@@ -15844,10 +15999,10 @@ var
   TextColorBackup,
   BackColorBackup: COLORREF;
   FocusRect,
-  InnerRect: TRect;
+  InnerRect,
+  RowRect: TRect;      // Issue #765: needed for the full row focus rect with and without the explorer theme
   {$ifdef ThemeSupport}
   {$ifdef Windows}
-  RowRect: TRect;
   Theme: HTHEME;
   {$endif}
   {$endif ThemeSupport}
@@ -15902,17 +16057,17 @@ var
   //--------------- end local functions ---------------------------------------
 
 begin
+  // Issue #765: the row rectangle is needed for the full row focus rect with and
+  // without the explorer theme, so compute it unconditionally.
+  RowRect := Rect(0, PaintInfo.CellRect.Top, FRangeX, PaintInfo.CellRect.Bottom);
+  if (Header.Columns.Count = 0) and (toFullRowSelect in TreeOptions.SelectionOptions) then
+    RowRect.Right := Max(ClientWidth, RowRect.Right);
+  if toShowVertGridLines in FOptions.PaintOptions then
+    Dec(RowRect.Right);
   {$ifdef ThemeSupport}
   {$ifdef Windows}
   if tsUseExplorerTheme in FStates then
-  begin
     Theme := OpenThemeData(Application.Handle, 'Explorer::TreeView');
-    RowRect := Rect(0, PaintInfo.CellRect.Top, FRangeX, PaintInfo.CellRect.Bottom);
-    if (Header.Columns.Count = 0) and (toFullRowSelect in TreeOptions.SelectionOptions) then
-      RowRect.Right := Max(ClientWidth, RowRect.Right);
-    if toShowVertGridLines in FOptions.PaintOptions then
-      Dec(RowRect.Right);
-  end;
   {$endif}
   {$endif ThemeSupport}
 
@@ -16045,8 +16200,7 @@ begin
          (Focused or (toPopupMode in FOptions.PaintOptions)) and (FFocusedNode = Node) and
          ( (Column = FFocusedColumn) or
              (not (toExtendedFocus in FOptions.SelectionOptions) and
-             (toFullRowSelect in FOptions.SelectionOptions) and
-             (tsUseExplorerTheme in FStates) ) ) then
+             (toFullRowSelect in FOptions.SelectionOptions) ) ) then
       begin
         TextColorBackup := GetTextColor(Handle);
         SetTextColor(Handle, $FFFFFF);
@@ -16055,8 +16209,10 @@ begin
 
         {$ifdef ThemeSupport}
         {$ifdef Windows}
-        if not (toExtendedFocus in FOptions.SelectionOptions) and (toFullRowSelect in FOptions.SelectionOptions) and
-          (tsUseExplorerTheme in FStates) then
+        // Issue #765: with toFullRowSelect the focus rect covers the whole row, with or
+        // without the explorer theme. Each cell draws it clipped to its own rectangle,
+        // so the XOR-based DrawFocusRect touches every pixel only once.
+        if not (toExtendedFocus in FOptions.SelectionOptions) and (toFullRowSelect in FOptions.SelectionOptions) then
           FocusRect := RowRect
         else
         {$endif}
@@ -16699,7 +16855,6 @@ procedure TBaseVirtualTree.ToggleSelection(StartNode, EndNode: PVirtualNode);
 var
   NodeFrom,
   NodeTo: PVirtualNode;
-  NewSize: Integer;
   Position: Integer;
 
 begin
@@ -16755,12 +16910,7 @@ begin
           InternalRemoveFromSelection(NodeFrom);
 
       // Do some housekeeping if there was a change.
-      NewSize := PackArray(FSelection, FSelectionCount);
-      if NewSize > -1 then
-      begin
-        FSelectionCount := NewSize;
-        SetLength(FSelection, FSelectionCount);
-      end;
+      PackSelection();
       // If the range went over the anchor then we need to reselect it.
       if not (vsSelected in FRangeAnchor.States) then
         InternalCacheNode(FRangeAnchor);
@@ -16798,7 +16948,6 @@ procedure TBaseVirtualTree.UnselectNodes(StartNode, EndNode: PVirtualNode);
 var
   NodeFrom,
   NodeTo: PVirtualNode;
-  NewSize: Integer;
 
 begin
   if not FSelectionLocked then
@@ -16835,12 +16984,7 @@ begin
     InternalRemoveFromSelection(NodeFrom);
 
     // Do some housekeeping.
-    NewSize := PackArray(FSelection, FSelectionCount);
-    if NewSize > -1 then
-    begin
-      FSelectionCount := NewSize;
-      SetLength(FSelection, FSelectionCount);
-    end;
+    PackSelection();
   end;
 end;
 
@@ -18280,7 +18424,6 @@ var
   Mark: PVirtualNode;
   LastTop,
   LastLeft: TDimension;
-  NewSize: Integer;
   ParentVisible: Boolean;
 
 begin
@@ -18341,12 +18484,7 @@ begin
     InvalidateCache;
     if FUpdateCount = 0 then
     begin
-      NewSize := PackArray(FSelection, FSelectionCount);
-      if NewSize > -1 then
-      begin
-        FSelectionCount := NewSize;
-        SetLength(FSelection, FSelectionCount);
-      end;
+      PackSelection();
 
       ValidateCache;
       UpdateScrollBars(True);
@@ -18614,9 +18752,6 @@ end;
 
 procedure TBaseVirtualTree.EndUpdate;
 
-var
-  NewSize: Integer;
-
 begin
   if FUpdateCount = 0 then
     exit;
@@ -18632,12 +18767,7 @@ begin
         Exclude(FStates, tsUpdateHiddenChildrenNeeded);
       end;
 
-      NewSize := PackArray(FSelection, FSelectionCount);
-      if NewSize > -1 then
-      begin
-        FSelectionCount := NewSize;
-        SetLength(FSelection, FSelectionCount);
-      end;
+      PackSelection();
 
       InvalidateCache;
       ValidateCache;
@@ -21936,7 +22066,6 @@ procedure TBaseVirtualTree.InvertSelection(VisibleOnly: Boolean);
 
 var
   Run: PVirtualNode;
-  NewSize: Integer;
   NextFunction: TGetNextNodeProc;
   TriggerChange: Boolean;
 
@@ -21960,14 +22089,7 @@ begin
 
     // do some housekeeping
     // Need to trigger the OnChange event from here if nodes were only deleted but not added.
-    TriggerChange := False;
-    NewSize := PackArray(FSelection, FSelectionCount);
-    if NewSize > -1 then
-    begin
-      FSelectionCount := NewSize;
-      SetLength(FSelection, FSelectionCount);
-      TriggerChange := True;
-    end;
+    TriggerChange := PackSelection();
     if FTempNodeCount > 0 then
     begin
       AddToSelection(FTempNodeCache, FTempNodeCount);
