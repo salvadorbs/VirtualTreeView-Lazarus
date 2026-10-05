@@ -5855,7 +5855,10 @@ var
         else
     {$endif}
         begin
-          Brush.Color := Header.Background;
+          // Resolve system colors up front: some backends mishandle syscolor
+          // brushes (translucent fill on Qt/Windows) while plain RGB fills are
+          // exact everywhere.
+          Brush.Color := ColorToRGB(Header.Background);
           FillRect(BackgroundRect);
         end;
       end;
@@ -5969,7 +5972,8 @@ var
           begin // Windows classic mode
             // Fill the cell interior ourselves instead of via BF_MIDDLE: DrawEdge would always use
             // clBtnFace and ignore Header.Background (identical result for the default clBtnFace).
-            TargetCanvas.Brush.Color := Header.Background;
+            // Resolve system colors up front, same as the background fill above.
+            TargetCanvas.Brush.Color := ColorToRGB(Header.Background);
             TargetCanvas.FillRect(PaintRectangle);
             if IsDownIndex then
               DrawEdge(TargetCanvas.Handle, PaintRectangle, PressedButtonStyle, PressedButtonFlags)

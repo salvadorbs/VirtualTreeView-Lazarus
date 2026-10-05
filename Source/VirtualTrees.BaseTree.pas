@@ -16215,9 +16215,14 @@ begin
              (toFullRowSelect in FOptions.SelectionOptions) ) ) then
       begin
         TextColorBackup := GetTextColor(Handle);
-        SetTextColor(Handle, $FFFFFF);
         BackColorBackup := GetBkColor(Handle);
+        {$if not (defined(LCLQt) or defined(LCLQt5) or defined(LCLQt6))}
+        // The GDI dotted frame is pattern-based and ignores the DC colors, but the
+        // Qt platform style derives its frame from them: white on white would be
+        // invisible, so keep the backed-up colors there (issue #765).
+        SetTextColor(Handle, $FFFFFF);
         SetBkColor(Handle, 0);
+        {$ifend}
 
         {$ifdef ThemeSupport}
         // Issue #765: with toFullRowSelect the focus rect covers the whole row, with or
