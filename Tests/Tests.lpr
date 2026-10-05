@@ -19,7 +19,13 @@ uses
   VTBandsIssue1091Tests in 'VTBandsIssue1091Tests.pas',
   VTFocusChangedIssue1379Tests in 'VTFocusChangedIssue1379Tests.pas',
   VTHeaderBackgroundTests in 'VTHeaderBackgroundTests.pas',
-  VTSelectedCountIssue1197Tests in 'VTSelectedCountIssue1197Tests.pas';
+  VTSelectedCountIssue1197Tests in 'VTSelectedCountIssue1197Tests.pas',
+  VTFixedColumnDragIssue1377Tests in 'VTFixedColumnDragIssue1377Tests.pas',
+  VTFocusRectIssue765Tests in 'VTFocusRectIssue765Tests.pas',
+  VTScrollRangeIssue983Tests in 'VTScrollRangeIssue983Tests.pas',
+  VTPaintToIssue632Tests in 'VTPaintToIssue632Tests.pas',
+  VTPaintTreeIssue1074Tests in 'VTPaintTreeIssue1074Tests.pas',
+  VTHeaderHintIssue728Tests in 'VTHeaderHintIssue728Tests.pas';
 
 var
   TestRunner: TTestRunner;
