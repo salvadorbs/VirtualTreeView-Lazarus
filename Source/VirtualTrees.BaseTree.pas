@@ -965,9 +965,9 @@ type
     {$endif}
     procedure WMPaint(var Message: TLMPaint); message LM_PAINT;
     procedure WMPaste(var Message: TLMNoParams); message LM_PASTE;
-    {$ifdef EnablePrintFunctions}
+    {$if defined(EnablePrintFunctions) or defined(LCLWin)}
     procedure WMPrint(var Message: TWMPrint); message WM_PRINT;
-    {$endif}
+    {$ifend}
     procedure WMRButtonDblClk(var Message: TLMRButtonDblClk); message LM_RBUTTONDBLCLK;
     procedure WMRButtonDown(var Message: TLMRButtonDown); message LM_RBUTTONDOWN;
     procedure WMRButtonUp(var Message: TLMRButtonUp); message LM_RBUTTONUP;
@@ -8838,29 +8838,41 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$ifdef EnablePrintFunctions}
+{$if defined(EnablePrintFunctions) or defined(LCLWin)}
 
 procedure TBaseVirtualTree.WMPrint(var Message: TWMPrint);
 
 // This message is sent to request that the tree draws itself to a given device context. This includes not only
 // the client area but also the non-client area (header!).
 
+var
+  PaintStruct: TPaintStruct;
+  PaintMessage: TLMPaint;
+
 begin
   {$ifdef DEBUG_VTV}Logger.EnterMethod([lcMessages],'WMPrint');{$endif}
   // Draw only if the window is visible or visibility is not required.
-  if ((Message.Flags and PRF_CHECKVISIBLE) = 0) or IsWindowVisible(Handle) then
-    // The header lives in the non-client area, so it must only be drawn when the caller asked for that part.
-    // Painting it for a PRF_CLIENT only request put it over the client area and corrupted the border (#632).
-    if (Message.Flags and PRF_NONCLIENT) <> 0 then
-      Header.Columns.PaintHeader(Message.DC, FHeaderRect, -FEffectiveOffsetX);
-
-  inherited WMPrint(Message);
+  if (((Message.Flags and PRF_CHECKVISIBLE) = 0) or IsWindowVisible(Handle))
+    and ((Message.Flags and (PRF_CLIENT or PRF_NONCLIENT)) <> 0) then
+  begin
+    // The tree is custom drawn, so DefWindowProc has nothing to offer here: feed the
+    // caller's DC through the regular paint path instead. On LCL the header is part of
+    // the client area, so one pass covers client and "non-client" alike (#632).
+    FillChar(PaintStruct, SizeOf(PaintStruct), 0);
+    PaintStruct.rcPaint := ClientRect;
+    PaintMessage.Msg := LM_PAINT;
+    PaintMessage.DC := Message.DC;
+    PaintMessage.PaintStruct := @PaintStruct;
+    PaintMessage.Result := 0;
+    WMPaint(PaintMessage);
+  end;
+  Message.Result := 0;
   {$ifdef DEBUG_VTV}Logger.ExitMethod([lcMessages],'WMPrint');{$endif}
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-{$endif}
+{$ifend}
 
 procedure TBaseVirtualTree.WMRButtonDblClk(var Message: TLMRButtonDblClk);
 
@@ -16208,14 +16220,13 @@ begin
         SetBkColor(Handle, 0);
 
         {$ifdef ThemeSupport}
-        {$ifdef Windows}
         // Issue #765: with toFullRowSelect the focus rect covers the whole row, with or
         // without the explorer theme. Each cell draws it clipped to its own rectangle,
         // so the XOR-based DrawFocusRect touches every pixel only once.
+        // (LCL: RowRect is computed on every widgetset, so the fix applies here too.)
         if not (toExtendedFocus in FOptions.SelectionOptions) and (toFullRowSelect in FOptions.SelectionOptions) then
           FocusRect := RowRect
         else
-        {$endif}
         {$endif ThemeSupport}
           if toGridExtensions in FOptions.MiscOptions then
             FocusRect := CellRect

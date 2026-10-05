@@ -255,10 +255,28 @@ procedure ClipCanvas(Canvas: TCanvas; ClipRect: TRect; VisibleRegion: HRGN = 0);
 
 var
   ClipRegion: HRGN;
+  WO: TPoint;
 
 begin
-  // Regions expect their coordinates in device coordinates, hence we have to transform the region rectangle.
-  LPtoDP(Canvas.Handle, ClipRect, 2);
+  // Regions expect their coordinates in device coordinates on GDI (Win32), hence
+  // we have to transform the region rectangle there. Other widgetsets apply the
+  // canvas mapping to regions themselves, so transforming here as well would
+  // scale the clip twice and cut off everything but the first node when painting
+  // unbuffered under a mapping mode (issue #1074).
+  // LCL canvas painting applies the mapping scale but not the window origin
+  // that PaintTree sets in the unbuffered path, so the clip must be transformed
+  // the same way: apply the mapping, but temporarily drop the window origin.
+  {$if defined(LCLWin) or defined(LCLgtk2) or defined(LCLgtk3)}
+  GetWindowOrgEx(Canvas.Handle, WO);
+  if (WO.X <> 0) or (WO.Y <> 0) then
+  begin
+    SetWindowOrgEx(Canvas.Handle, 0, 0, nil);
+    LPtoDP(Canvas.Handle, ClipRect, 2);
+    SetWindowOrgEx(Canvas.Handle, WO.X, WO.Y, nil);
+  end
+  else
+    LPtoDP(Canvas.Handle, ClipRect, 2);
+  {$ifend}
   ClipRegion := CreateRectRgnIndirect(ClipRect);
   if VisibleRegion <> 0 then
     CombineRgn(ClipRegion, ClipRegion, VisibleRegion, RGN_AND);
