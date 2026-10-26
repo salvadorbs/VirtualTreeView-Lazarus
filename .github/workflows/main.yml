@@ -51,12 +51,12 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - uses: actions/checkout@v4.2.2
+    - uses: actions/checkout@v7.0.1
       with:
         submodules: true
         path: '${{ env.VTV_SOURCE }}'
         
-    - uses: actions/checkout@v4.2.2
+    - uses: actions/checkout@v7.0.1
       with:
         repository: 'blikblum/luipack'
         submodules: true
@@ -107,7 +107,7 @@ jobs:
 
     - name: Cache
       id: cache
-      uses: actions/cache@v4.2.3
+      uses: actions/cache@v6.1.0
       env:
         cache-name: cache-laz-v0.2.0
       with:
@@ -151,7 +151,7 @@ jobs:
     - name: Restore Qt (Windows)
       id: qt-cache
       if: steps.qt-setup.outputs.QT_CACHE_KEY != ''
-      uses: actions/cache@v4.2.3
+      uses: actions/cache@v6.1.0
       with:
         path: ${{ runner.temp }}/Qt
         key: ${{ steps.qt-setup.outputs.QT_CACHE_KEY }}
@@ -181,7 +181,7 @@ jobs:
     - name: Restore Qt pas binding (Windows)
       id: qtpas-cache
       if: steps.qt-setup.outputs.QTPAS_CACHE_KEY != ''
-      uses: actions/cache@v4.2.3
+      uses: actions/cache@v6.1.0
       with:
         path: ${{ runner.temp }}/qtbinding
         key: ${{ steps.qt-setup.outputs.QTPAS_CACHE_KEY }}
@@ -287,7 +287,7 @@ jobs:
 
     - name: Publish FPCUnit artifacts
       if: always()
-      uses: actions/upload-artifact@v4.6.2
+      uses: actions/upload-artifact@v7.0.2
       with:
         name: fpcunit_tests_${{ matrix.os }}_${{ matrix.build-widgetset }}
         path: |
@@ -309,7 +309,7 @@ jobs:
 
     - name: Upload the Build Artifact
       if: always()
-      uses: actions/upload-artifact@v4.6.2
+      uses: actions/upload-artifact@v7.0.2
       with:
         name: demos_${{ matrix.os }}_${{ matrix.build-widgetset }}
         path: |
