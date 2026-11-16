@@ -73,6 +73,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="VTHeaderCursorTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="VTSelectedCountIssue1197Tests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

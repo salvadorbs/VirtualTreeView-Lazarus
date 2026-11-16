@@ -19,6 +19,7 @@ uses
   VTBandsIssue1091Tests in 'VTBandsIssue1091Tests.pas',
   VTFocusChangedIssue1379Tests in 'VTFocusChangedIssue1379Tests.pas',
   VTHeaderBackgroundTests in 'VTHeaderBackgroundTests.pas',
+  VTHeaderCursorTests in 'VTHeaderCursorTests.pas',
   VTSelectedCountIssue1197Tests in 'VTSelectedCountIssue1197Tests.pas',
   VTFixedColumnDragIssue1377Tests in 'VTFixedColumnDragIssue1377Tests.pas',
   VTFocusRectIssue765Tests in 'VTFocusRectIssue765Tests.pas',

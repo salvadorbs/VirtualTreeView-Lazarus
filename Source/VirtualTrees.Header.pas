@@ -356,6 +356,9 @@ type
     FLastWidth                   : TDimension;              //Used to adjust spring columns. This is the width of all visible columns, not the header rectangle.
     FRestoreSelectionColumnIndex : Integer;                 //The column that is used to implement the coRestoreSelection option
     FWasDoubleClick              : Boolean;                 // The previous mouse message was for a double click, that allows us to process mouse-up-messages differently
+    FOldCursor                   : TCursor;                 // Cursor before the header replaced it with a splitter cursor
+    FHeaderCursor                : TCursor;                 // Cursor currently set by the header
+    FCursorChanged               : Boolean;                 // True while Treeview.Cursor belongs to the header
     function GetMainColumn : TColumnIndex;
     function GetSortColumn: TColumnIndex;                   // Getter for the property SortColumn
     function GetSortDirection: TSortDirection;              // Getter for the property SortDirection
@@ -383,6 +386,7 @@ type
     procedure SetSortDirection(const Value : TSortDirection);
     procedure SetStyle(Value : TVTHeaderStyle);
     function GetRestoreSelectionColumnIndex : Integer;
+    procedure RestoreHeaderCursor;
   protected
     FStates              : THeaderStates; //Used to keep track of internal states the header can enter.
     FDragStart           : TPoint;        //initial mouse drag position
@@ -632,6 +636,9 @@ begin
   FFixedAreaConstraints.OnChange := FixedAreaConstraintsChanged;
 
   FDoingAutoFitColumns := False;
+  FOldCursor := crDefault;
+  FHeaderCursor := crDefault;
+  FCursorChanged := False;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -646,6 +653,23 @@ begin
   FColumns.Clear; //TCollection's Clear method is not virtual, so we have to call our own Clear method manually.
   FColumns.Free;
   inherited;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TVTHeader.RestoreHeaderCursor;
+
+// Restores the cursor which was active before the header showed a splitter
+// cursor. Only touch the cursor if it is still the one set by the header, so
+// that a cursor changed by the application in the meantime is not overwritten.
+
+begin
+  if FCursorChanged then
+  begin
+    FCursorChanged := False;
+    if Treeview.Cursor = FHeaderCursor then
+      Treeview.Cursor := FOldCursor;
+  end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -1846,7 +1870,7 @@ begin
           if hsColumnWidthTracking in FStates then
           begin
             if not InHeader(SmallPointToPoint(TLMLButtonUp(Message).Pos)) then
-              TreeView.Cursor := crDefault;
+              RestoreHeaderCursor;
           end;
           if hsDragging in FStates then
           begin
@@ -1918,13 +1942,16 @@ begin
       end; //WM_NCLBUTTONUP
     //hovering, mouse leave detection
     CM_MOUSELEAVE:
-      with FColumns do
       begin
-        if FHoverIndex > NoColumn then
-          Invalidate(Items[FHoverIndex]);
-        FHoverIndex := NoColumn;
-        FClickIndex := NoColumn;
-        FDownIndex := NoColumn;
+        with FColumns do
+        begin
+          if FHoverIndex > NoColumn then
+            Invalidate(Items[FHoverIndex]);
+          FHoverIndex := NoColumn;
+          FClickIndex := NoColumn;
+          FDownIndex := NoColumn;
+        end;
+        RestoreHeaderCursor;
       end;
     //todo: see the difference to below
     LM_MOUSEMOVE:
@@ -1985,7 +2012,7 @@ begin
         //lcl: in lazarus we must use TCursor
         if IsVSplitterHit or IsHSplitterHit then
         begin
-          NewCursor := Tree.Cursor;
+          NewCursor := crDefault;
           if IsVSplitterHit and ((hoHeightResize in FOptions) or (csDesigning in Tree.ComponentState)) then
             NewCursor := crVSplit
           else if IsHSplitterHit then
@@ -1993,13 +2020,23 @@ begin
 
           if not (csDesigning in Tree.ComponentState) then
             Tree.DoGetHeaderCursor(NewCursor);
-          if (NewCursor <> Screen.Cursors[crDefault]) then
+          if NewCursor <> crDefault then
           begin
+            if not FCursorChanged then
+            begin
+              FOldCursor := Treeview.Cursor;
+              FCursorChanged := True;
+            end;
+            FHeaderCursor := NewCursor;
             Treeview.Cursor := NewCursor;
             HandleMessage := True;
             Message.Result := 1;
-          end;
-        end;
+          end
+          else
+            RestoreHeaderCursor;
+        end
+        else
+          RestoreHeaderCursor;
       end
       else
       begin
@@ -2036,6 +2073,7 @@ begin
 
           FStates := FStates - [hsColumnWidthTracking, hsColumnWidthTrackPending, hsHeightTracking, hsHeightTrackPending];
         end;
+        RestoreHeaderCursor;
       end;
   end;
 end;
