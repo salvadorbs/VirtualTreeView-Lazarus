@@ -1665,6 +1665,7 @@ var
   DrawFormat: Integer;
 
 begin
+  Result := Size(0, 0);
   GetTextExtentPoint32(Canvas.Handle, PChar(Text), Length(Text), Result);
   if vsMultiLine in Node.States then
   begin

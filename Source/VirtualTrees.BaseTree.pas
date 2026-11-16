@@ -4784,7 +4784,6 @@ const
   LineBitsSolid: array [0..7] of Word = (0, 0, 0, 0, 0, 0, 0, 0);
 
 var
-  p9, p8, p6, p4, p2, p1: Integer;
   Bits: Pointer;
   Size: TSize;
   {$ifdef ThemeSupport}
@@ -22210,7 +22209,7 @@ end;
 function TBaseVirtualTree.IsStored_DefaultNodeHeight: Boolean;
 begin
   {$IF LCL_FullVersion >= 1080000}
-  Result := FDefaultNodeHeight <> Scale96ToFont(DEFAULT_NODE_HEIGHT);
+  Result := FDefaultNodeHeight <> Cardinal(Scale96ToFont(DEFAULT_NODE_HEIGHT));
   {$ELSE}
   Result := FDefaultNodeHeight <> DEFAULT_NODE_HEIGHT;
   {$IFEND}
@@ -22221,7 +22220,7 @@ end;
 function TBaseVirtualTree.IsStored_Indent: Boolean;
 begin
   {$IF LCL_FullVersion >= 1080000}
-  Result := FIndent <> Scale96ToFont(DEFAULT_INDENT);
+  Result := FIndent <> Cardinal(Scale96ToFont(DEFAULT_INDENT));
   {$ELSE}
   Result := FIndent <> DEFAULT_INDENT;
   {$IFEND}
