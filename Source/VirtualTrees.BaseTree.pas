@@ -15693,7 +15693,15 @@ begin
           Details.Part := 0;
           Details.State := 0;
         end;
+        // Draw the themed check glyph at the PPI of the tree font, not at the
+        // screen PPI, otherwise check boxes keep their 96 DPI size on a
+        // per-monitor DPI change (issue #42717). DrawElementForPPI exists only
+        // in recent LCL versions; older ones fall back to DrawElement.
+        {$IF LCL_FullVersion >= 5990000}
+        ThemeServices.DrawElementForPPI(Canvas.Handle, Details, R, Font.PixelsPerInch);
+        {$ELSE}
         ThemeServices.DrawElement(Canvas.Handle, Details, R);
+        {$IFEND}
         {$ifdef USE_DELPHICOMPAT}
         if Index in [21..24] then
           with UtilityImages do
