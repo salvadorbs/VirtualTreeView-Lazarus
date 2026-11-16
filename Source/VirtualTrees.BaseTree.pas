@@ -16734,6 +16734,12 @@ const
     end;
     CreateRegion(Image, clFuchsia, FormRegion);
     SetWindowRgn(Form.Handle, FormRegion, True);
+    {$ifndef Windows}
+    // SetWindowRgn takes ownership of the region only on Windows. On the other
+    // widgetsets the handle would leak on every panning start.
+    if FormRegion <> 0 then
+      DeleteObject(FormRegion);
+    {$endif}
     Form.Position := poDesigned;
     // This prevents a focus chnage compare to using TForm.Show()
     ShowWindow(Form.Handle, SW_SHOWNOACTIVATE);
