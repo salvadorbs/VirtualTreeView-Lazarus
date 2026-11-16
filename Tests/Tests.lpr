@@ -25,7 +25,11 @@ uses
   VTScrollRangeIssue983Tests in 'VTScrollRangeIssue983Tests.pas',
   VTPaintToIssue632Tests in 'VTPaintToIssue632Tests.pas',
   VTPaintTreeIssue1074Tests in 'VTPaintTreeIssue1074Tests.pas',
-  VTHeaderHintIssue728Tests in 'VTHeaderHintIssue728Tests.pas';
+  VTHeaderHintIssue728Tests in 'VTHeaderHintIssue728Tests.pas',
+  VTCellSelectionIssue1400Tests in 'VTCellSelectionIssue1400Tests.pas',
+  VTScaleNodeHeightsIssue1408Tests in 'VTScaleNodeHeightsIssue1408Tests.pas',
+  VTToggleNodeIssue1415Tests in 'VTToggleNodeIssue1415Tests.pas',
+  VTDefaultNodeHeightIssue1375Tests in 'VTDefaultNodeHeightIssue1375Tests.pas';
 
 var
   TestRunner: TTestRunner;

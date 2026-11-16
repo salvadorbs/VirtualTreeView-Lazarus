@@ -78,6 +78,12 @@ function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtua
                                    tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil;
                                    dwAspect: Integer = DVASPECT_CONTENT; lindex: Integer = -1): Word; overload;
 
+// The clipboard is shared by all processes. While another process has it open, nobody else can open it, and
+// OleSetClipboard() and OleFlushClipboard() fail with CLIPBRD_E_CANT_OPEN. The Windows clipboard user service, for
+// example, opens it shortly after every change. These functions retry the operation for a short time in this case.
+function OleSetClipboardWithRetry(const DataObject: IDataObject): HResult;
+function OleFlushClipboardWithRetry: HResult;
+
 //----------------- TClipboardFormats ----------------------------------------------------------------------------------
 
 type
@@ -120,6 +126,55 @@ implementation
 
 var
   _List: TList = nil;  //Note - not using class constructors as they are not supported on C++ Builder. See also issue #
+
+const
+  ClipboardRetryTimeout = 250; // Milliseconds during which a clipboard operation is retried while the clipboard is in use.
+  ClipboardRetryDelay = 10;    // Milliseconds to wait between two attempts.
+  CLIPBRD_E_CANT_OPEN = HResult($800401D0); // Not declared in the LCL units.
+
+procedure WaitForClipboard;
+
+// Waits a moment before a clipboard operation is retried.
+
+begin
+  Sleep(ClipboardRetryDelay);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function OleSetClipboardWithRetry(const DataObject: IDataObject): HResult;
+
+var
+  StartTime: UInt64;
+
+begin
+  Result := OleSetClipboard(DataObject);
+  StartTime := GetTickCount64;
+  while (Result = CLIPBRD_E_CANT_OPEN) and (GetTickCount64 - StartTime < ClipboardRetryTimeout) do
+  begin
+    WaitForClipboard;
+    Result := OleSetClipboard(DataObject);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+function OleFlushClipboardWithRetry: HResult;
+
+var
+  StartTime: UInt64;
+
+begin
+  Result := OleFlushClipboard;
+  StartTime := GetTickCount64;
+  while (Result = CLIPBRD_E_CANT_OPEN) and (GetTickCount64 - StartTime < ClipboardRetryTimeout) do
+  begin
+    WaitForClipboard;
+    Result := OleFlushClipboard;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
 
 procedure EnumerateVTClipboardFormats(TreeClass: TVirtualTreeClass; const List: TStrings);
 
