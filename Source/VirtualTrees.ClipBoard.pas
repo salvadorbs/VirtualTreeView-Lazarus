@@ -76,7 +76,7 @@ function GetVTClipboardFormatDescription(AFormat: TClipboardFormat): string;
 procedure RegisterVTClipboardFormat(AFormat: TClipboardFormat; TreeClass: TVirtualTreeClass; Priority: Cardinal); overload;
 function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
                                    tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil;
-                                   dwAspect: Integer = DVASPECT_CONTENT; lindex: Integer = -1): Word; overload;
+                                   dwAspect: Integer = DVASPECT_CONTENT; lindex: Integer = -1): TClipboardFormat; overload;
 
 // The clipboard is shared by all processes. While another process has it open, nobody else can open it, and
 // OleSetClipboard() and OleFlushClipboard() fail with CLIPBRD_E_CANT_OPEN. The Windows clipboard user service, for
@@ -241,7 +241,7 @@ end;
 
 function RegisterVTClipboardFormat(const Description: string; TreeClass: TVirtualTreeClass; Priority: Cardinal;
   tymed: Integer = TYMED_HGLOBAL; ptd: PDVTargetDevice = nil; dwAspect: Integer = DVASPECT_CONTENT;
-  lindex: Integer = -1): Word;
+  lindex: Integer = -1): TClipboardFormat;
 
 // Alternative method to register a certain clipboard format for a given tree class. Registration with the
 // clipboard is done here too and the assigned ID returned by the function.
