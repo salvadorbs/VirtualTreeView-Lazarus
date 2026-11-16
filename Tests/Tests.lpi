@@ -121,6 +121,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="VTDpiScalingTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="VTPaintFontPPITests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

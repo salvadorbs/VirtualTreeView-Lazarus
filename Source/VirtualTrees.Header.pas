@@ -395,6 +395,7 @@ type
     FDoingAutoFitColumns : Boolean;       //Flag to avoid using the stored width for Main column
 
     procedure FontChanged(Sender : TObject); virtual;
+    procedure InheritTreeFont; virtual;
     procedure AutoScale(); virtual;
     function CanSplitterResize(P : TPoint) : Boolean;
     function CanWriteColumns : Boolean; virtual;
@@ -674,6 +675,30 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TVTHeader.InheritTreeFont;
+
+// Copies the tree font into the header without losing the tree font resolution.
+// TFont.Assign converts the source to the current PixelsPerInch when the two
+// differ, so the PPI has to be set first, exactly like
+// TControl.CMParentFontChanged does. Otherwise the header keeps its design time
+// resolution and its text is drawn at the wrong size after a DPI change.
+
+var
+  TreeFont: TFont;
+
+begin
+  TreeFont := TBaseVirtualTreeCracker(FOwner).Font;
+  FFont.BeginUpdate;
+  try
+    FFont.PixelsPerInch := TreeFont.PixelsPerInch;
+    FFont.Assign(TreeFont);
+  finally
+    FFont.EndUpdate;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TVTHeader.FontChanged(Sender : TObject);
 begin
   inherited;
@@ -689,6 +714,12 @@ var
 begin
   if (toAutoChangeScale in TBaseVirtualTreeCracker(Tree).TreeOptions.AutoOptions) then
   begin
+    // During a DPI change the tree scales the header font and the header
+    // geometry by the same ratio in TBaseVirtualTree.DoAutoAdjustLayout.
+    // Recomputing the height from the already scaled font here would apply the
+    // ratio twice and leave the header at the wrong height (see issue #42716).
+    if TBaseVirtualTreeCracker(Tree).FScalingFontsPPI then
+      Exit;
     //Ensure a minimum header size based on the font, so that all text is visible.
     //First find the largest Columns[].Spacing
     lMaxHeight := 0;
@@ -698,6 +729,9 @@ begin
     with TBitmap.Create do
       try
         Canvas.Font.Assign(FFont);
+        // Assign converts the font to Screen.PixelsPerInch; measure at the
+        // header font resolution instead (see #42702 and #42716).
+        Canvas.Font.PixelsPerInch := FFont.PixelsPerInch;
         lMaxHeight := lMaxHeight { top spacing } + Divide(lMaxHeight, 2) { minimum bottom spacing } + Canvas.TextHeight('Q');
       finally
         Free;
@@ -986,7 +1020,7 @@ begin
   begin
     FParentFont := Value;
     if FParentFont then
-      FFont.Assign(TBaseVirtualTree(FOwner).Font);
+      InheritTreeFont;
   end;
 end;
 
@@ -1669,7 +1703,7 @@ begin
       end;
     CM_PARENTFONTCHANGED :
       if FParentFont then
-        FFont.Assign(TBaseVirtualTreeCracker(FOwner).Font);
+        InheritTreeFont;
     CM_BIDIMODECHANGED :
       for I := 0 to FColumns.Count - 1 do
         if coParentBiDiMode in FColumns[I].Options then
@@ -3190,6 +3224,10 @@ begin
   PaintInfo.Column := Self;
   PaintInfo.TargetCanvas := Owner.HeaderBitmap.Canvas;
   PaintInfo.TargetCanvas.Font := Header.Font;
+  // TFont.Assign (used by the property assignment above) converts the font to
+  // Screen.PixelsPerInch. Keep the header font resolution, otherwise the header
+  // text is drawn at the wrong size on a per-monitor DPI change.
+  PaintInfo.TargetCanvas.Font.PixelsPerInch := Header.Font.PixelsPerInch;
 
   with PaintInfo, Column do
   begin

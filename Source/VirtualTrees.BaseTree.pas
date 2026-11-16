@@ -993,6 +993,7 @@ type
     function IsStored_TextMargin: Boolean;
   protected
     FFontChanged: Boolean;                       // flag for keeping informed about font changes in the off screen buffer   // [IPK] - private to protected
+    FScalingFontsPPI: Boolean;                   // true while the LCL scales Font.PixelsPerInch for a DPI change
     procedure AutoScale(); virtual;
     procedure AddToSelection(const NewItems: TNodeArray; NewLength: Integer; ForceInsert: Boolean = False); overload; virtual;
     procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
@@ -1595,6 +1596,7 @@ type
     {$IF LCL_FullVersion >= 1080000}
     procedure DoAutoAdjustLayout(const Mode: TLayoutAdjustmentPolicy;
       const XProportion, YProportion: Double); override;
+    procedure ScaleFontsPPI(const AToPPI: Integer; const AProportion: Double); override;
     {$IFEND}
 
   // LCL multi-resolution imagelist support
@@ -18069,6 +18071,12 @@ var
 begin
   if HandleAllocated and (toAutoChangeScale in TreeOptions.AutoOptions) then
   begin
+    // A font PPI change caused by the LCL's DPI scaling is handled in
+    // DoAutoAdjustLayout, which scales DefaultNodeHeight and the existing node
+    // heights by the DPI ratio. Scaling them here as well would apply the
+    // ratio twice (see issue #42716).
+    if FScalingFontsPPI then
+      Exit;
     Canvas.Font.Assign(Self.Font);
     lTextHeight := Canvas.TextHeight('Tg') + TextMargin;
     if Assigned(Images) then
@@ -18572,16 +18580,43 @@ end;
 //----------------------------------------------------------------------------------------------------------------------
 
 {$IF LCL_FullVersion >= 1080000}
+procedure TBaseVirtualTree.ScaleFontsPPI(const AToPPI: Integer; const AProportion: Double);
+var
+  WasScaling: Boolean;
+begin
+  // ScaleFontsPPI changes Font.PixelsPerInch, which sends CM_FONTCHANGED and
+  // would invoke AutoScale. Suppress AutoScale here; DoAutoAdjustLayout, which
+  // the LCL calls right after ScaleFontsPPI, scales all row heights by the DPI
+  // ratio instead (see issue #42716).
+  WasScaling := FScalingFontsPPI;
+  FScalingFontsPPI := True;
+  try
+    inherited ScaleFontsPPI(AToPPI, AProportion);
+  finally
+    FScalingFontsPPI := WasScaling;
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TBaseVirtualTree.DoAutoAdjustLayout(const Mode: TLayoutAdjustmentPolicy;
   const XProportion, YProportion: Double);
+var
+  WasScaling: Boolean;
 begin
   inherited;
   if Mode in [lapAutoAdjustWithoutHorizontalScrolling, lapAutoAdjustForDPI] then
   begin
     DisableAutoSizing;
     try
-      if IsStored_DefaultNodeHeight then
+      // A DPI change does not call ChangeScale, so scale the default and the
+      // existing node heights here. DefaultNodeHeight must be scaled even when
+      // it currently equals the default value for the old PPI.
+      if YProportion <> 1.0 then
+      begin
         FDefaultNodeHeight := Round(FDefaultNodeHeight * YProportion);
+        ScaleNodeHeights(Round(YProportion * 10000), 10000);
+      end;
       if IsStored_Indent then
         FIndent := Round(FIndent * YProportion);
       if IsStored_Margin then
@@ -18595,6 +18630,22 @@ begin
       if IsDragWidthStored then
         FDragWidth := Round(FDragWidth * XProportion);
       FHeader.AutoAdjustLayout(XProportion, YProportion);
+      // The header uses its own TFont, which is not a control property, so the
+      // LCL does not scale it. Scale it here, together with the header geometry,
+      // and keep TVTHeader.AutoScale from recomputing the height from the scaled
+      // font: that would apply the DPI ratio twice (see Lazarus 405b441 and
+      // issue #42716). A header inheriting the tree font is already scaled by
+      // the LCL, scaling it here as well would apply the ratio twice.
+      if not FHeader.ParentFont then
+      begin
+        WasScaling := FScalingFontsPPI;
+        FScalingFontsPPI := True;
+        try
+          DoScaleFontPPI(FHeader.Font, 0, YProportion);
+        finally
+          FScalingFontsPPI := WasScaling;
+        end;
+      end;
       PrepareBitmaps(true, false);
     finally
       EnableAutoSizing;

@@ -31,6 +31,7 @@ uses
   VTScaleNodeHeightsIssue1408Tests in 'VTScaleNodeHeightsIssue1408Tests.pas',
   VTToggleNodeIssue1415Tests in 'VTToggleNodeIssue1415Tests.pas',
   VTDefaultNodeHeightIssue1375Tests in 'VTDefaultNodeHeightIssue1375Tests.pas',
+  VTDpiScalingTests in 'VTDpiScalingTests.pas',
   VTPaintFontPPITests in 'VTPaintFontPPITests.pas',
   VTClipboardFormatTests in 'VTClipboardFormatTests.pas';
 
