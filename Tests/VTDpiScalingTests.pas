@@ -30,6 +30,14 @@ uses
   VirtualTrees.Types;
 
 type
+  // Exposes the protected element offsets so the test can observe the check
+  // box margin without a public property (FImagesMargin is private).
+  TVTDpiScalingTreeCracker = class(TVirtualStringTree)
+  public
+    /// Width of the check box plus the margin on both sides, from GetOffsets.
+    function CheckAreaWidth: TDimension;
+  end;
+
   TVTDpiScalingTests = class(TTestCase)
   strict private
     fForm: TForm;
@@ -68,12 +76,28 @@ type
     /// the vsHeightMeasured flags only once, when the batch ends, and not once
     /// per column (which would traverse all nodes N times).
     procedure BatchedColumnWidthChangeDefersHeightReset;
+
+    /// The checkbox margin has no stored flag and no default constant: it must
+    /// follow the DPI ratio in both directions.
+    procedure DpiChangeScalesImagesMargin;
   end;
 
 implementation
 
 uses
   SysUtils;
+
+function TVTDpiScalingTreeCracker.CheckAreaWidth: TDimension;
+var
+  Offsets: TVTOffsets;
+  Node: PVirtualNode;
+begin
+  Node := GetFirstInitialized;
+  if not Assigned(Node) then
+    Exit(0);
+  GetOffsets(Node, Offsets, ofsStateImage);
+  Result := Offsets[ofsStateImage] - Offsets[ofsCheckBox];
+end;
 
 procedure TVTDpiScalingTests.SetUp;
 begin
@@ -367,6 +391,34 @@ begin
       [Node.Index]), vsHeightMeasured in Node.States);
     Node := fTree.GetNextInitialized(Node);
   end;
+end;
+
+procedure TVTDpiScalingTests.DpiChangeScalesImagesMargin;
+var
+  StartWidth: TDimension;
+  Node: PVirtualNode;
+begin
+  fTree.TreeOptions.MiscOptions := fTree.TreeOptions.MiscOptions + [toCheckSupport];
+  Node := fTree.GetFirstInitialized;
+  AssertNotNull('Sanity: the tree must have initialized nodes.', Node);
+  Node.CheckType := ctCheckBox;
+  Application.ProcessMessages;
+
+  // CheckAreaWidth = check box width + ImagesMargin on both sides. Both must
+  // follow the DPI ratio; a margin left at 2 px would make the result smaller
+  // than the doubled value.
+  StartWidth := TVTDpiScalingTreeCracker(fTree).CheckAreaWidth;
+  AssertTrue('Sanity: the check box area must have a width.', StartWidth > 0);
+
+  fTree.AutoAdjustLayout(lapAutoAdjustForDPI, 96, 192, 0, 0);
+  Application.ProcessMessages;
+  AssertEquals('The check box area must scale with the DPI ratio.',
+    StartWidth * 2, Integer(TVTDpiScalingTreeCracker(fTree).CheckAreaWidth));
+
+  fTree.AutoAdjustLayout(lapAutoAdjustForDPI, 192, 96, 0, 0);
+  Application.ProcessMessages;
+  AssertEquals('Moving back must restore the check box area.',
+    StartWidth, Integer(TVTDpiScalingTreeCracker(fTree).CheckAreaWidth));
 end;
 
 initialization

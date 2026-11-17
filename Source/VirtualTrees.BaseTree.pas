@@ -18651,6 +18651,9 @@ begin
         FTextMargin := Round(FTextMargin * XProportion)
       else
         FTextMargin := Scale96ToFont(DEFAULT_MARGIN);
+      // FImagesMargin has neither a stored flag nor a default constant, so
+      // scale it like ChangeScale does instead of re-deriving it.
+      FImagesMargin := Round(FImagesMargin * XProportion);
       if IsSelectionCurveRadiusStored then
         FSelectionCurveRadius := Round(FSelectionCurveRadius * XProportion);
       // no else needed since FSelectionCurveRadius is 0 by default
