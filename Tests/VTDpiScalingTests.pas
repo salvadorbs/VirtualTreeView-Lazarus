@@ -79,6 +79,10 @@ type
     /// per column (which would traverse all nodes N times).
     procedure BatchedColumnWidthChangeDefersHeightReset;
 
+    /// Outside a column update a single width change must still clear the
+    /// flags immediately, as before the batching optimization.
+    procedure SingleColumnWidthChangeResetsHeightMeasurements;
+
     /// The checkbox margin has no stored flag and no default constant: it must
     /// follow the DPI ratio in both directions.
     procedure DpiChangeScalesImagesMargin;
@@ -399,6 +403,34 @@ begin
   while Assigned(Node) do
   begin
     AssertFalse(Format('Node %d: vsHeightMeasured must be reset when the column batch ends.',
+      [Node.Index]), vsHeightMeasured in Node.States);
+    Node := fTree.GetNextInitialized(Node);
+  end;
+end;
+
+procedure TVTDpiScalingTests.SingleColumnWidthChangeResetsHeightMeasurements;
+var
+  Node: PVirtualNode;
+begin
+  while fTree.Header.Columns.Count < 1 do
+    fTree.Header.Columns.Add;
+  Application.ProcessMessages;
+
+  Node := fTree.GetFirstInitialized;
+  AssertNotNull('Sanity: the tree must have initialized nodes.', Node);
+  while Assigned(Node) do
+  begin
+    Include(Node.States, vsMultiline);
+    Include(Node.States, vsHeightMeasured);
+    Node := fTree.GetNextInitialized(Node);
+  end;
+
+  Node := fTree.GetFirstInitialized;
+  fTree.Header.Columns[0].Width := fTree.Header.Columns[0].Width + 10;
+
+  while Assigned(Node) do
+  begin
+    AssertFalse(Format('Node %d: vsHeightMeasured must be reset immediately outside a column batch.',
       [Node.Index]), vsHeightMeasured in Node.States);
     Node := fTree.GetNextInitialized(Node);
   end;
