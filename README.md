@@ -101,12 +101,14 @@ Runnable examples are in `Demos/`:
 
 ## Tests
 
-`Tests/` holds an FPCUnit suite covering the core tree behavior, mouse utilities, cell selection, `OnDrawText`, `OnEditCancelled` and a worker-thread regression test. Build and run it from the command line:
+`Tests/` holds an FPCUnit suite covering the core tree behavior, mouse utilities, cell selection, DPI scaling, painting at a given PPI, the header cursor, the clipboard format, `OnDrawText`, `OnEditCancelled` and a worker-thread regression test. Build and run it from the command line:
 
 ```bash
 lazbuild Tests/Tests.lpi
-Tests/Tests --all --progress --format=plain
+Tests/lib/<cpu>-<os>/Tests --all --format=plain   # e.g. Tests/lib/x86_64-linux/Tests
 ```
+
+The tests create real forms, so they need an X display on Unix (`DISPLAY=:0`).
 
 ## Contributing
 
