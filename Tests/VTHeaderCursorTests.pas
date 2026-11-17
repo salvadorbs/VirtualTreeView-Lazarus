@@ -28,6 +28,7 @@ type
     FForm: TForm;
     FTree: TVirtualStringTree;
     procedure SendMouseMove(X, Y: Integer);
+    procedure TreeGetHeaderCursor(Sender: TVTHeader; var Cursor: TCursor);
     function SplitterX: Integer;
     function HeaderY: Integer;
   protected
@@ -36,6 +37,8 @@ type
   published
     procedure HoveringColumnSplitterUsesHSplitCursor;
     procedure HoveringHeaderHeightSplitterUsesVSplitCursor;
+    procedure HoveringColumnSplitterUsesCustomHeaderCursor;
+    procedure MovingBetweenSplittersKeepsApplicationCursor;
     procedure LeavingColumnSplitterRestoresDefaultCursor;
     procedure LeavingColumnSplitterRestoresApplicationCursor;
     procedure LeavingTreeRestoresDefaultCursor;
@@ -99,6 +102,12 @@ begin
   Application.ProcessMessages;
 end;
 
+procedure TVTHeaderCursorTests.TreeGetHeaderCursor(Sender: TVTHeader;
+  var Cursor: TCursor);
+begin
+  Cursor := crCross;
+end;
+
 procedure TVTHeaderCursorTests.HoveringColumnSplitterUsesHSplitCursor;
 begin
   SendMouseMove(SplitterX, HeaderY);
@@ -118,6 +127,41 @@ begin
   SendMouseMove(50, HeaderY);
   AssertEquals('Moving away from the header height splitter must restore the default cursor.',
     crDefault, FTree.Cursor);
+end;
+
+procedure TVTHeaderCursorTests.HoveringColumnSplitterUsesCustomHeaderCursor;
+begin
+  // OnGetHeaderCursor overrides the default crHSplit/crVSplit; the cursor
+  // saved for the restore must still be the one from before the header change.
+  FTree.OnGetHeaderCursor := TreeGetHeaderCursor;
+
+  SendMouseMove(SplitterX, HeaderY);
+  AssertEquals('OnGetHeaderCursor must be able to override the splitter cursor.',
+    crCross, FTree.Cursor);
+
+  SendMouseMove(50, HeaderY);
+  AssertEquals('Leaving the splitter must restore the cursor active before the custom header cursor.',
+    crDefault, FTree.Cursor);
+end;
+
+procedure TVTHeaderCursorTests.MovingBetweenSplittersKeepsApplicationCursor;
+begin
+  FTree.Cursor := crCross;
+
+  SendMouseMove(SplitterX, HeaderY);
+  AssertEquals('Sanity: the column splitter cursor must be active.',
+    crHSplit, FTree.Cursor);
+
+  // Moving from one splitter to another must not overwrite the cursor saved
+  // before the first splitter was entered.
+  FTree.Header.Options := FTree.Header.Options + [hoHeightResize];
+  SendMouseMove(50, FTree.Header.Height - 1);
+  AssertEquals('Sanity: the header height splitter cursor must be active.',
+    crVSplit, FTree.Cursor);
+
+  SendMouseMove(50, HeaderY);
+  AssertEquals('The application cursor saved before the first splitter must be restored.',
+    crCross, FTree.Cursor);
 end;
 
 procedure TVTHeaderCursorTests.LeavingColumnSplitterRestoresDefaultCursor;
