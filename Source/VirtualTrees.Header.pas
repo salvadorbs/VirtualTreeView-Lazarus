@@ -1207,25 +1207,44 @@ var
   col: TVirtualTreeColumn;
 begin
   if IsDefaultHeightStored then
-    FDefaultHeight := Round(FDefaultHeight * AYProportion);
+    FDefaultHeight := Round(FDefaultHeight * AYProportion)
+  else
+    FDefaultHeight := FOwner.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
 
   if IsHeightStored then
-    FHeight := Round(FHeight * AYProportion);
+    FHeight := Round(FHeight * AYProportion)
+  else
+    FHeight := FOwner.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
 
   if IsMinHeightStored then
-    FMinHeight := Round(FMinHeight * AYProportion);
+    FMinHeight := Round(FMinHeight * AYProportion)
+  else
+    FMinHeight := FOwner.Scale96ToFont(DEFAULT_MIN_HEIGHT);
 
-  if Columns.IsDefaultWidthStored then
-    Columns.DefaultWidth := Round(Columns.DefaultWidth * AXProportion);
+  Columns.BeginUpdate;
+  try
+    if Columns.IsDefaultWidthStored then
+      Columns.DefaultWidth := Round(Columns.DefaultWidth * AXProportion)
+    else
+      Columns.DefaultWidth := FOwner.Scale96ToFont(DEFAULT_COLUMN_WIDTH);
 
-  for i := 0 to Columns.Count-1 do begin
-    col := Columns[i];
-    if col.IsWidthStored then
-      col.Width := Round(col.Width * AXProportion);
-    if col.IsSpacingStored then
-      col.Spacing := Round(col.Spacing * AXProportion);
-    if col.IsMarginStored then
-      col.Margin := Round(col.Margin * AXProportion);
+    for i := 0 to Columns.Count-1 do begin
+      col := Columns[i];
+      if col.IsWidthStored then
+        col.Width := Round(col.Width * AXProportion)
+      else
+        col.Width := col.Owner.FDefaultWidth;
+      if col.IsSpacingStored then
+        col.Spacing := Round(col.Spacing * AXProportion)
+      else
+        col.Spacing := FOwner.Scale96ToFont(DEFAULT_SPACING);
+      if col.IsMarginStored then
+        col.Margin := Round(col.Margin * AXProportion)
+      else
+        col.Margin := FOwner.Scale96ToFont(DEFAULT_MARGIN);
+    end;
+  finally
+    Columns.EndUpdate;
   end;
 end;
 {$IFEND}

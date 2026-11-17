@@ -18618,17 +18618,28 @@ begin
         ScaleNodeHeights(Round(YProportion * 10000), 10000);
       end;
       if IsStored_Indent then
-        FIndent := Round(FIndent * YProportion);
+        FIndent := Round(FIndent * YProportion)
+      else
+        FIndent := Scale96ToFont(DEFAULT_INDENT);
       if IsStored_Margin then
-        FMargin := Round(FMargin * XProportion);
+        FMargin := Round(FMargin * XProportion)
+      else
+        FMargin := Scale96ToFont(DEFAULT_MARGIN);
       if IsStored_TextMargin then
-        FTextMargin := Round(FTextMargin * XProportion);
+        FTextMargin := Round(FTextMargin * XProportion)
+      else
+        FTextMargin := Scale96ToFont(DEFAULT_MARGIN);
       if IsSelectionCurveRadiusStored then
         FSelectionCurveRadius := Round(FSelectionCurveRadius * XProportion);
+      // no else needed since FSelectionCurveRadius is 0 by default
       if IsDragHeightStored then
-        FDragHeight := Round(FDragHeight * YProportion);
+        FDragHeight := Round(FDragHeight * YProportion)
+      else
+        FDragHeight := Scale96ToFont(DEFAULT_DRAG_HEIGHT);
       if IsDragWidthStored then
-        FDragWidth := Round(FDragWidth * XProportion);
+        FDragWidth := Round(FDragWidth * XProportion)
+      else
+        FDragWidth := Scale96ToFont(DEFAULT_DRAG_WIDTH);
       FHeader.AutoAdjustLayout(XProportion, YProportion);
       // The header uses its own TFont, which is not a control property, so the
       // LCL does not scale it. Scale it here, together with the header geometry,

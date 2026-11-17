@@ -26,7 +26,8 @@ uses
   Controls,
   Forms,
   Graphics,
-  VirtualTrees;
+  VirtualTrees,
+  VirtualTrees.Types;
 
 type
   TVTDpiScalingTests = class(TTestCase)
@@ -53,6 +54,15 @@ type
     /// A header inheriting the tree font is scaled by the LCL through the tree:
     /// it must not be scaled a second time.
     procedure DpiChangeScalesInheritedHeaderFontOnce;
+
+    /// Header height and column width/spacing/margin still at their default
+    /// value must be re-derived from the new font PPI instead of keeping the
+    /// pixel size of the old PPI.
+    procedure DpiChangeUpdatesDefaultHeaderAndColumnSizes;
+
+    /// The same applies to the tree-level layout defaults (indent, margins and
+    /// drag image size).
+    procedure DpiChangeUpdatesDefaultTreeSizes;
   end;
 
 implementation
@@ -218,6 +228,98 @@ begin
     StartHeight, fTree.Header.Font.Height);
   AssertEquals('Moving back must restore the header height.',
     StartHeaderHeight, fTree.Header.Height);
+end;
+
+procedure TVTDpiScalingTests.DpiChangeUpdatesDefaultHeaderAndColumnSizes;
+var
+  Col: TVirtualTreeColumn;
+  StartPPI, StartHeaderHeight, StartDefaultHeight, StartMinHeight,
+  StartDefaultWidth, StartWidth, StartSpacing, StartMargin: Integer;
+begin
+  // Keep AutoScale from recomputing the header height from its font: this test
+  // only checks that the layout defaults follow the new font PPI.
+  fTree.TreeOptions.AutoOptions := fTree.TreeOptions.AutoOptions - [toAutoChangeScale];
+
+  StartPPI := fTree.Font.PixelsPerInch;
+  AssertEquals('Sanity: the tree font must start at 96 PPI.', 96, StartPPI);
+
+  // Reset header and column geometry to the default value for the current PPI,
+  // so that the test really exercises the property defaults.
+  fTree.Header.DefaultHeight := fTree.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
+  fTree.Header.MinHeight := fTree.Scale96ToFont(DEFAULT_MIN_HEIGHT);
+  fTree.Header.Height := fTree.Scale96ToFont(DEFAULT_HEADER_HEIGHT);
+  fTree.Header.Columns.DefaultWidth := fTree.Scale96ToFont(DEFAULT_COLUMN_WIDTH);
+
+  Col := fTree.Header.Columns.Add;
+  Col.Width := fTree.Scale96ToFont(DEFAULT_COLUMN_WIDTH);
+  Col.Spacing := fTree.Scale96ToFont(DEFAULT_SPACING);
+  Col.Margin := fTree.Scale96ToFont(DEFAULT_MARGIN);
+
+  StartHeaderHeight := fTree.Header.Height;
+  StartDefaultHeight := fTree.Header.DefaultHeight;
+  StartMinHeight := fTree.Header.MinHeight;
+  StartDefaultWidth := fTree.Header.Columns.DefaultWidth;
+  StartWidth := Col.Width;
+  StartSpacing := Col.Spacing;
+  StartMargin := Col.Margin;
+
+  fTree.AutoAdjustLayout(lapAutoAdjustForDPI, StartPPI, 192, 0, 0);
+  Application.ProcessMessages;
+
+  AssertEquals('The default header height must follow the new font PPI.',
+    StartHeaderHeight * 2, Integer(fTree.Header.Height));
+  AssertEquals('The default header default height must follow the new font PPI.',
+    StartDefaultHeight * 2, Integer(fTree.Header.DefaultHeight));
+  AssertEquals('The default header minimum height must follow the new font PPI.',
+    StartMinHeight * 2, Integer(fTree.Header.MinHeight));
+  AssertEquals('The default column width must follow the new font PPI.',
+    StartDefaultWidth * 2, Integer(fTree.Header.Columns.DefaultWidth));
+  AssertEquals('A column at its default width must follow the new font PPI.',
+    StartWidth * 2, Integer(Col.Width));
+  AssertEquals('A column at its default spacing must follow the new font PPI.',
+    StartSpacing * 2, Integer(Col.Spacing));
+  AssertEquals('A column at its default margin must follow the new font PPI.',
+    StartMargin * 2, Integer(Col.Margin));
+end;
+
+procedure TVTDpiScalingTests.DpiChangeUpdatesDefaultTreeSizes;
+var
+  StartPPI, StartIndent, StartMargin, StartTextMargin,
+  StartDragHeight, StartDragWidth: Integer;
+begin
+  // Avoid AutoScale changing DefaultNodeHeight while we check the layout
+  // defaults; it has its own tests above.
+  fTree.TreeOptions.AutoOptions := fTree.TreeOptions.AutoOptions - [toAutoChangeScale];
+
+  StartPPI := fTree.Font.PixelsPerInch;
+  AssertEquals('Sanity: the tree font must start at 96 PPI.', 96, StartPPI);
+
+  // Reset the layout values to their defaults for the current PPI.
+  fTree.Indent := fTree.Scale96ToFont(DEFAULT_INDENT);
+  fTree.Margin := fTree.Scale96ToFont(DEFAULT_MARGIN);
+  fTree.TextMargin := fTree.Scale96ToFont(DEFAULT_MARGIN);
+  fTree.DragHeight := fTree.Scale96ToFont(DEFAULT_DRAG_HEIGHT);
+  fTree.DragWidth := fTree.Scale96ToFont(DEFAULT_DRAG_WIDTH);
+
+  StartIndent := fTree.Indent;
+  StartMargin := fTree.Margin;
+  StartTextMargin := fTree.TextMargin;
+  StartDragHeight := fTree.DragHeight;
+  StartDragWidth := fTree.DragWidth;
+
+  fTree.AutoAdjustLayout(lapAutoAdjustForDPI, StartPPI, 192, 0, 0);
+  Application.ProcessMessages;
+
+  AssertEquals('The default indent must follow the new font PPI.',
+    StartIndent * 2, Integer(fTree.Indent));
+  AssertEquals('The default margin must follow the new font PPI.',
+    StartMargin * 2, Integer(fTree.Margin));
+  AssertEquals('The default text margin must follow the new font PPI.',
+    StartTextMargin * 2, Integer(fTree.TextMargin));
+  AssertEquals('The default drag height must follow the new font PPI.',
+    StartDragHeight * 2, Integer(fTree.DragHeight));
+  AssertEquals('The default drag width must follow the new font PPI.',
+    StartDragWidth * 2, Integer(fTree.DragWidth));
 end;
 
 initialization
