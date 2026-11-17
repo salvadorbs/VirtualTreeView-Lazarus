@@ -994,6 +994,7 @@ type
   protected
     FFontChanged: Boolean;                       // flag for keeping informed about font changes in the off screen buffer   // [IPK] - private to protected
     FScalingFontsPPI: Boolean;                   // true while the LCL scales Font.PixelsPerInch for a DPI change
+    FHeightMeasurementsPending: Boolean;         // true while a column resize defers resetting vsHeightMeasured to the end of the update
     procedure AutoScale(); virtual;
     procedure AddToSelection(const NewItems: TNodeArray; NewLength: Integer; ForceInsert: Boolean = False); overload; virtual;
     procedure AdjustImageBorder(Images: TCustomImageList; BidiMode: TBidiMode; VAlign: TDimension; var R: TRect;
@@ -1323,6 +1324,7 @@ type
     procedure RedirectFontChangeEvent(Canvas: TCanvas); virtual;
     procedure RemoveFromSelection(Node: PVirtualNode); virtual;
     procedure UpdateNextNodeToSelect(Node: PVirtualNode); virtual;
+    procedure ResetHeightMeasurements;
     procedure ResetRangeAnchor; virtual;
     procedure RestoreFontChangeEvent(Canvas: TCanvas); virtual;
     procedure SelectNodes(StartNode, EndNode: PVirtualNode; AddOnly: Boolean); virtual;
@@ -11075,25 +11077,45 @@ end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+procedure TBaseVirtualTree.ResetHeightMeasurements;
+
+// Clears the vsHeightMeasured flag of all initialized multiline nodes, so that
+// their height is measured again after a column width change.
+
+var
+  Run: PVirtualNode;
+
+begin
+  FHeightMeasurementsPending := False;
+  Run := GetFirstInitialized;
+  while Assigned(Run) do
+  begin
+    if vsMultiline in Run.States then
+      Exclude(Run.States, vsHeightMeasured);
+    Run := GetNextInitialized(Run);
+  end;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
 procedure TBaseVirtualTree.DoColumnResize(Column: TColumnIndex);
 
 var
   R: TRect;
-  Run: PVirtualNode;
 
 begin
   if not (csLoading in ComponentState) and HandleAllocated then
   begin
-    // Reset all vsHeightMeasured flags if we are in multiline mode.
-    Run := GetFirstInitialized;
-    while Assigned(Run) do
-    begin
-        if vsMultiline in Run.States then
-        Exclude(Run.States, vsHeightMeasured);
-      Run := GetNextInitialized(Run);
-    end;
+    // Reset all vsHeightMeasured flags if we are in multiline mode. While the
+    // columns are being updated, defer this to TVirtualTreeColumns.EndUpdate:
+    // otherwise changing N column widths would traverse all nodes N times.
     if Header.Columns.UpdateCount = 0 then
+    begin
+      ResetHeightMeasurements;
       UpdateHorizontalScrollBar(True);
+    end
+    else
+      FHeightMeasurementsPending := True;
     if Column > NoColumn then
     begin
       // Invalidate client area from the current column all to the right (or left in RTL mode).

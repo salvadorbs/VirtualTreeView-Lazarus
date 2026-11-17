@@ -63,6 +63,11 @@ type
     /// The same applies to the tree-level layout defaults (indent, margins and
     /// drag image size).
     procedure DpiChangeUpdatesDefaultTreeSizes;
+
+    /// Changing several column widths inside BeginUpdate/EndUpdate must reset
+    /// the vsHeightMeasured flags only once, when the batch ends, and not once
+    /// per column (which would traverse all nodes N times).
+    procedure BatchedColumnWidthChangeDefersHeightReset;
   end;
 
 implementation
@@ -320,6 +325,48 @@ begin
     StartDragHeight * 2, Integer(fTree.DragHeight));
   AssertEquals('The default drag width must follow the new font PPI.',
     StartDragWidth * 2, Integer(fTree.DragWidth));
+end;
+
+procedure TVTDpiScalingTests.BatchedColumnWidthChangeDefersHeightReset;
+var
+  Node: PVirtualNode;
+begin
+  while fTree.Header.Columns.Count < 2 do
+    fTree.Header.Columns.Add;
+  Application.ProcessMessages;
+
+  // Mark all nodes as already measured multiline nodes. Their height depends on
+  // the column width, so a width change must clear vsHeightMeasured.
+  Node := fTree.GetFirstInitialized;
+  AssertNotNull('Sanity: the tree must have initialized nodes.', Node);
+  while Assigned(Node) do
+  begin
+    Include(Node.States, vsMultiline);
+    Include(Node.States, vsHeightMeasured);
+    Node := fTree.GetNextInitialized(Node);
+  end;
+
+  Node := fTree.GetFirstInitialized;
+  fTree.Header.Columns.BeginUpdate;
+  try
+    fTree.Header.Columns[0].Width := fTree.Header.Columns[0].Width + 10;
+    // While the batch is open the reset must be deferred, so that further
+    // column changes do not traverse all nodes again.
+    AssertTrue('vsHeightMeasured must not be reset before the batch ends.',
+      vsHeightMeasured in Node.States);
+    fTree.Header.Columns[1].Width := fTree.Header.Columns[1].Width + 10;
+    AssertTrue('vsHeightMeasured must still be set after the second width change.',
+      vsHeightMeasured in Node.States);
+  finally
+    fTree.Header.Columns.EndUpdate;
+  end;
+
+  while Assigned(Node) do
+  begin
+    AssertFalse(Format('Node %d: vsHeightMeasured must be reset when the column batch ends.',
+      [Node.Index]), vsHeightMeasured in Node.States);
+    Node := fTree.GetNextInitialized(Node);
+  end;
 end;
 
 initialization

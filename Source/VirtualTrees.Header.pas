@@ -5136,6 +5136,11 @@ begin
   InitializePositionArray();
   FixPositions(); // Accept the cuurent order. See issue #753
   inherited;
+  // DoColumnResize defers resetting vsHeightMeasured while the columns are
+  // being updated, so that a batch of width changes traverses all nodes only
+  // once. Do it now, before the tree is repainted.
+  if (UpdateCount = 0) and TreeViewControl.FHeightMeasurementsPending then
+    TreeViewControl.ResetHeightMeasurements;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
