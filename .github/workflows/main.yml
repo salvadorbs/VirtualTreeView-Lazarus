@@ -225,26 +225,20 @@ jobs:
         echo "Qt pas binding: $DST"
         echo "$DST" >> "$GITHUB_PATH"
 
-    - name: Build Demo projects (only windows)
-      if: contains( matrix.os, 'windows')
-      shell: bash
-      run: |
-        set +e
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/OLE/ole.lpi" --widgetset=${{ matrix.build-widgetset }} 2>&1 | tee "${{ env.VTV_SOURCE }}/Demos/ole_build.log"
-        exit ${PIPESTATUS[0]}
-        
     - name: Build Demo projects
       run: |
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Advanced/Advanced.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/dataarray/dataarray.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/dragdrop/vtvdragdrop.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/images/images.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Interfaces/charityevents.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Minimal/minimal_lcl.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Multiselect/multiselect.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/Objects/mvcdemo.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/unicode/unicode.lpi" --widgetset=${{ matrix.build-widgetset }}
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Demos/vtbasic/vtbasic.lpi" --widgetset=${{ matrix.build-widgetset }}
+        set -euo pipefail
+        for project in "${{ env.VTV_SOURCE }}"/Demos/*/*.lpi; do
+          demo=$(basename "$(dirname "$project")")
+          # OLE drag & drop exists on Windows only.
+          if [ "$demo" = "OLE" ] && [ "${{ runner.os }}" != "Windows" ]; then
+            echo "Skipping $demo: Windows only"
+            continue
+          fi
+          echo "::group::Build $demo (${{ matrix.build-widgetset }})"
+          ${{ matrix.lazbuild }} "$project" --widgetset=${{ matrix.build-widgetset }}
+          echo "::endgroup::"
+        done
 
     - name: Build FPCUnit test project
       run: |

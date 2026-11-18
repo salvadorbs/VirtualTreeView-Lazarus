@@ -51,6 +51,9 @@ Important Directories
 - [`Demos/`](Demos/) - **sample projects** showing how to use the components
   - Compiled binaries and other build output are not tracked. Do not commit them and do
     not delete untracked demo artifacts that are already present
+  - The CI workflow builds every `Demos/*/*.lpi` project, so a new demo is covered
+    without touching `.github/workflows/main.yml`. The only platform exception is
+    `Demos/OLE`, which exists on Windows only and is skipped elsewhere
 
 ## How to build
 
