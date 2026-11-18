@@ -36,6 +36,8 @@ type
   public
     /// Width of the check box plus the margin on both sides, from GetOffsets.
     function CheckAreaWidth: TDimension;
+    /// ChangeScale is protected in TControl.
+    procedure Rescale(M, D: Integer);
   end;
 
   TVTDpiScalingTests = class(TTestCase)
@@ -80,6 +82,10 @@ type
     /// The checkbox margin has no stored flag and no default constant: it must
     /// follow the DPI ratio in both directions.
     procedure DpiChangeScalesImagesMargin;
+
+    /// ChangeScale must keep the header default height and the column default
+    /// width in step with the other header metrics.
+    procedure ChangeScaleScalesHeaderAndColumnDefaults;
   end;
 
 implementation
@@ -97,6 +103,11 @@ begin
     Exit(0);
   GetOffsets(Node, Offsets, ofsStateImage);
   Result := Offsets[ofsStateImage] - Offsets[ofsCheckBox];
+end;
+
+procedure TVTDpiScalingTreeCracker.Rescale(M, D: Integer);
+begin
+  ChangeScale(M, D);
 end;
 
 procedure TVTDpiScalingTests.SetUp;
@@ -419,6 +430,54 @@ begin
   Application.ProcessMessages;
   AssertEquals('Moving back must restore the check box area.',
     StartWidth, Integer(TVTDpiScalingTreeCracker(fTree).CheckAreaWidth));
+end;
+
+procedure TVTDpiScalingTests.ChangeScaleScalesHeaderAndColumnDefaults;
+var
+  Col: TVirtualTreeColumn;
+begin
+  // AutoScale would recompute the header height from the font; this test only
+  // checks that ChangeScale scales every header metric by the same ratio.
+  fTree.TreeOptions.AutoOptions := fTree.TreeOptions.AutoOptions - [toAutoChangeScale];
+
+  while fTree.Header.Columns.Count = 0 do
+    fTree.Header.Columns.Add;
+  Col := fTree.Header.Columns[0];
+
+  fTree.Header.MinHeight := 10;
+  fTree.Header.MaxHeight := 200;
+  fTree.Header.DefaultHeight := 20;
+  fTree.Header.Height := 24;
+  fTree.Header.Columns.DefaultWidth := 100;
+  Col.Width := 100;
+  Col.MinWidth := 20;
+  Col.MaxWidth := 400;
+  Col.Spacing := 7;
+  Col.Margin := 3;
+  Application.ProcessMessages;
+
+  TVTDpiScalingTreeCracker(fTree).Rescale(120, 96);
+
+  AssertEquals('The default header height must follow ChangeScale.',
+    25, Integer(fTree.Header.DefaultHeight));
+  AssertEquals('The minimum header height must follow ChangeScale.',
+    13, Integer(fTree.Header.MinHeight));
+  AssertEquals('The maximum header height must follow ChangeScale.',
+    250, Integer(fTree.Header.MaxHeight));
+  AssertEquals('The header height must follow ChangeScale.',
+    30, Integer(fTree.Header.Height));
+  AssertEquals('The default column width must follow ChangeScale.',
+    125, Integer(fTree.Header.Columns.DefaultWidth));
+  AssertEquals('The explicit column width must follow ChangeScale.',
+    125, Integer(Col.Width));
+  AssertEquals('The column minimum width must follow ChangeScale.',
+    25, Integer(Col.MinWidth));
+  AssertEquals('The column maximum width must follow ChangeScale.',
+    500, Integer(Col.MaxWidth));
+  AssertEquals('The column spacing must follow ChangeScale.',
+    9, Integer(Col.Spacing));
+  AssertEquals('The column margin must follow ChangeScale.',
+    4, Integer(Col.Margin));
 end;
 
 initialization

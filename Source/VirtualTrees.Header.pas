@@ -1095,9 +1095,14 @@ var
   I : Integer;
 begin
   //This method is only executed if toAutoChangeScale is set
+  //Keep every header metric in step with the scaling: DefaultHeight and the
+  //column default width used to be left at their old value, so a header or a
+  //column that relied on the default kept the pixel size of the previous DPI.
+  FDefaultHeight := MulDiv(FDefaultHeight, M, D);
   FMinHeight := MulDiv(FMinHeight, M, D);
   FMaxHeight := MulDiv(FMaxHeight, M, D);
   Self.Height := MulDiv(FHeight, M, D);
+  FColumns.DefaultWidth := MulDiv(FColumns.DefaultWidth, M, D);
   //Scale the columns widths too
   for I := 0 to FColumns.Count - 1 do
     TVirtualTreeColumnCracker(Self.FColumns[I]).ChangeScale(M, D);
@@ -3788,6 +3793,9 @@ begin
   FMinWidth := MulDiv(FMinWidth, M, D);
   FMaxWidth := MulDiv(FMaxWidth, M, D);
   FSpacing := MulDiv(FSpacing, M, D);
+  // The margin is part of the header layout too; leaving it unscaled made the
+  // column padding keep the pixel size of the previous DPI.
+  FMargin := MulDiv(FMargin, M, D);
   Self.Width := MulDiv(Self.Width, M, D);
 end;
 
