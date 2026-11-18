@@ -33,7 +33,8 @@ uses
   VTDefaultNodeHeightIssue1375Tests in 'VTDefaultNodeHeightIssue1375Tests.pas',
   VTDpiScalingTests in 'VTDpiScalingTests.pas',
   VTPaintFontPPITests in 'VTPaintFontPPITests.pas',
-  VTClipboardFormatTests in 'VTClipboardFormatTests.pas';
+  VTClipboardFormatTests in 'VTClipboardFormatTests.pas',
+  VTCheckPPITests in 'VTCheckPPITests.pas';
 
 var
   TestRunner: TTestRunner;
