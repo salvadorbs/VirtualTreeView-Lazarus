@@ -6,6 +6,15 @@ on:
   pull_request:
   push:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same branch makes the previous run obsolete; cancel it
+# instead of paying for both.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
         
 env:
   FPC_URL: 'gitlab'
@@ -20,6 +29,9 @@ env:
 jobs:
   build:    
     runs-on: ${{ matrix.os }}
+    # fpcup needs up to ~40 minutes on a cache miss; do not let a hung
+    # download occupy a runner for the default six hours.
+    timeout-minutes: 90
     
     defaults:
       run:
@@ -103,7 +115,7 @@ jobs:
         echo "DISPLAY=:99" >> $GITHUB_ENV
 
     - name: Generate Cache Hash
-      run: echo "${{ matrix.fpcup-url }}${{ env.FPCUP_OPT }}${{ env.FPC_URL }}${{ env.FPC_BRANCH }}${{ env.LAZ_URL }}${{ env.LAZ_REVISION }}" > .cache
+      run: echo "${{ matrix.fpcup-url }}${{ env.FPCUP_OPT }}${{ env.FPC_URL }}${{ env.FPC_BRANCH }}${{ env.LAZ_URL }}${{ env.LAZ_BRANCH }}" > .cache
 
     - name: Cache
       id: cache
@@ -118,10 +130,15 @@ jobs:
     - name: Install Lazarus
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
-        curl --retry 5 -L -o fpcup ${{ matrix.fpcup-url }}
+        curl --fail --retry 5 -L -o fpcup ${{ matrix.fpcup-url }}
         chmod +x fpcup
         mkdir ${{ env.LAZ_DIR }}
-        ./fpcup --installdir=${{ env.LAZ_DIR }} --fpcURL=${{ env.FPC_URL }} --fpcBranch=${{ env.FPC_BRANCH }} --lazURL=${{ env.LAZ_URL }} --lazRevision=${{ env.LAZ_REVISION }} ${{ env.FPCUP_OPT }} --only=docker --noconfirm --verbose
+        ./fpcup --installdir=${{ env.LAZ_DIR }} --fpcURL=${{ env.FPC_URL }} --fpcBranch=${{ env.FPC_BRANCH }} --lazURL=${{ env.LAZ_URL }} --lazBranch=${{ env.LAZ_BRANCH }} ${{ env.FPCUP_OPT }} --only=docker --noconfirm --verbose
+
+    # Fails right after a cache restore instead of at the end of the job when
+    # the cached lazbuild is broken (expired or partially written cache).
+    - name: Check lazbuild
+      run: ${{ matrix.lazbuild }} --version
         
     - name: Install packages
       run: |
@@ -280,7 +297,7 @@ jobs:
         echo "FPCUnit tests completed with exit code $EXIT_CODE"
 
     - name: Publish FPCUnit artifacts
-      if: always()
+      if: always() && !cancelled()
       uses: actions/upload-artifact@v4.6.2
       with:
         name: fpcunit_tests_${{ matrix.os }}_${{ matrix.build-widgetset }}
@@ -288,7 +305,7 @@ jobs:
           ${{ env.VTV_SOURCE }}/Tests/artifacts/**
 
     - name: Fail on FPCUnit test failure
-      if: always()
+      if: always() && !cancelled()
       run: |
         if [ ! -f "${{ env.VTV_SOURCE }}/Tests/artifacts/tests_exit_code.txt" ]; then
           echo "No test exit code file found" >&2
@@ -297,12 +314,8 @@ jobs:
         EXIT_CODE=$(cat "${{ env.VTV_SOURCE }}/Tests/artifacts/tests_exit_code.txt")
         if [ "$EXIT_CODE" -ne 0 ]; then exit $EXIT_CODE; fi
 
-    - name: Validate Cache
-      if: steps.cache.outputs.cache-hit == 'true'
-      run: ${{ matrix.lazbuild }} --version && echo "success=true" >> $GITHUB_OUTPUT || echo "success=false" >> $GITHUB_OUTPUT
-
     - name: Upload the Build Artifact
-      if: always()
+      if: always() && !cancelled()
       uses: actions/upload-artifact@v4.6.2
       with:
         name: demos_${{ matrix.os }}_${{ matrix.build-widgetset }}
