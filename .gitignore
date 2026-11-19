@@ -26,3 +26,25 @@ lib/
 
 # Application bundle for Mac OS
 *.app/
+
+# Demo executables: Lazarus writes them next to the .lpi file and they have
+# no extension on Unix. The Windows binaries are covered by *.exe above.
+Demos/Advanced/advanced
+Demos/DpiScaling/dpi_scaling
+Demos/Interfaces/charityevents
+Demos/Minimal/minimal
+Demos/Multiselect/multiselect
+Demos/Objects/mvcdemo
+Demos/dataarray/dataarray
+Demos/dragdrop/vtvdragdrop
+Demos/images/images
+Demos/unicode/unicode
+Demos/vtbasic/vtbasic
+
+# Lazarus regenerates these from the version info of the project; unlike the
+# other demos they are not tracked.
+Demos/DpiScaling/dpi_scaling.res
+Demos/Objects/mvcdemo.res
+
+# FPCUnit output written by the CI workflow steps
+Tests/artifacts/
