@@ -296,6 +296,12 @@ jobs:
         echo $EXIT_CODE > artifacts/tests_exit_code.txt
         echo "FPCUnit tests completed with exit code $EXIT_CODE"
 
+        # Echo the summary and the failing tests to the job log, so a red run can
+        # be diagnosed without downloading the artifact (which needs a login).
+        echo "::group::FPCUnit failures and errors"
+        sed -n '/^Number of run tests:/,$p' artifacts/tests_output.txt || true
+        echo "::endgroup::"
+
     - name: Publish FPCUnit artifacts
       if: always() && !cancelled()
       uses: actions/upload-artifact@v4.6.2
