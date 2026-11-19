@@ -45,6 +45,10 @@
         <IsPartOfProject Value="True"/>
       </Unit>
       <Unit>
+        <Filename Value="VTEditLinkReleaseTests.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit>
+      <Unit>
         <Filename Value="VTOnDrawTextTests.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit>

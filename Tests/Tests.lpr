@@ -12,6 +12,7 @@ uses
   VirtualTreeTests in 'VirtualTreeTests.pas',
   VirtualStringTreeTests in 'VirtualStringTreeTests.pas',
   VTOnEditCancelledTests in 'VTOnEditCancelledTests.pas',
+  VTEditLinkReleaseTests in 'VTEditLinkReleaseTests.pas',
   VTOnDrawTextTests in 'VTOnDrawTextTests.pas',
   VTWorkerThreadIssue1001Tests in 'VTWorkerThreadIssue1001Tests.pas',
   VTCellSelectionTests in 'VTCellSelectionTests.pas',

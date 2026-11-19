@@ -170,6 +170,22 @@ uses
 type
   TCustomVirtualStringTreeCracker = class(TCustomVirtualStringTree);
 
+  // Frees an edit control that a destroyed edit link handed over to the async
+  // call queue. The control cannot be passed to QueueAsyncCall directly: its
+  // owner usually frees it first (the tree and its client children die before
+  // the queued call runs, typically while the whole form is being destroyed).
+  // The entry therefore watches the control through a free notification and
+  // only frees what is still alive when the call is executed.
+  TEditDeferredFree = class(TComponent)
+  strict private
+    FEdit: TWinControl;
+  protected
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+  public
+    constructor Create(AEdit: TWinControl);
+    procedure FreeEdit(Data: PtrInt);
+  end;
+
 //----------------- TVTEdit --------------------------------------------------------------------------------------------
 
 //Implementation of a generic node caption editor.
@@ -655,10 +671,45 @@ end;
 
 destructor TWinControlEditLink.Destroy;
 begin
-  //FEdit.Free; casues issue #357. Fix:
-  if Assigned(FEdit) and Edit.HandleAllocated then
-    PostMessage(Edit.Handle, CM_RELEASE, 0, 0);
+  // The edit must not be freed here: the link can be destroyed while the edit
+  // is still handling one of its own notifications (issue #357).
+  // Posting CM_RELEASE to the edit's handle is a VCL idiom that does not apply
+  // to the LCL: no TWinControl handler consumes CM_RELEASE, and the queued
+  // message is delivered to the raw handle, so it crashes on gtk3 and Qt when
+  // the edit is already gone (a form that is being destroyed kills its child
+  // controls before the queued message is processed). Defer the free through
+  // the LCL async call queue instead, guarded by a free notification.
+  if Assigned(FEdit) then
+    Application.QueueAsyncCall(TEditDeferredFree.Create(Edit).FreeEdit, 0);
   inherited;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+constructor TEditDeferredFree.Create(AEdit: TWinControl);
+begin
+  inherited Create(nil);
+  FEdit := AEdit;
+  if Assigned(FEdit) then
+    FEdit.FreeNotification(Self);
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TEditDeferredFree.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited Notification(AComponent, Operation);
+  if (Operation = opRemove) and (AComponent = FEdit) then
+    FEdit := nil;
+end;
+
+//----------------------------------------------------------------------------------------------------------------------
+
+procedure TEditDeferredFree.FreeEdit(Data: PtrInt);
+begin
+  if Assigned(FEdit) then
+    FEdit.Free;
+  Free;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
