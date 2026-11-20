@@ -89,6 +89,26 @@ disappear silently:
 2. The unit in the `uses ... in '...pas'` list of `Tests/Tests.lpr`.
 3. A `<Unit>` entry in `Tests/Tests.lpi`.
 
+### Memory leaks
+
+Every CI job builds the tests with FPC's heap tracer (`heaptrc`, `--opt=-gh`), so
+the normal test run doubles as a leak check; heaptrc adds only a few percent to
+the runtime. Reproduce the check locally with the same build and script:
+
+```bash
+mkdir -p Tests/artifacts
+lazbuild --opt=-gh Tests/Tests.lpi
+DISPLAY=:0 HEAPTRC="log=Tests/artifacts/heaptrc.txt" \
+  Tests/lib/x86_64-linux/Tests --all --format=plain
+python3 Tests/checkleaks.py Tests/artifacts/heaptrc.txt
+```
+
+Only unfreed blocks whose call trace names a file under `Source/` or `Tests/`
+fail the check. Leaks in the LCL, the widgetset or the RTL are reported (a clean
+heaptrc run is expected there, so they are worth an upstream bug report) but do
+not fail the job; pass `--fail-on-external` to treat them as errors too. A clean
+run prints `heaptrc: no unfreed memory blocks`.
+
 ### All relevant code
 
 Always build all relevant code after making changes to see if everything compiles:

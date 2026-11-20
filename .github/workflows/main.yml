@@ -20,7 +20,8 @@ env:
   FPC_URL: 'gitlab'
   FPC_BRANCH: 'release_3_2_2'
   LAZ_URL: 'gitlab'
-  LAZ_BRANCH: 'lazarus_4_0'
+  # Latest stable Lazarus; the tag pins the exact release, branches move.
+  LAZ_BRANCH: 'lazarus_4_8'
   LAZ_DIR: 'fpcLaz'
   FPCUP_OPT: '' #'--lazopt="-g -gl" --fpcopt="-g -gl"'
   VTV_SOURCE: '${{ github.workspace }}/vtv_src'
@@ -44,11 +45,11 @@ jobs:
         build-widgetset: [win32, gtk2, gtk3, qt5, qt6]
         include:
           - os: windows-latest
-            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0f/fpclazup-x86_64-win64.exe'
+            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0i/fpclazup-x86_64-win64.exe'
             lazbuild: 'fpcLaz/lazarus/lazbuild.exe'
             
           - os: ubuntu-22.04
-            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0f/fpclazup-x86_64-linux'
+            fpcup-url: 'https://github.com/LongDirtyAnimAlf/Reiniero-fpcup/releases/download/v2.4.0i/fpclazup-x86_64-linux'
             lazbuild: 'fpcLaz/lazarus/lazbuild'
             
         exclude:            
@@ -257,9 +258,12 @@ jobs:
           echo "::endgroup::"
         done
 
+    # -gh (heaptrc) is always on for the tests: the heap tracer costs a few
+    # percent of runtime and turns every job into a leak check. The dump is
+    # examined by checkleaks.py after the run.
     - name: Build FPCUnit test project
       run: |
-        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Tests/Tests.lpi" --widgetset=${{ matrix.build-widgetset }}
+        ${{ matrix.lazbuild }} "${{ env.VTV_SOURCE }}/Tests/Tests.lpi" --widgetset=${{ matrix.build-widgetset }} --opt=-gh
 
     - name: Run FPCUnit tests
       continue-on-error: true
@@ -286,7 +290,10 @@ jobs:
 
         echo "Found test binary at: $BIN"
         set +e
-        "$BIN" --all --progress --format=plain > artifacts/tests_output.txt 2>&1
+        # heaptrc writes its dump at exit; keep it out of the FPCUnit output.
+        # The path is relative to the working directory (Tests/) on purpose:
+        # it works unchanged on Windows and Unix.
+        HEAPTRC="log=artifacts/heaptrc.txt" "$BIN" --all --progress --format=plain > artifacts/tests_output.txt 2>&1
         EXIT_CODE=$?
         set -e
         if [ "$EXIT_CODE" -eq 127 ]; then
@@ -301,6 +308,31 @@ jobs:
         echo "::group::FPCUnit failures and errors"
         sed -n '/^Number of run tests:/,$p' artifacts/tests_output.txt || true
         echo "::endgroup::"
+
+    # Only blocks whose call trace names Source/ or Tests/ fail the job; leaks
+    # in the LCL, the widgetset or the RTL are reported in the log and in the
+    # artifact so they can be forwarded upstream.
+    - name: Check for memory leaks
+      shell: bash
+      run: |
+        cd "${{ env.VTV_SOURCE }}/Tests"
+
+        if [ ! -f artifacts/heaptrc.txt ]; then
+          # Exit 127 means the test executable could not start (missing
+          # widgetset runtime): the run step already ignores that, so do the
+          # same instead of reporting a leak-check failure.
+          if [ "$(cat artifacts/tests_exit_code.txt 2>/dev/null)" = "127" ]; then
+            echo "::warning::The test executable could not start; skipping the leak check."
+            exit 0
+          fi
+          echo "Error: heaptrc did not write artifacts/heaptrc.txt (did the test run crash?)" >&2
+          exit 1
+        fi
+
+        # python3 on Unix, python on Windows.
+        PY=python3
+        "$PY" -c "import sys" >/dev/null 2>&1 || PY=python
+        "$PY" checkleaks.py artifacts/heaptrc.txt
 
     - name: Publish FPCUnit artifacts
       if: always() && !cancelled()
