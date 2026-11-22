@@ -143,19 +143,13 @@ begin
 end;
 
 procedure TVTScaleNodeHeightsIssue1408Tests.ScrollToBottom;
-var
-  I: Integer;
-  LastOffsetY: TDimension;
 begin
-  LastOffsetY := 1; // never a valid offset, forces at least two iterations
-  for I := 1 to 200 do
-  begin
-    fTree.Perform(LM_VSCROLL, SB_LINEDOWN, 0);
-    Application.ProcessMessages;
-    if fTree.OffsetY = LastOffsetY then
-      Break;
-    LastOffsetY := fTree.OffsetY;
-  end;
+  // SB_BOTTOM is the canonical "jump to the last row": it clamps to the
+  // current range, so it reaches the bottom in one step regardless of the
+  // scroll increment. ScrollToBottom used to step with SB_LINEDOWN until the
+  // offset stopped changing, which could stop one step short on Windows.
+  fTree.Perform(LM_VSCROLL, SB_BOTTOM, 0);
+  Application.ProcessMessages;
 end;
 
 procedure TVTScaleNodeHeightsIssue1408Tests.ScaleKeepsScrollRangeConsistent;
@@ -187,8 +181,9 @@ begin
   Application.ProcessMessages;
   ScrollToBottom;
   R := fTree.GetDisplayRect(fTree.GetLast, NoColumn, False);
-  AssertTrue(Format('After scaling down and expanding the last node, the last row (%d..%d) must be reachable inside the client area (height %d) - issue #1408.',
-    [R.Top, R.Bottom, fTree.ClientHeight]), (R.Bottom > 0) and (R.Bottom <= fTree.ClientHeight));
+  AssertTrue(Format('After scaling down and expanding the last node, the last row (%d..%d) must be reachable inside the client area (height %d; offset %d, range %d, visible height %d) - issue #1408.',
+    [R.Top, R.Bottom, fTree.ClientHeight, fTree.OffsetY, VerticalScrollRange, SumVisibleNodeHeights]),
+    (R.Bottom > 0) and (R.Bottom <= fTree.ClientHeight));
 end;
 
 initialization
