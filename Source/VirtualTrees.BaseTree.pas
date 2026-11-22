@@ -25191,16 +25191,12 @@ begin
       ScrollInfo.nMin := 0;
       ScrollInfo.nMax := FRangeX;
       ScrollInfo.nPos := FEffectiveOffsetX;
-      {$ifdef Windows}
-      // Win32 puts the maximum scroll position at nMax - nPage + 1, so the page
-      // must be one larger than the visible extent.
-      ScrollInfo.nPage := Max(0, ClientWidth + 1);
-      {$else}
-      // LCL's gtk3 and Qt widgetsets keep the page exclusive instead: with the
-      // extra pixel the maximum position was one short and the last column
-      // could not be scrolled fully into view.
+      // LCL's Win32 SetScrollInfo decrements nMax by one before calling the
+      // API and gtk3/Qt keep the page exclusive: either way the maximum
+      // position is nMax - nPage, so the page must be the plain client extent.
+      // One extra pixel made the maximum position one short, so the last
+      // column stayed clipped.
       ScrollInfo.nPage := Max(0, ClientWidth);
-      {$endif}
 
       ScrollInfo.fMask := SIF_ALL or ScrollMasks[FScrollBarOptions.AlwaysVisible];
       SetScrollInfo(SB_HORZ, ScrollInfo, DoRepaint); // 1 app freeze seen here in TreeSize 8.1.0 after ScaleForPpi()
@@ -25311,14 +25307,10 @@ begin
       ScrollInfo.nMin := 0;
       ScrollInfo.nMax := IfThen(FRangeY < MaxInt, FRangeY, MaxInt); // TScrollInfo values are signed 32bit only
       ScrollInfo.nPos := -FOffsetY;
-      {$ifdef Windows}
-      // See UpdateHorizontalScrollBar: this is the Win32 scroll bar convention.
-      ScrollInfo.nPage := Max(0, ClientHeight + 1);
-      {$else}
-      // See UpdateHorizontalScrollBar: the exclusive page of gtk3/Qt made the
-      // maximum position one pixel short, so the last row stayed clipped.
+      // See UpdateHorizontalScrollBar: LCL's Win32 helper and the exclusive
+      // gtk3/Qt page both need the plain client extent, otherwise the last row
+      // cannot be scrolled fully into view.
       ScrollInfo.nPage := Max(0, ClientHeight);
-      {$endif}
 
       ScrollInfo.fMask := SIF_ALL or ScrollMasks[FScrollBarOptions.AlwaysVisible];
       SetScrollInfo(SB_VERT, ScrollInfo, DoRepaint);
