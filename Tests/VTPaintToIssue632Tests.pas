@@ -65,6 +65,11 @@ type
     /// (some backends screenshot the live widget or draw nothing into foreign
     /// bitmaps; then there is nothing VTV-side to verify).
     function PaintToViable: Boolean;
+    /// Checks whether BitBlt between two bitmap DCs copies pixels. The DC
+    /// overload of PaintHeader ends with such a BitBlt; where the widgetset
+    /// does not implement it (gtk3 with LCL 4.x paints but leaves the bitmap
+    /// surface untouched), the overload cannot be observed offscreen.
+    function BitBltIntoTBitmapWorks: Boolean;
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -82,6 +87,7 @@ implementation
 uses
   SysUtils,
   LCLIntf,
+  LCLType,
   VirtualTrees.Types,
   VirtualTrees.Header,
   VirtualTrees.BaseTree;
@@ -172,6 +178,31 @@ begin
     Application.ProcessMessages;
   end;
   Result := False;
+end;
+
+function TVTPaintToIssue632Tests.BitBltIntoTBitmapWorks: Boolean;
+var
+  Src, Dst: Graphics.TBitmap;
+begin
+  Src := Graphics.TBitmap.Create;
+  Dst := Graphics.TBitmap.Create;
+  try
+    Src.PixelFormat := pf24bit;
+    Src.SetSize(8, 8);
+    Src.Canvas.Brush.Color := HeaderColor;
+    Src.Canvas.FillRect(Rect(0, 0, 8, 8));
+
+    Dst.PixelFormat := pf24bit;
+    Dst.SetSize(8, 8);
+    Dst.Canvas.Brush.Color := clWhite;
+    Dst.Canvas.FillRect(Rect(0, 0, 8, 8));
+
+    BitBlt(Dst.Canvas.Handle, 0, 0, 8, 8, Src.Canvas.Handle, 0, 0, SRCCOPY);
+    Result := Dst.Canvas.Pixels[4, 4] = HeaderColor;
+  finally
+    Dst.Free;
+    Src.Free;
+  end;
 end;
 
 function TVTPaintToIssue632Tests.RenderAndMeasure(Kind: TRenderKind;
@@ -345,6 +376,17 @@ begin
   // Paint and WMPaint render the header through the DC overload of PaintHeader
   // (header rect into a foreign DC). If that overload does not produce the
   // header pixels by itself, a PaintTo copy can never contain it (#632).
+  // The overload ends with a BitBlt into the target; on backends that do not
+  // implement that primitive between bitmap DCs the result is not observable
+  // here (gtk3 with LCL 4.x). The canvas overload above and PaintTo below
+  // still verify the header there.
+  if not BitBltIntoTBitmapWorks then
+  begin
+    WriteLn('NOTE: this backend cannot BitBlt between bitmap DCs, so the PaintHeader DC ' +
+      'overload cannot be observed offscreen; the canvas overload and PaintTo still ' +
+      'verify the header (issue #632).');
+    Exit;
+  end;
   DcPixels := RenderAndMeasure(rkDirectDC, DcBounds);
   AssertTrue(Format('The DC overload of PaintHeader (the call shape Paint uses) must paint the header ' +
     '(%d header pixels, band non-white %d, band dom %s (%d of band), center pixel %s, rectvisible=%s) (issue #632).',

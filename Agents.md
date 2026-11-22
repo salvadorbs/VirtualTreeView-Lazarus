@@ -148,6 +148,11 @@ nothing about the platform unless it is guarded.
   scaling. Convert 96 DPI values with `Scale96ToFont`, `ScaleX`/`ScaleY` or `MulDiv`.
   `Scale96ToFont` exists from LCL 1.8, hence the `{$IF LCL_FullVersion >= 1080000}`
   guards
+- Offscreen rendering is not equally capable on every widgetset: gtk3 with LCL 4.x
+  ignores bitmap brushes for pattern fills, does not copy pixels with `BitBlt`
+  between two bitmap DCs and reports `RectVisible` as false for them. Tests that
+  measure such pixels must detect the missing primitive and verify what the backend
+  can observe (or document the limitation) instead of failing
 - When assigning a `TFont` to a canvas with a different `PixelsPerInch` (offscreen
   bitmaps, buffer canvases), set `PixelsPerInch` explicitly after `Assign`:
   `TFont.Assign` converts to the canvas resolution otherwise

@@ -222,6 +222,7 @@ begin
 
   // The tree must be laid out for the mouse based tests (hit testing).
   FForm.Show;
+  Application.ProcessMessages;
 end;
 
 procedure TCellSelectionTests.TearDown;
@@ -552,12 +553,21 @@ begin
 
   LastNode := FTree.GetLastVisible;
 
-  FTree.ClientHeight := LargestRect.BottomRight.Y + (LastNode.NodeHeight * 2);
-  FTree.ClientWidth := LargestRect.BottomRight.X + LMaxWidth;
+  // The tree is aligned to the whole form, so grow the form instead of the
+  // control: a direct ClientWidth assignment is not applied by every
+  // widgetset (gtk3 keeps the tree one pixel wide until the next layout).
+  if FForm.ClientWidth < LargestRect.BottomRight.X + LMaxWidth then
+    FForm.ClientWidth := LargestRect.BottomRight.X + LMaxWidth;
+  if FForm.ClientHeight < LargestRect.BottomRight.Y + LastNode.NodeHeight * 2 then
+    FForm.ClientHeight := LargestRect.BottomRight.Y + LastNode.NodeHeight * 2;
+  Application.ProcessMessages;
 
   // This should be an empty area, beyond any visible nodes
-  LEmptyArea := Point(LargestRect.BottomRight.X + LMaxWidth,
+  LEmptyArea := Point(LargestRect.BottomRight.X + LMaxWidth div 2,
     LargestRect.BottomRight.Y + LastNode.NodeHeight);
+  AssertTrue(Format('Test setup: the empty area (%d,%d) must be inside the client area (%d,%d).',
+    [LEmptyArea.X, LEmptyArea.Y, FTree.ClientWidth, FTree.ClientHeight]),
+    (LEmptyArea.X < FTree.ClientWidth) and (LEmptyArea.Y < FTree.ClientHeight));
 
   // Select a node first: clicking an empty area must clear the selection and
   // therefore fire OnChange(nil).
@@ -594,6 +604,7 @@ begin
   LForm := TVisibilityAuxForm.Create(nil);
   try
     LForm.Show;
+    Application.ProcessMessages;
     LTree := LForm.VST1;
 
     n1 := LTree.GetLastVisible;
@@ -623,13 +634,20 @@ begin
 
     LastNode := LTree.GetLastVisibleChild(LTree.RootNode);
 
-    LTree.ClientHeight := LargestRect.BottomRight.Y + (LastNode.NodeHeight * 2);
-    LTree.ClientWidth := LargestRect.BottomRight.X + LMaxWidth;
+    // Grow the form, not the alClient tree (see TestEmptyAreaOnChange).
+    if LForm.ClientWidth < LargestRect.BottomRight.X + LMaxWidth then
+      LForm.ClientWidth := LargestRect.BottomRight.X + LMaxWidth;
+    if LForm.ClientHeight < LargestRect.BottomRight.Y + LastNode.NodeHeight * 2 then
+      LForm.ClientHeight := LargestRect.BottomRight.Y + LastNode.NodeHeight * 2;
+    Application.ProcessMessages;
 
     // Choose a point below the last visible node: it is guaranteed to be an
     // empty area inside the (large) client rectangle.
     LEmptyArea := LTree.GetDisplayRect(n1, NoColumn, False, False, False).BottomRight;
     LEmptyArea := Point(10, LEmptyArea.Y + 5);
+    AssertTrue(Format('Test setup: the empty area (%d,%d) must be inside the client area (%d,%d).',
+      [LEmptyArea.X, LEmptyArea.Y, LTree.ClientWidth, LTree.ClientHeight]),
+      (LEmptyArea.X < LTree.ClientWidth) and (LEmptyArea.Y < LTree.ClientHeight));
 
     // At this point, there should be no nodes selected
     LTree.ClearSelection;

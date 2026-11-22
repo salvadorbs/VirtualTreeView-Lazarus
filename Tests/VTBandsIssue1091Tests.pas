@@ -36,7 +36,7 @@ type
 
     /// Renders the tree offscreen and returns the band/grid pixels as count plus checksum.
 
-    function RenderBands(out Checksum: Cardinal): Integer;
+    function RenderBands(out Checksum: Cardinal; out ContentPixels: Integer): Integer;
 
   public
 
@@ -116,13 +116,16 @@ begin
   FreeAndNil(fForm);
 end;
 
-function TVTBandsIssue1091Tests.RenderBands(out Checksum: Cardinal): Integer;
+function TVTBandsIssue1091Tests.RenderBands(out Checksum: Cardinal;
+  out ContentPixels: Integer): Integer;
+
 var
   Bmp: Graphics.TBitmap;
-  X, Y: Integer;
+  X, Y, Background, Pixel: Integer;
 begin
   Result := 0;
   Checksum := 0;
+  ContentPixels := 0;
   Bmp := Graphics.TBitmap.Create;
   try
     Bmp.PixelFormat := pf24bit;
@@ -133,36 +136,77 @@ begin
     fTree.PaintTree(Bmp.Canvas, Rect(0, 0, Bmp.Width, Bmp.Height), Point(0, 0),
       [poBackground, poColumnColor, poGridLines]);
 
+    // The bottom right corner is below the last node, so it holds the client
+    // background. Everything else is content: lines, indents and text.
+    // Counting it keeps the sanity check working on widgetsets that ignore
+    // the bitmap brush used for the dotted band lines (see below).
+    Background := Bmp.Canvas.Pixels[Bmp.Width - 1, Bmp.Height - 1];
     for Y := 0 to Bmp.Height - 1 do
       for X := 0 to Bmp.Width - 1 do
-        if Bmp.Canvas.Pixels[X, Y] = BandColor then
+      begin
+        Pixel := Bmp.Canvas.Pixels[X, Y];
+        if Pixel = BandColor then
         begin
           Inc(Result);
           // Position-sensitive checksum so lines moving elsewhere cannot cancel out.
           Checksum := Checksum xor Cardinal(Y * 4096 + X);
+        end
+        else if Pixel <> Background then
+        begin
+          Inc(ContentPixels);
+          // Full rendering checksum, also used where the band colour cannot
+          // identify the lines. Band pixels are excluded so they keep their
+          // position-only checksum above.
+          Checksum := Checksum xor Cardinal(Y * 4096 + X) xor Cardinal(Pixel);
         end;
+      end;
   finally
     Bmp.Free;
   end;
 end;
 
 procedure TVTBandsIssue1091Tests.ExplorerThemeStateDoesNotChangeBands;
+
 var
   PlainCount, ThemedCount: Integer;
+  PlainContent, ThemedContent: Integer;
   PlainSum, ThemedSum: Cardinal;
+
 begin
-  PlainCount := RenderBands(PlainSum);
-  AssertTrue('Sanity: band lines expected in the reference rendering.', PlainCount > 0);
+  PlainCount := RenderBands(PlainSum, PlainContent);
+
+  // The dotted band lines are painted with a bitmap brush. gtk3 does not
+  // implement those (it fills with the brush colour instead), so on that
+  // widgetset the band lines cannot be recognised by Colors.GridLineColor.
+  // The regression itself is still observable: the two renderings must be
+  // pixel-identical.
+  if PlainCount = 0 then
+    AssertTrue(Format('Sanity: the reference rendering must have content (%d pixels).',
+      [PlainContent]), PlainContent > 100)
+  else
+    AssertTrue('Sanity: band lines expected in the reference rendering.', PlainCount > 0);
 
   TTreeCracker(fTree).DoStateChange([tsUseExplorerTheme]);
   try
-    ThemedCount := RenderBands(ThemedSum);
+    ThemedCount := RenderBands(ThemedSum, ThemedContent);
   finally
     TTreeCracker(fTree).DoStateChange([], [tsUseExplorerTheme]);
   end;
 
-  AssertEquals('Explorer theme state must not change the number of band line pixels (issue #1091).', ThemedCount, PlainCount);
-  AssertEquals('Explorer theme state must not move band lines (issue #1091).', ThemedSum, PlainSum);
+  if PlainCount > 0 then
+  begin
+    AssertEquals('Explorer theme state must not change the number of band line pixels (issue #1091).',
+      PlainCount, ThemedCount);
+    AssertEquals('Explorer theme state must not move band lines (issue #1091).', PlainSum, ThemedSum);
+  end
+  else
+  begin
+    AssertEquals(Format('Explorer theme state must not change the rendering ' +
+      '(%d content pixels before, %d after; the backend does not colour band lines) (issue #1091).',
+      [PlainContent, ThemedContent]), PlainContent, ThemedContent);
+    AssertEquals('Explorer theme state must not change the rendering (issue #1091).',
+      PlainSum, ThemedSum);
+  end;
 end;
 
 initialization
