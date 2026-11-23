@@ -28,6 +28,10 @@ Important Directories
   - Widgetset-specific helpers live in [`Source/units/<widgetset>/`](Source/units/)
     (`win32`, `gtk2`, `gtk3`, `qt`, `qt5`, `qt6`, `cocoa`, `carbon`) and in
     [`Source/include/intf/`](Source/include/intf/)
+  - Helpers shared by all non-Windows widgetsets live directly in
+    [`Source/units/`](Source/units/) (for example `FakeMMSystem.pas`)
+  - Widgetsets without an alpha blending implementation share
+    [`Source/include/intf/vtgraphicsi_fallback.inc`](Source/include/intf/vtgraphicsi_fallback.inc)
 - [`Packages/`](Packages/) - **Lazarus packages**
   - [`Packages/Lazarus/virtualtreeview_package.lpk`](Packages/Lazarus/virtualtreeview_package.lpk) -
     the visual package, including component registration and the IDE property editors
