@@ -35,7 +35,8 @@ uses
   VTDpiScalingTests in 'VTDpiScalingTests.pas',
   VTPaintFontPPITests in 'VTPaintFontPPITests.pas',
   VTClipboardFormatTests in 'VTClipboardFormatTests.pas',
-  VTCheckPPITests in 'VTCheckPPITests.pas';
+  VTCheckPPITests in 'VTCheckPPITests.pas',
+  VTFakeMMSystemTests in 'VTFakeMMSystemTests.pas';
 
 var
   TestRunner: TTestRunner;
