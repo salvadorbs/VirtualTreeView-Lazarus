@@ -29,9 +29,12 @@ Important Directories
     (`win32`, `gtk2`, `gtk3`, `qt`, `qt5`, `qt6`, `cocoa`, `carbon`) and in
     [`Source/include/intf/`](Source/include/intf/)
   - Helpers shared by all non-Windows widgetsets live directly in
-    [`Source/units/`](Source/units/) (for example `FakeMMSystem.pas`)
+    [`Source/units/`](Source/units/) (`FakeMMSystem.pas` and the dummy
+    `virtualdragmanager.pas`)
   - Widgetsets without an alpha blending implementation share
     [`Source/include/intf/vtgraphicsi_fallback.inc`](Source/include/intf/vtgraphicsi_fallback.inc)
+  - The Win32 and Qt alpha blending implementations share their bitmap helpers
+    through [`Source/include/intf/vtgraphicsi_helpers.inc`](Source/include/intf/vtgraphicsi_helpers.inc)
 - [`Packages/`](Packages/) - **Lazarus packages**
   - [`Packages/Lazarus/virtualtreeview_package.lpk`](Packages/Lazarus/virtualtreeview_package.lpk) -
     the visual package, including component registration and the IDE property editors
